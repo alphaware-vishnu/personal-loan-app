@@ -1,0 +1,43 @@
+{
+  "name": "personal-loan-app",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "expo": "~54.0.33",
+    "expo-status-bar": "~3.0.9",
+    "framer-motion": "^12.38.0",
+    "lottie-react-native": "^7.3.6",
+    "moti": "^0.30.0",
+    "nativewind": "4.2.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-css-interop": "0.2.3",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-reanimated-carousel": "^4.0.3",
+    "react-native-safe-area-context": "5.6.0",
+    "react-native-worklets": "0.5.1",
+    "react-native-worklets-core": "^1.6.3",
+    "tailwindcss": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "@types/react-dom": "~19.1.7",
+    "babel-preset-expo": "~54.0.10",
+    "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom",
+    "@types/react": "$@types/react",
+    "@types/react-dom": "$@types/react-dom"
+  },
+  "private": true
+}
