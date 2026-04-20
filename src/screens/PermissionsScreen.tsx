@@ -2,12 +2,19 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  SafeAreaView,
   Image,
   TouchableOpacity,
   Dimensions,
 } from "react-native";
-import { MotiView } from "moti";
+import { MotiView } from "../components/Motion";
+import { Button } from "../components/Button";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as Location from "expo-location";
+import { Camera } from "expo-camera";
+import * as Notifications from "expo-notifications";
+import Constants, { ExecutionEnvironment } from "expo-constants";
+import { Platform } from "react-native";
 
 const { width } = Dimensions.get("window");
 
@@ -29,10 +36,46 @@ const PermissionItem = ({ icon, title, desc }: { icon: string; title: string; de
 
 export const PermissionsScreen = ({ onContinue }: PermissionsScreenProps) => {
   const [consented, setConsented] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleRequestPermissions = async () => {
+    console.log('clicked', 'permission screen')
+    try {
+      setLoading(true);
+
+      // Request Location (Foreground)
+      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+      console.log("Location permission:", locationStatus);
+
+      // Request Camera
+      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+      console.log("Camera permission:", cameraStatus);
+
+      // Request Notifications
+      // NOTE: Push notifications are not supported in Expo Go on Android (SDK 53+).
+      // We skip the request if running in Expo Go to avoid crashing.
+      const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+      if (!(Platform.OS === "android" && isExpoGo)) {
+        const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
+        console.log("Notifications permission:", notificationStatus);
+      } else {
+        console.log("Skipping notification request in Expo Go on Android.");
+      }
+
+      // All prompts done, proceed to the next screen
+      onContinue();
+    } catch (error) {
+      console.error("Error requesting permissions:", error);
+      // Even if there's an error, we allow continuing (usually handled by individual features later)
+      onContinue();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <View className="flex-1 bg-white">
-      <SafeAreaView className="flex-1">
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+      <View className="flex-1">
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -59,19 +102,19 @@ export const PermissionsScreen = ({ onContinue }: PermissionsScreenProps) => {
 
           {/* Permissions List */}
           <View className="w-full">
-            <PermissionItem 
-              icon="📷" 
-              title="Camera Access" 
+            <PermissionItem
+              icon="📷"
+              title="Camera Access"
               desc="Required for KYC and document verification."
             />
-            <PermissionItem 
-              icon="📍" 
-              title="Location Services" 
+            <PermissionItem
+              icon="📍"
+              title="Location Services"
               desc="Help us verify your address for faster processing."
             />
-            <PermissionItem 
-              icon="🔔" 
-              title="Notifications" 
+            <PermissionItem
+              icon="🔔"
+              title="Notifications"
               desc="Stay updated on your application status."
             />
           </View>
@@ -85,34 +128,37 @@ export const PermissionsScreen = ({ onContinue }: PermissionsScreenProps) => {
 
           {/* Footer Controls */}
           <View className="w-full mt-auto pb-10">
-            <TouchableOpacity
+            <Button
+              variant="ghost"
+              className="!p-0 !min-h-0 !h-auto mb-6 !items-start !justify-start"
+              contentClassName="!items-start !justify-start"
               onPress={() => setConsented(!consented)}
-              activeOpacity={0.7}
-              className="flex-row items-center mb-6"
             >
-              <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${
-                consented ? "bg-primary-950 border-primary-950" : "border-gray-200"
-              }`}>
-                {consented && <Text className="text-white text-[10px]">✓</Text>}
+              <View className="flex-row items-center w-full">
+                <View className="mr-3">
+                  <Ionicons
+                    name={consented ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={consented ? "#1d4ed8" : "#64748b"}
+                  />
+                </View>
+                <Text className="flex-1 text-gray-700 font-bold text-xs">
+                  I agree to provide the required permissions
+                </Text>
               </View>
-              <Text className="text-gray-700 font-bold text-xs">
-                I agree to provide the required permissions
-              </Text>
-            </TouchableOpacity>
+            </Button>
 
-            <TouchableOpacity
-              onPress={onContinue}
-              disabled={!consented}
-              activeOpacity={0.9}
-              className={`h-14 rounded-xl items-center justify-center shadow-sm ${
-                consented ? "bg-primary-950" : "bg-gray-100"
-              }`}
-            >
-              <Text className="text-white font-bold text-base">Allow & Continue</Text>
-            </TouchableOpacity>
+            <Button
+              title="Allow & Continue"
+              variant="primary"
+              size="lg"
+              onPress={handleRequestPermissions}
+              disabled={!consented || loading}
+              loading={loading}
+            />
           </View>
         </MotiView>
-      </SafeAreaView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };

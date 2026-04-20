@@ -1,15 +1,17 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
-import { MotiView } from "moti";
+import { MotiView } from "./Motion";
+import { Button } from "./Button";
 
 interface LoanCardProps {
   amount: string;
   status: string;
   date: string;
   index: number;
+  onPressDetails?: () => void;
 }
 
-export const LoanCard = ({ amount, status, index }: LoanCardProps) => {
+export const LoanCard = ({ amount, status, date, index, onPressDetails }: LoanCardProps) => {
   return (
     <MotiView
       from={{ opacity: 0, translateY: 10 }}
@@ -23,21 +25,21 @@ export const LoanCard = ({ amount, status, index }: LoanCardProps) => {
           <Text className="text-gray-400 text-[10px] font-medium mt-0.5">ID: BZ221-A21231</Text>
         </View>
         <View className="items-end">
-           <Text className="text-gray-900 text-sm font-bold">{amount}</Text>
-           <View className={`mt-1 px-2 py-0.5 rounded ${status === "Approved" ? "bg-green-50" : "bg-primary-50"}`}>
-             <Text className={`text-[10px] font-bold ${status === "Approved" ? "text-green-700" : "text-primary-700"}`}>{status}</Text>
-           </View>
+          <Text className="text-gray-900 text-sm font-bold">{amount}</Text>
+          <View className={`mt-1 px-2 py-0.5 rounded ${status === "Approved" ? "bg-green-50" : "bg-primary-50"}`}>
+            <Text className={`text-[10px] font-bold ${status === "Approved" ? "text-green-700" : "text-primary-700"}`}>{status}</Text>
+          </View>
         </View>
       </View>
 
       <View className="flex-row justify-between mb-4">
         <View>
           <Text className="text-gray-400 text-[10px] uppercase font-bold tracking-tighter">Remaining</Text>
-          <Text className="text-gray-900 text-xs font-bold mt-0.5">$3,450.00</Text>
+          <Text className="text-gray-900 text-xs font-bold mt-0.5">₹3,450.00</Text>
         </View>
         <View>
           <Text className="text-gray-400 text-[10px] uppercase font-bold tracking-tighter">Next Pay</Text>
-          <Text className="text-gray-900 text-xs font-bold mt-0.5">Nov 20, 2026</Text>
+          <Text className="text-gray-900 text-xs font-bold mt-0.5">{date}</Text>
         </View>
         <View className="items-end">
           <Text className="text-gray-400 text-[10px] uppercase font-bold tracking-tighter">Progress</Text>
@@ -50,20 +52,22 @@ export const LoanCard = ({ amount, status, index }: LoanCardProps) => {
       </View>
 
       <View className="mt-4 flex-row space-x-2">
-        <TouchableOpacity className="flex-1 h-8 bg-primary-950 rounded-lg items-center justify-center">
-          <Text className="text-white text-[10px] font-bold">Repay Now</Text>
-        </TouchableOpacity>
-        <TouchableOpacity className="flex-1 h-8 bg-gray-50 rounded-lg items-center justify-center border border-gray-100">
-          <Text className="text-gray-600 text-[10px] font-bold">Details</Text>
-        </TouchableOpacity>
+        <Button
+          title="Repay Now"
+          variant="primary"
+          size="sm"
+          className="flex-1 h-8 rounded-lg !px-0"
+          textClassName="text-[10px]"
+        />
+        <Button
+          title="Details"
+          variant="secondary"
+          size="sm"
+          className="flex-1 h-8 rounded-lg !px-0 bg-gray-50 border-gray-100"
+          textClassName="text-[10px]"
+          onPress={onPressDetails}
+        />
       </View>
     </MotiView>
   );
 };
-
-// Simple internal TouchableOpacity since we don't have it imported globally here
-const TouchableOpacity = ({ children, className, ...props }: any) => (
-  <Pressable className={className} {...props}>
-    {children}
-  </Pressable>
-);

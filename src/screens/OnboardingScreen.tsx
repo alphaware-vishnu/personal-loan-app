@@ -1,28 +1,29 @@
 import React, { useState, useRef } from "react";
-import { View, Text, TouchableOpacity, Dimensions, Image } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MotiView } from "moti";
+import { View, Text, Dimensions, Image } from "react-native";
+import { Button } from "../components/Button";
+import { MotiView } from "../components/Motion";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import { OnboardingSlide } from "../components/OnboardingSlide";
 import { OnboardingProgress } from "../components/OnboardingProgress";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
 const DATA = [
   {
-    title: "Instant Access to $6,000 Schemes",
+    title: "Instant Access to ₹6,000 Schemes",
     description: "Start saving safely and accurately with our entry-level enterprise package.",
     image: require("../../assets/saving_blue_sketch.png"),
     bgColor: "#E0F2FE", // Precise match for Saving sketch
   },
   {
-    title: "Double Security with $8,000 Loans",
+    title: "Double Security with ₹8,000 Loans",
     description: "Your money is under guaranteed state surveillance for maximum peace of mind.",
     image: require("../../assets/security_blue_sketch.png"),
     bgColor: "#DBEAFE", // Precise match for Security sketch
   },
   {
-    title: "Standard Rewards on $10,000 Schemes",
+    title: "Standard Rewards on ₹10,000 Schemes",
     description: "Earn and spend points like cash with our most popular high-limit scheme.",
     image: require("../../assets/points_blue_sketch.png"),
     bgColor: "#F0F9FF", // Precise match for Points sketch
@@ -46,8 +47,8 @@ export const OnboardingScreen = ({ onStart }: OnboardingScreenProps) => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top", "bottom"]}>
+      <View style={{ flex: 1 }}>
         {/* Story Style Progress */}
         <OnboardingProgress total={DATA.length} current={index} />
 
@@ -66,8 +67,8 @@ export const OnboardingScreen = ({ onStart }: OnboardingScreenProps) => {
                 transition={{ type: "timing", duration: 500 }}
                 className="w-full h-[240px] items-center justify-center mb-10"
               >
-                <Image 
-                  source={item.image} 
+                <Image
+                  source={item.image}
                   style={{ width: width * 0.7, height: 220 }}
                   resizeMode="contain"
                 />
@@ -90,25 +91,23 @@ export const OnboardingScreen = ({ onStart }: OnboardingScreenProps) => {
         />
 
         {/* Bottom Navigation */}
-        <View className="flex-1 justify-end px-10 pb-12">
-          <TouchableOpacity
-            onPress={handleNext}
-            activeOpacity={0.9}
-            className="bg-primary-950 w-full h-14 rounded-xl items-center justify-center shadow-sm"
-          >
-            <Text className="text-white font-bold text-base">
-              {index === DATA.length - 1 ? "Get Started" : "Continue"}
-            </Text>
-          </TouchableOpacity>
+        <View className="flex-row justify-end px-10 pb-12">
+          <View className="flex-1">
+            <Button
+              title={index === DATA.length - 1 ? "Get Started" : "Continue"}
+              variant="primary"
+              onPress={handleNext}
+              className="mb-5"
+            />
 
-          <TouchableOpacity 
-            onPress={onStart}
-            className="items-center mt-5"
-          >
-            <Text className="text-gray-400 font-bold text-sm">Skip</Text>
-          </TouchableOpacity>
+            <Button
+              title="Skip"
+              variant="ghost"
+              onPress={onStart}
+            />
+          </View>
         </View>
-      </SafeAreaView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };

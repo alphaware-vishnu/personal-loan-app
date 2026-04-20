@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MotiView, MotiText } from "moti";
+import { MotiView, MotiText } from "../components/Motion";
 import LottieView from "lottie-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface VerificationScreenProps {
   onComplete: () => void;
@@ -10,10 +10,10 @@ interface VerificationScreenProps {
   message?: string;
 }
 
-export const VerificationScreen: React.FC<VerificationScreenProps> = ({ 
-  onComplete, 
-  title = "Verifying Identity", 
-  message = "Our automated system is verifying your documents. This usually takes a few seconds." 
+export const VerificationScreen: React.FC<VerificationScreenProps> = ({
+  onComplete,
+  title = "Verifying Identity",
+  message = "Our automated system is verifying your documents. This usually takes a few seconds."
 }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -24,7 +24,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
   }, [onComplete]);
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <View className="flex-1 items-center justify-center px-6">
         <MotiView
           from={{ opacity: 0, scale: 0.8 }}
@@ -49,7 +49,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
           >
             {title}
           </MotiText>
-          
+
           <MotiText
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -2,14 +2,15 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { MotiView } from "moti";
+import { MotiView } from "../components/Motion";
+import { Button } from "../components/Button";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface ApplicationFormScreenProps {
   schemeAmount: string;
@@ -38,7 +39,7 @@ export const ApplicationFormScreen = ({ schemeAmount, onSubmit, onBack }: Applic
   const [bank, setBank] = useState("");
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -70,7 +71,7 @@ export const ApplicationFormScreen = ({ schemeAmount, onSubmit, onBack }: Applic
           {/* Form Fields */}
           <FormField
             label="Monthly Income"
-            placeholder="$5,000"
+            placeholder="₹5,000"
             value={income}
             onChangeText={setIncome}
             keyboardType="numeric"
@@ -95,13 +96,13 @@ export const ApplicationFormScreen = ({ schemeAmount, onSubmit, onBack }: Applic
             </Text>
           </View>
 
-          <TouchableOpacity
+          <Button
+            title="Submit Application"
+            variant="primary"
+            size="lg"
             onPress={onSubmit}
-            activeOpacity={0.9}
-            className="bg-primary-950 h-14 rounded-xl items-center justify-center shadow-sm mb-10"
-          >
-            <Text className="text-white font-bold text-base">Submit Application</Text>
-          </TouchableOpacity>
+            className="mb-10"
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

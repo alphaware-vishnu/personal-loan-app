@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -13,7 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Required for KYC and document verification.",
+        "NSLocationWhenInUseUsageDescription": "Help us verify your address for faster processing.",
+        "NSPhotoLibraryUsageDescription": "Required to upload document images from your gallery."
+      }
     },
     "android": {
       "adaptiveIcon": {

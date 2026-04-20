@@ -7,14 +7,14 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
-import { MotiView } from "moti";
+import { MotiView } from "./Motion";
 
 const { width } = Dimensions.get("window");
 
 const SCHEMES = [
-  { id: "1", amount: "$6,000", tenor: "12 Months", rate: "8.5%" },
-  { id: "2", amount: "$8,000", tenor: "18 Months", rate: "7.9%" },
-  { id: "3", amount: "$10,000", tenor: "24 Months", rate: "7.2%" },
+  { id: "1", amount: "₹6,000", tenor: "12 Months", rate: "8.5%" },
+  { id: "2", amount: "₹8,000", tenor: "18 Months", rate: "7.9%" },
+  { id: "3", amount: "₹10,000", tenor: "24 Months", rate: "7.2%" },
 ];
 
 interface SchemeCarouselProps {

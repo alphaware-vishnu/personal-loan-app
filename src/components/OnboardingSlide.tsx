@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Image, Dimensions } from "react-native";
-import { MotiView } from "moti";
+import { MotiView } from "./Motion";
 
 const { width, height } = Dimensions.get("window");
 

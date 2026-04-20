@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -10,13 +9,23 @@ import {
   Image,
   Dimensions,
   Pressable,
+  ActivityIndicator,
+  StyleSheet,
 } from "react-native";
-import { MotiView, AnimatePresence } from "moti";
+import { MotiView } from "../components/Motion";
+import { Button } from "../components/Button";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useMutation } from "@tanstack/react-query";
+import { sendOtp, verifyOtp, getCustomerById } from "../services/api";
+import { useAuthStore } from "../store/authStore";
+import { useLoanStore } from "../store/loanStore";
+import { QueryError } from "@/types/query.type";
 
 const { width } = Dimensions.get("window");
+const OTP_LENGTH = 4;
 
 interface AuthScreenProps {
-  onVerify: () => void;
+  onVerify: (isExisting: boolean) => void;
 }
 
 export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
@@ -24,25 +33,82 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [isFocused, setIsFocused] = useState(false);
-  
+  const [showError, setShowError] = useState(false);
+
+  const setAuth = useAuthStore((state) => state.setAuth);
   const inputRef = useRef<TextInput>(null);
 
+
+
+  const hydrateCustomerData = useLoanStore((state) => state.hydrateCustomerData);
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: (data: { mobile: string; otp: string; skipOtp: boolean }) =>
+      verifyOtp(data),
+    onSuccess: async (response: any) => {
+      const data = response?.data?.data;
+      if (data) {
+        setAuth(data, mobile);
+        
+        // Check if existing customer
+        if (data.customerId) {
+          try {
+            console.log('[Auth] Checking customer existence for ID:', data.customerId);
+            const customerResponse = await getCustomerById(data.customerId);
+            const customerData = customerResponse.data?.data;
+            console.log(customerData, 'customer data 111');
+
+            // Handle both array and object responses correctly
+            const actualCustomer = Array.isArray(customerData) ? customerData[0] : customerData;
+
+            // User specified: "applicantName as null" means customer does not exist
+            const exists = !!(actualCustomer && actualCustomer.applicantName);
+
+            if (exists) {
+              console.log('[Auth] Existing customer profile found (applicantName present).');
+              hydrateCustomerData(actualCustomer);
+              onVerify(true);
+              return;
+            } else {
+              console.log('[Auth] Customer profile incomplete (applicantName is null/missing). Treating as new user.');
+            }
+          } catch (error) {
+            console.error('[Auth] Failed to fetch customer data:', error);
+          }
+        }
+      }
+      onVerify(false);
+    },
+    onError: (error: QueryError) => {
+      setShowError(true);
+      setOtp("");
+      console.log('verifuy errr', error.response?.data.message)
+    },
+  });
+
   const handleMobileSubmit = () => {
-    if (mobile.length >= 10) {
+    if (mobile.length === 10) {
       setStep("otp");
+      setShowError(false);
     }
   };
 
   const handleVerify = () => {
-    if (otp.length === 4) {
-      onVerify();
+    if (otp.length === OTP_LENGTH && !verifyOtpMutation.isPending) {
+      verifyOtpMutation.mutate({ mobile: `91${mobile}`, otp, skipOtp: true });
     }
   };
 
-  // Focus the input when moving to OTP step
+  // ❌ Removed auto-trigger to prevent freeze
+  // useEffect(() => {
+  //   if (otp.length === OTP_LENGTH) {
+  //     handleVerify();
+  //   }
+  // }, [otp]);
+
   useEffect(() => {
     if (step === "otp") {
-      setTimeout(() => inputRef.current?.focus(), 500);
+      setTimeout(() => inputRef.current?.focus(), 400);
     }
   }, [step]);
 
@@ -54,29 +120,31 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
     return (
       <View
         key={index}
-        className={`w-14 h-18 rounded-xl items-center justify-center border-2 ${
-          isActive
-            ? "bg-white border-primary-600 shadow-sm"
-            : isFilled
-            ? "bg-white border-primary-950"
+        className={`w-14 h-18 rounded-xl items-center justify-center border-2 ${isActive
+          ? "bg-white border-red-600"
+          : isFilled || showError
+            ? "bg-white border-red-600"
             : "bg-gray-50 border-gray-100"
-        }`}
+          }`}
       >
         <Text className="text-2xl font-bold text-gray-950">{digit}</Text>
+
         {isActive && (
           <MotiView
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ loop: true, type: "timing", duration: 500 }}
-            className="w-0.5 h-6 bg-primary-600 absolute"
+            transition={{ loop: true, duration: 500 }}
+            className="w-0.5 h-6 bg-red-600 absolute"
           />
         )}
       </View>
     );
   };
 
+  verifyOtpMutation.isPending;
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1 px-8"
@@ -84,30 +152,36 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "timing", duration: 500 }}
+          transition={{ duration: 500 }}
           className="flex-1"
         >
-          {/* Header - Compact 2xl */}
+          {/* Header */}
           <View className="mt-8 mb-6">
-            <TouchableOpacity 
-              className="mb-6 h-10 w-10 items-center justify-center bg-gray-50 rounded-lg" 
-              onPress={() => step === "otp" && setStep("mobile")}
+            <TouchableOpacity
+              
+              className="mb-8 h-12 w-12 items-center justify-center bg-white rounded-full border border-gray-100"
+              onPress={() =>
+                step === "otp" ? setStep("mobile") : null
+              }
             >
-              <Text className="text-xl text-gray-900">←</Text>
+              <Text className="text-2xl">←</Text>
             </TouchableOpacity>
-            
-            <Text className="text-2xl font-bold text-gray-950 tracking-tight">
-              {step === "mobile" ? "Enter your mobile number" : "Enter verification code"}
-            </Text>
-            <Text className="text-gray-500 text-sm mt-2 font-medium leading-5">
+
+            <Text className="text-3xl font-bold">
               {step === "mobile"
-                ? "Manage your loans and other accounts for application"
-                : `We've sent a code to verify your \nmobile number to +91 ${mobile || "9876543210"}`}
+                ? "Enter your mobile number"
+                : "Verify account with OTP"}
+            </Text>
+
+            <Text className="text-gray-500 mt-2">
+              {step === "mobile"
+                ? "Manage your loans and accounts"
+                : `Code sent to +91 ${mobile}`}
             </Text>
           </View>
 
-          {/* Infographic */}
-          <View className="items-center justify-center p-4 mb-8">
+          {/* Image */}
+          <View className="items-center mb-8">
             <Image
               source={
                 step === "mobile"
@@ -119,75 +193,77 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
             />
           </View>
 
-          {/* Inputs Section */}
-          <View className="w-full">
-            {step === "mobile" ? (
-              <View className="bg-gray-50 border border-gray-100 rounded-xl h-14 px-5 flex-row items-center">
-                <Text className="text-gray-400 font-bold text-lg mr-4 border-r border-gray-200 pr-4">+91</Text>
-                <TextInput
-                  placeholder="98765-43210"
-                  keyboardType="numeric"
-                  maxLength={10}
-                  autoFocus
-                  value={mobile}
-                  onChangeText={setMobile}
-                  className="flex-1 h-full text-lg font-bold text-gray-900"
-                />
-              </View>
-            ) : (
-              <View className="w-full">
-                <Pressable 
-                  onPress={() => inputRef.current?.focus()}
-                  className="flex-row justify-between w-full"
-                >
-                  {[0, 1, 2, 3].map((i) => renderOtpCell(i))}
-                </Pressable>
-                
-                {/* Bulletproof Hidden Input */}
-                <TextInput
-                  ref={inputRef}
-                  value={otp}
-                  onChangeText={setOtp}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  maxLength={4}
-                  keyboardType="numeric"
-                  caretHidden
-                  style={{
-                    position: "absolute",
-                    opacity: 0,
-                    width: 1,
-                    height: 1,
-                  }}
-                />
-              </View>
-            )}
+          {/* Input */}
+          {step === "mobile" ? (
+            <View>
+              <TextInput
+                placeholder="Enter mobile"
+                keyboardType="numeric"
+                maxLength={10}
+                value={mobile}
+                onChangeText={setMobile}
+                className="border border-slate-200 p-4 rounded-xl mb-6"
+              />
 
-            <TouchableOpacity
-              onPress={step === "mobile" ? handleMobileSubmit : handleVerify}
-              activeOpacity={0.9}
-              className={`h-14 rounded-xl items-center justify-center mt-10 shadow-sm ${
-                 (step === "mobile" && mobile.length === 10) || (step === "otp" && otp.length === 4)
-                  ? "bg-primary-950"
-                  : "bg-gray-200"
-              }`}
-            >
-              <Text className="text-white font-bold text-base">
-                {step === "mobile" ? "Continue" : "Verify Code"}
-              </Text>
-            </TouchableOpacity>
-
-            <View className="items-center mt-6">
-              <Text className="text-gray-400 text-xs font-medium">
-                Didn't receive code?{" "}
-                <Text className="text-primary-600 font-bold" onPress={() => setStep("mobile")}>
-                  Resend again
-                </Text>
-              </Text>
+              <Button
+                title="Continue"
+                variant="primary"
+                onPress={handleMobileSubmit}
+                disabled={mobile.length !== 10}
+              />
             </View>
-          </View>
+          ) : (
+            <View>
+              <Pressable
+                onPress={() => inputRef.current?.focus()}
+                className="flex-row justify-between mb-6"
+              >
+                {[0, 1, 2, 3].map(renderOtpCell)}
+              </Pressable>
+
+              {/* ✅ FIXED hidden input */}
+              <TextInput
+                ref={inputRef}
+                value={otp}
+                onChangeText={(val) => {
+                  setOtp(val.replace(/[^0-9]/g, ""));
+                  if (showError) setShowError(false);
+                }}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                maxLength={OTP_LENGTH}
+               
+                keyboardType="number-pad"
+                caretHidden
+                style={styles.hiddenInput}
+              />
+
+              {showError && (
+                <Text className="text-red-500 mt-4 mb-4">
+                  Incorrect OTP
+                </Text>
+              )}
+
+              <Button
+                title="Verify"
+                variant="primary"
+                onPress={handleVerify}
+                disabled={otp.length !== OTP_LENGTH}
+                loading={verifyOtpMutation.isPending}
+              />
+            </View>
+          )}
         </MotiView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  hiddenInput: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
+});
