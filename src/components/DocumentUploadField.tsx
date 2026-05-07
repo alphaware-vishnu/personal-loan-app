@@ -5,6 +5,7 @@ import { DocumentPickerSheet } from './DocumentPickerSheet';
 import { DocumentViewer } from './DocumentViewer';
 import { uploadDocument, getDocumentDownloadPath } from '../services/api';
 import { useLoanStore, DocumentType } from '../store/loanStore';
+import { formatLabel } from '../utils';
 
 interface DocumentUploadFieldProps {
   requirement: DocumentType;
@@ -92,7 +93,7 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
     <View className="mb-6">
       <View className="flex-row justify-between items-center mb-2">
         <Text className="text-slate-900 font-bold ml-1">
-          {requirement.documentName}
+          {formatLabel(requirement.documentName)}
           {requirement.isRequired && <Text className="text-red-500"> *</Text>}
         </Text>
       </View>
@@ -122,7 +123,7 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
 
         <View className="ml-4 flex-1">
           <Text className="text-slate-700 font-medium text-sm">
-            {currentDoc ? 'Document Uploaded' : `Tap to upload ${requirement.documentName}`}
+            {currentDoc ? 'Document Uploaded' : `Tap to upload ${formatLabel(requirement.documentName)}`}
           </Text>
           <Text className="text-slate-400 text-[10px] mt-1">
             {requirement.description || `Supported: ${requirement.acceptedFormats}`}
@@ -152,7 +153,7 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
         isVisible={viewerVisible}
         onClose={() => setViewerVisible(false)}
         uri={remoteUri}
-        title={requirement.documentName}
+        title={formatLabel(requirement.documentName)}
       />
     </View>
   );

@@ -1,3 +1,17 @@
-// Utils barrel export
-// Add utility function exports here as you build them
-export {};
+/**
+ * Formats labels for display, specifically mapping Voter ID references to PAN Card
+ * while maintaining the underlying data structure names.
+ */
+export const formatLabel = (label: string): string => {
+  if (!label) return label;
+  
+  // Handle Voter-ID Front/Back cases
+  if (label.toLowerCase() === 'voter-id front') return 'PAN Card Front';
+  if (label.toLowerCase() === 'voter-id back') return 'PAN Card Back';
+  
+  // Generic replacements
+  return label
+    .replace(/voter-id/gi, 'PAN Card')
+    .replace(/voter id/gi, 'PAN Card')
+    .replace(/voter/gi, 'PAN Card');
+};

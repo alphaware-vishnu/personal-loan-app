@@ -52,6 +52,7 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
           gender: "MALE",
           leadSource: 'HEYLON',
           leadStatus: "ACTIVE",
+          applicationSource: "ALFIN",
           clientType: "INDIVIDUAL",
           isVoterIdActive: true,
           customerBanks: customerInfo.customerBanks.map(bank => ({
@@ -97,6 +98,7 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
         schemeMasterId: loanStoreState.schemeMasterId,
         repaymentFrequency: loanStoreState.repaymentFrequency,
         customerId: finalCustomerId,
+        applicationSource: "ALFIN",
         applicationDocuments: loanStoreState.applicationDocuments.map(doc => ({
           categoryId: doc.categoryId,
           documentTypeId: doc.documentTypeId,

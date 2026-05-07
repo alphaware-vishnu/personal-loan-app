@@ -10,7 +10,7 @@ declare module 'axios' {
 
 // Replace with your actual API base URL
 // const BASE_URL = 'http://192.168.1.21:9096/api/lms';
-const BASE_URL = 'http://192.168.1.30:9096/api/lms';
+const BASE_URL = 'http://192.168.1.32:9096/api/lms';
 
 export const api = axios.create({
   baseURL: BASE_URL,

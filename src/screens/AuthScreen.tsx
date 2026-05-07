@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,9 @@ import {
   Image,
   Dimensions,
   Pressable,
-  ActivityIndicator,
   StyleSheet,
+  ScrollView,
 } from "react-native";
-import { MotiView } from "../components/Motion";
 import { Button } from "../components/Button";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMutation } from "@tanstack/react-query";
@@ -24,23 +23,123 @@ import { QueryError } from "@/types/query.type";
 const { width } = Dimensions.get("window");
 const OTP_LENGTH = 4;
 
-interface AuthScreenProps {
+// ──────────────────────────────────────────────
+// Mobile Number Input Screen
+// ──────────────────────────────────────────────
+interface MobileScreenProps {
+  mobile: string;
+  setMobile: (val: string) => void;
+  onSubmit: () => void;
+}
+
+const MobileScreen = ({ mobile, setMobile, onSubmit }: MobileScreenProps) => {
+  return (
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="flex-1 px-7">
+            {/* Illustration */}
+            <View className="items-center mt-12 mb-4">
+              <Image
+                source={require("../../assets/auth_mobile_sketch.png")}
+                style={{ width: width * 0.55, height: 180 }}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Title */}
+            <Text className="text-3xl font-black text-slate-900 mb-2">
+              Welcome Back!
+            </Text>
+            <Text className="text-base text-slate-500 leading-6 mb-8">
+              Don't worry! Enter the mobile number associated with your account.
+            </Text>
+
+            {/* Label */}
+            <Text className="text-sm font-bold text-slate-700 mb-2 ml-1">
+              Mobile Number
+            </Text>
+
+            {/* Input */}
+            <View className="flex-row items-center border border-slate-200 rounded-2xl mb-8 bg-slate-50/50">
+              <Text className="pl-4 pr-2 text-base text-slate-500 font-medium">
+                +91
+              </Text>
+              <View className="w-px h-6 bg-slate-200" />
+              <TextInput
+                placeholder="Enter mobile number"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                maxLength={10}
+                value={mobile}
+                onChangeText={(val) => setMobile(val.replace(/[^0-9]/g, ""))}
+                className="flex-1 p-4 text-base text-slate-900 font-medium"
+              />
+            </View>
+
+            {/* Submit Button */}
+            <Button
+              title="Submit"
+              variant="primary"
+              size="lg"
+              onPress={onSubmit}
+              disabled={mobile.length !== 10}
+              className="bg-orange-500 border-orange-500 shadow-orange-200"
+            />
+
+            {/* Spacer to push content up from bottom */}
+            <View className="flex-1" />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+// ──────────────────────────────────────────────
+// OTP Verification Screen
+// ──────────────────────────────────────────────
+interface OtpScreenProps {
+  mobile: string;
+  onBack: () => void;
   onVerify: (isExisting: boolean) => void;
 }
 
-export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
-  const [step, setStep] = useState<"mobile" | "otp">("mobile");
-  const [mobile, setMobile] = useState("");
+const OtpScreen = ({ mobile, onBack, onVerify }: OtpScreenProps) => {
   const [otp, setOtp] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [timer, setTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
 
   const setAuth = useAuthStore((state) => state.setAuth);
+  const hydrateCustomerData = useLoanStore((state) => state.hydrateCustomerData);
   const inputRef = useRef<TextInput>(null);
 
+  // Auto-focus the hidden input on mount
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 500);
+    return () => clearTimeout(t);
+  }, []);
 
-
-  const hydrateCustomerData = useLoanStore((state) => state.hydrateCustomerData);
+  // Countdown timer
+  useEffect(() => {
+    if (timer <= 0) {
+      setCanResend(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      setTimer((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const verifyOtpMutation = useMutation({
     mutationFn: (data: { mobile: string; otp: string; skipOtp: boolean }) =>
@@ -49,31 +148,23 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
       const data = response?.data?.data;
       if (data) {
         setAuth(data, mobile);
-        
-        // Check if existing customer
+
         if (data.customerId) {
           try {
-            console.log('[Auth] Checking customer existence for ID:', data.customerId);
             const customerResponse = await getCustomerById(data.customerId);
             const customerData = customerResponse.data?.data;
-            console.log(customerData, 'customer data 111');
-
-            // Handle both array and object responses correctly
-            const actualCustomer = Array.isArray(customerData) ? customerData[0] : customerData;
-
-            // User specified: "applicantName as null" means customer does not exist
+            const actualCustomer = Array.isArray(customerData)
+              ? customerData[0]
+              : customerData;
             const exists = !!(actualCustomer && actualCustomer.applicantName);
 
             if (exists) {
-              console.log('[Auth] Existing customer profile found (applicantName present).');
               hydrateCustomerData(actualCustomer);
               onVerify(true);
               return;
-            } else {
-              console.log('[Auth] Customer profile incomplete (applicantName is null/missing). Treating as new user.');
             }
           } catch (error) {
-            console.error('[Auth] Failed to fetch customer data:', error);
+            console.error("[Auth] Failed to fetch customer data:", error);
           }
         }
       }
@@ -82,35 +173,30 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
     onError: (error: QueryError) => {
       setShowError(true);
       setOtp("");
-      console.log('verifuy errr', error.response?.data.message)
     },
   });
 
-  const handleMobileSubmit = () => {
-    if (mobile.length === 10) {
-      setStep("otp");
-      setShowError(false);
-    }
-  };
-
-  const handleVerify = () => {
+  const handleVerify = useCallback(() => {
     if (otp.length === OTP_LENGTH && !verifyOtpMutation.isPending) {
       verifyOtpMutation.mutate({ mobile: `91${mobile}`, otp, skipOtp: true });
     }
+  }, [otp, mobile, verifyOtpMutation]);
+
+  const handleResend = useCallback(() => {
+    if (!canResend) return;
+    setTimer(30);
+    setCanResend(false);
+    sendOtp(`91${mobile}`);
+  }, [canResend, mobile]);
+
+  const formatTime = (seconds: number) => {
+    const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+    const s = String(seconds % 60).padStart(2, "0");
+    return `${m}:${s}`;
   };
 
-  // ❌ Removed auto-trigger to prevent freeze
-  // useEffect(() => {
-  //   if (otp.length === OTP_LENGTH) {
-  //     handleVerify();
-  //   }
-  // }, [otp]);
-
-  useEffect(() => {
-    if (step === "otp") {
-      setTimeout(() => inputRef.current?.focus(), 400);
-    }
-  }, [step]);
+  // Format mobile number for display
+  const formattedMobile = `+91 ${mobile.slice(0, 3)} ${mobile.slice(3, 6)} ${mobile.slice(6)}`;
 
   const renderOtpCell = (index: number) => {
     const digit = otp[index] || "";
@@ -120,150 +206,231 @@ export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
     return (
       <View
         key={index}
-        className={`w-14 h-18 rounded-xl items-center justify-center border-2 ${isActive
-          ? "bg-white border-red-600"
-          : isFilled || showError
-            ? "bg-white border-red-600"
-            : "bg-gray-50 border-gray-100"
-          }`}
+        style={[
+          styles.otpCell,
+          isActive && styles.otpCellActive,
+          isFilled && styles.otpCellFilled,
+          showError && styles.otpCellError,
+        ]}
       >
-        <Text className="text-2xl font-bold text-gray-950">{digit}</Text>
-
-        {isActive && (
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ loop: true, duration: 500 }}
-            className="w-0.5 h-6 bg-red-600 absolute"
-          />
-        )}
+        <Text
+          style={[
+            styles.otpDigit,
+            isActive && styles.otpDigitActive,
+          ]}
+        >
+          {digit}
+        </Text>
       </View>
     );
   };
-
-  verifyOtpMutation.isPending;
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 px-8"
+        className="flex-1"
       >
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ duration: 500 }}
-          className="flex-1"
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View className="mt-8 mb-6">
+          <View className="flex-1 px-7">
+            {/* Back Button */}
             <TouchableOpacity
-              
-              className="mb-8 h-12 w-12 items-center justify-center bg-white rounded-full border border-gray-100"
-              onPress={() =>
-                step === "otp" ? setStep("mobile") : null
-              }
+              onPress={onBack}
+              className="mt-4 mb-2 h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white"
+              activeOpacity={0.7}
             >
-              <Text className="text-2xl">←</Text>
+              <Text className="text-xl text-slate-700">←</Text>
             </TouchableOpacity>
 
-            <Text className="text-3xl font-bold">
-              {step === "mobile"
-                ? "Enter your mobile number"
-                : "Verify account with OTP"}
-            </Text>
-
-            <Text className="text-gray-500 mt-2">
-              {step === "mobile"
-                ? "Manage your loans and accounts"
-                : `Code sent to +91 ${mobile}`}
-            </Text>
-          </View>
-
-          {/* Image */}
-          <View className="items-center mb-8">
-            <Image
-              source={
-                step === "mobile"
-                  ? require("../../assets/auth_mobile_sketch.png")
-                  : require("../../assets/auth_otp_sketch.png")
-              }
-              style={{ width: width * 0.6, height: 160 }}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Input */}
-          {step === "mobile" ? (
-            <View>
-              <TextInput
-                placeholder="Enter mobile"
-                keyboardType="numeric"
-                maxLength={10}
-                value={mobile}
-                onChangeText={setMobile}
-                className="border border-slate-200 p-4 rounded-xl mb-6"
-              />
-
-              <Button
-                title="Continue"
-                variant="primary"
-                onPress={handleMobileSubmit}
-                disabled={mobile.length !== 10}
+            {/* Illustration */}
+            <View className="items-center mt-2 mb-4">
+              <Image
+                source={require("../../assets/auth_otp_sketch.png")}
+                style={{ width: width * 0.5, height: 160 }}
+                resizeMode="contain"
               />
             </View>
-          ) : (
-            <View>
-              <Pressable
-                onPress={() => inputRef.current?.focus()}
-                className="flex-row justify-between mb-6"
-              >
-                {[0, 1, 2, 3].map(renderOtpCell)}
-              </Pressable>
 
-              {/* ✅ FIXED hidden input */}
-              <TextInput
-                ref={inputRef}
-                value={otp}
-                onChangeText={(val) => {
-                  setOtp(val.replace(/[^0-9]/g, ""));
-                  if (showError) setShowError(false);
-                }}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                maxLength={OTP_LENGTH}
-               
-                keyboardType="number-pad"
-                caretHidden
-                style={styles.hiddenInput}
-              />
+            {/* Title */}
+            <Text className="text-3xl font-black text-slate-900 mb-2">
+              Enter OTP
+            </Text>
+            <Text className="text-base text-slate-500 leading-6 mb-8">
+              Please enter the verification code sent to{" "}
+              <Text className="font-bold text-slate-800">{formattedMobile}</Text>
+            </Text>
 
-              {showError && (
-                <Text className="text-red-500 mt-4 mb-4">
-                  Incorrect OTP
+            {/* OTP Input Cells */}
+            <Pressable
+              onPress={() => {
+                // Blur first then refocus on next tick to guarantee keyboard opens
+                inputRef.current?.blur();
+                setTimeout(() => inputRef.current?.focus(), 50);
+              }}
+              style={styles.otpContainer}
+            >
+              {Array.from({ length: OTP_LENGTH }).map((_, i) => renderOtpCell(i))}
+            </Pressable>
+
+            {/* Hidden TextInput for keyboard */}
+            <TextInput
+              ref={inputRef}
+              value={otp}
+              onChangeText={(val) => {
+                setOtp(val.replace(/[^0-9]/g, ""));
+                if (showError) setShowError(false);
+              }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              maxLength={OTP_LENGTH}
+              keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
+              caretHidden
+              style={styles.hiddenInput}
+            />
+
+            {/* Timer + Resend */}
+            <View className="flex-row items-center justify-center mt-6 mb-8">
+              {!canResend && (
+                <Text className="text-orange-500 font-bold mr-3 text-base">
+                  {formatTime(timer)}
                 </Text>
               )}
-
-              <Button
-                title="Verify"
-                variant="primary"
-                onPress={handleVerify}
-                disabled={otp.length !== OTP_LENGTH}
-                loading={verifyOtpMutation.isPending}
-              />
+              <Text className="text-slate-500 text-sm">
+                Don't receive OTP code?
+              </Text>
+              <TouchableOpacity
+                onPress={handleResend}
+                disabled={!canResend}
+                className="ml-2"
+              >
+                <Text
+                  className={`font-bold text-sm ${
+                    canResend ? "text-orange-500" : "text-slate-300"
+                  }`}
+                >
+                  Resend Code
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </MotiView>
+
+            {/* Error */}
+            {showError && (
+              <View className="bg-red-50 p-4 rounded-2xl mb-4 border border-red-100">
+                <Text className="text-red-500 font-bold text-center">
+                  Incorrect OTP. Please try again.
+                </Text>
+              </View>
+            )}
+
+            {/* Verify Button */}
+            <Button
+              title="Verify & Proceed"
+              variant="primary"
+              size="lg"
+              onPress={handleVerify}
+              disabled={otp.length !== OTP_LENGTH}
+              loading={verifyOtpMutation.isPending}
+              className="bg-orange-500 border-orange-500 shadow-orange-200"
+            />
+
+            <View className="flex-1" />
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
+// ──────────────────────────────────────────────
+// Main Auth Screen (orchestrator)
+// ──────────────────────────────────────────────
+interface AuthScreenProps {
+  onVerify: (isExisting: boolean) => void;
+}
+
+export const AuthScreen = ({ onVerify }: AuthScreenProps) => {
+  const [step, setStep] = useState<"mobile" | "otp">("mobile");
+  const [mobile, setMobile] = useState("");
+
+  const handleMobileSubmit = () => {
+    if (mobile.length === 10) {
+      setStep("otp");
+    }
+  };
+
+  if (step === "otp") {
+    return (
+      <OtpScreen
+        mobile={mobile}
+        onBack={() => setStep("mobile")}
+        onVerify={onVerify}
+      />
+    );
+  }
+
+  return (
+    <MobileScreen
+      mobile={mobile}
+      setMobile={setMobile}
+      onSubmit={handleMobileSubmit}
+    />
+  );
+};
+
+// ──────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────
 const styles = StyleSheet.create({
   hiddenInput: {
     position: "absolute",
     width: 1,
     height: 1,
     opacity: 0,
+  },
+  otpContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+  otpCell: {
+    width: 48,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#f8fafc",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  otpCellActive: {
+    borderColor: "#f97316",
+    backgroundColor: "#fff",
+    shadowColor: "#f97316",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  otpCellFilled: {
+    borderColor: "#cbd5e1",
+    backgroundColor: "#fff",
+  },
+  otpCellError: {
+    borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
+  },
+  otpDigit: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  otpDigitActive: {
+    color: "#f97316",
   },
 });

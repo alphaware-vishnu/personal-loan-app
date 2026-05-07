@@ -1,32 +1,31 @@
 import React, { useState, useRef } from "react";
-import { View, Text, Dimensions, Image } from "react-native";
-import { Button } from "../components/Button";
-import { MotiView } from "../components/Motion";
-import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { OnboardingSlide } from "../components/OnboardingSlide";
-import { OnboardingProgress } from "../components/OnboardingProgress";
+import { View, Dimensions, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
+import { Button } from "../components/Button";
+import { OnboardingSlide } from "../components/OnboardingSlide";
 
 const { width, height } = Dimensions.get("window");
+const THEME_COLOR = "#EA580C"; // A deeper orange to perfectly match the reference button
 
 const DATA = [
   {
-    title: "Instant Access to ₹6,000 Schemes",
-    description: "Start saving safely and accurately with our entry-level enterprise package.",
-    image: require("../../assets/saving_blue_sketch.png"),
-    bgColor: "#E0F2FE", // Precise match for Saving sketch
+    title: "Find perfect loan in your area",
+    highlightWord: "loan",
+    description: "We will help you with finding best loan scheme in your area. You can set your preferences and more!",
+    image: require("../../assets/start_loan_sketch.png"),
   },
   {
-    title: "Double Security with ₹8,000 Loans",
-    description: "Your money is under guaranteed state surveillance for maximum peace of mind.",
+    title: "Quick and secure processing",
+    highlightWord: "secure",
+    description: "Your data is encrypted and approvals are lightning fast for ultimate peace of mind.",
     image: require("../../assets/security_blue_sketch.png"),
-    bgColor: "#DBEAFE", // Precise match for Security sketch
   },
   {
-    title: "Standard Rewards on ₹10,000 Schemes",
-    description: "Earn and spend points like cash with our most popular high-limit scheme.",
+    title: "Start saving with high rewards",
+    highlightWord: "saving",
+    description: "Earn and spend points like cash with our most popular high-limit schemes.",
     image: require("../../assets/points_blue_sketch.png"),
-    bgColor: "#F0F9FF", // Precise match for Points sketch
   },
 ];
 
@@ -47,67 +46,61 @@ export const OnboardingScreen = ({ onStart }: OnboardingScreenProps) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top", "bottom"]}>
-      <View style={{ flex: 1 }}>
-        {/* Story Style Progress */}
-        <OnboardingProgress total={DATA.length} current={index} />
-
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={styles.flex}>
         <Carousel
           ref={carouselRef}
           loop={false}
           width={width}
-          height={height * 0.7}
+          height={height * 0.70}
           data={DATA}
           onSnapToItem={(i) => setIndex(i)}
           renderItem={({ item }) => (
-            <View style={{ width, height: height * 0.65 }} className="items-center justify-center px-10">
-              <MotiView
-                from={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "timing", duration: 500 }}
-                className="w-full h-[240px] items-center justify-center mb-10"
-              >
-                <Image
-                  source={item.image}
-                  style={{ width: width * 0.7, height: 220 }}
-                  resizeMode="contain"
-                />
-              </MotiView>
-
-              <MotiView
-                from={{ opacity: 0, translateY: 10 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                className="w-full"
-              >
-                <Text className="text-2xl font-bold text-gray-950 tracking-tight leading-tight">
-                  {item.title}
-                </Text>
-                <Text className="text-gray-500 text-sm mt-3 leading-6 font-medium">
-                  {item.description}
-                </Text>
-              </MotiView>
-            </View>
+            <OnboardingSlide
+              title={item.title}
+              highlightWord={item.highlightWord}
+              description={item.description}
+              image={item.image}
+              primaryColor={THEME_COLOR}
+              bgColor="#FFFFFF"
+              textColor="#111827"
+              descColor="#6B7280"
+            />
           )}
         />
 
-        {/* Bottom Navigation */}
-        <View className="flex-row justify-end px-10 pb-12">
-          <View className="flex-1">
-            <Button
-              title={index === DATA.length - 1 ? "Get Started" : "Continue"}
-              variant="primary"
-              onPress={handleNext}
-              className="mb-5"
-            />
-
-            <Button
-              title="Skip"
-              variant="ghost"
-              onPress={onStart}
-            />
-          </View>
+        <View style={styles.footer}>
+          <Button
+            title={index === DATA.length - 1 ? "Set your preferences" : "Continue to next"}
+            onPress={handleNext}
+            className="rounded-full bg-[#EA580C] border-0 mb-4 h-[56px]"
+            textClassName="text-white text-[17px] font-bold"
+          />
+          <Button
+            title="Skip for now"
+            variant="ghost"
+            onPress={onStart}
+            className="h-[44px]"
+            textClassName="text-[#6B7280] font-medium text-[15px]"
+          />
         </View>
       </View>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  flex: {
+    flex: 1,
+  },
+  footer: {
+    paddingHorizontal: 40,
+    paddingBottom: 40,
+    justifyContent: "flex-end",
+    flex: 1,
+  },
+});

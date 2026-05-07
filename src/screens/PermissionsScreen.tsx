@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   Dimensions,
+  StyleSheet,
+  ScrollView,
 } from "react-native";
-import { MotiView } from "../components/Motion";
 import { Button } from "../components/Button";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,143 +22,246 @@ interface PermissionsScreenProps {
   onContinue: () => void;
 }
 
-const PermissionItem = ({ icon, title, desc }: { icon: string; title: string; desc: string }) => (
-  <View className="flex-row items-center mb-6">
-    <View className="w-12 h-12 bg-gray-50 rounded-2xl items-center justify-center mr-4">
-      <Text className="text-xl">{icon}</Text>
-    </View>
-    <View className="flex-1">
-      <Text className="text-lg font-bold text-gray-950">{title}</Text>
-      <Text className="text-gray-500 text-sm leading-5 font-medium">{desc}</Text>
-    </View>
-  </View>
-);
+// ──────────────────────────────────────────────
+// Permission data
+// ──────────────────────────────────────────────
+const PERMISSIONS = [
+  {
+    key: "camera",
+    icon: "camera-outline" as const,
+    iconBg: "#FFF7ED",
+    iconColor: "#F97316",
+    title: "Camera Access",
+    subtitle: "We need your camera for KYC",
+    description:
+      "Camera access is required for document photo capture and selfie verification during the KYC process.",
+  },
+  {
+    key: "location",
+    icon: "location-outline" as const,
+    iconBg: "#FFF1F2",
+    iconColor: "#FB7185",
+    title: "Location Services",
+    subtitle: "Help us verify your address",
+    description:
+      "Location helps us auto-fill your address and verify your identity for faster loan processing.",
+  },
+  {
+    key: "notifications",
+    icon: "notifications-outline" as const,
+    iconBg: "#EFF6FF",
+    iconColor: "#3B82F6",
+    title: "Notifications",
+    subtitle: "Stay updated on your loan",
+    description:
+      "Get real-time updates about your application status, approvals, and important reminders.",
+  },
+];
 
+// ──────────────────────────────────────────────
+// Single Permission Card
+// ──────────────────────────────────────────────
+interface PermissionCardProps {
+  permission: (typeof PERMISSIONS)[number];
+  stepIndex: number;
+  totalSteps: number;
+  onAllow: () => void;
+  onSkip: () => void;
+  loading: boolean;
+}
+
+const PermissionCard = ({
+  permission,
+  stepIndex,
+  totalSteps,
+  onAllow,
+  onSkip,
+  loading,
+}: PermissionCardProps) => {
+  return (
+    <View className="flex-1">
+      {/* Progress Dots */}
+      <View className="flex-row items-center justify-center mt-6 mb-8">
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              i === stepIndex && styles.dotActive,
+              i < stepIndex && styles.dotCompleted,
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Icon Circle */}
+      <View className="items-center mb-8">
+        <View
+          style={[
+            styles.iconCircleOuter,
+            { borderColor: permission.iconColor + "15" },
+          ]}
+        >
+          <View
+            style={[
+              styles.iconCircleInner,
+              { backgroundColor: permission.iconBg },
+            ]}
+          >
+            <Ionicons
+              name={permission.icon}
+              size={44}
+              color={permission.iconColor}
+            />
+          </View>
+        </View>
+        {/* Decorative dots around the icon */}
+        <View style={[styles.decorDot, { top: 30, right: width * 0.22, backgroundColor: permission.iconColor + "30" }]} />
+        <View style={[styles.decorDot, styles.decorDotSm, { top: 60, left: width * 0.2, backgroundColor: permission.iconColor + "20" }]} />
+        <View style={[styles.decorDot, { bottom: 10, right: width * 0.28, backgroundColor: permission.iconColor + "25" }]} />
+      </View>
+
+      {/* Title & Description */}
+      <View className="items-center px-6 mb-10">
+        <Text className="text-3xl font-black text-slate-900 text-center mb-3">
+          {permission.title}
+        </Text>
+        <Text className="text-base text-slate-400 text-center leading-6 font-medium">
+          {permission.description}
+        </Text>
+      </View>
+
+      {/* Spacer */}
+      <View className="flex-1" />
+
+      {/* Action Buttons */}
+      <View className="px-2 pb-8">
+        <Button
+          title={`Allow ${permission.title.split(" ")[0]}`}
+          variant="primary"
+          size="lg"
+          onPress={onAllow}
+          loading={loading}
+          className="bg-orange-500 border-orange-500 shadow-orange-200 mb-4"
+        />
+        <TouchableOpacity
+          onPress={onSkip}
+          className="items-center py-3"
+          activeOpacity={0.6}
+        >
+          <Text className="text-slate-400 font-bold text-base">
+            Maybe later
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// ──────────────────────────────────────────────
+// Main Permissions Screen
+// ──────────────────────────────────────────────
 export const PermissionsScreen = ({ onContinue }: PermissionsScreenProps) => {
-  const [consented, setConsented] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const handleRequestPermissions = async () => {
-    console.log('clicked', 'permission screen')
+  const requestPermission = async (key: string) => {
     try {
       setLoading(true);
 
-      // Request Location (Foreground)
-      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-      console.log("Location permission:", locationStatus);
-
-      // Request Camera
-      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-      console.log("Camera permission:", cameraStatus);
-
-      // Request Notifications
-      // NOTE: Push notifications are not supported in Expo Go on Android (SDK 53+).
-      // We skip the request if running in Expo Go to avoid crashing.
-      const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-      if (!(Platform.OS === "android" && isExpoGo)) {
-        const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
-        console.log("Notifications permission:", notificationStatus);
-      } else {
-        console.log("Skipping notification request in Expo Go on Android.");
+      if (key === "camera") {
+        await Camera.requestCameraPermissionsAsync();
+      } else if (key === "location") {
+        await Location.requestForegroundPermissionsAsync();
+      } else if (key === "notifications") {
+        const isExpoGo =
+          Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+        if (!(Platform.OS === "android" && isExpoGo)) {
+          await Notifications.requestPermissionsAsync();
+        }
       }
-
-      // All prompts done, proceed to the next screen
-      onContinue();
     } catch (error) {
-      console.error("Error requesting permissions:", error);
-      // Even if there's an error, we allow continuing (usually handled by individual features later)
-      onContinue();
+      console.error(`Error requesting ${key} permission:`, error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleAllow = async () => {
+    const perm = PERMISSIONS[currentStep];
+    await requestPermission(perm.key);
+    advance();
+  };
+
+  const advance = () => {
+    if (currentStep < PERMISSIONS.length - 1) {
+      setCurrentStep((prev) => prev + 1);
+    } else {
+      onContinue();
+    }
+  };
+
+  const permission = PERMISSIONS[currentStep];
+
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
-      <View className="flex-1">
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          className="flex-1 px-8 pt-8"
-        >
-          {/* Infographic - Clean & Small */}
-          <MotiView className="items-center mb-8">
-            <Image
-              source={require("../../assets/permissions_sketch.png")}
-              style={{ width: width * 0.6, height: 160 }}
-              resizeMode="contain"
-            />
-          </MotiView>
-
-          {/* Text Content */}
-          <View className="w-full mb-8">
-            <Text className="text-2xl font-bold text-gray-950 tracking-tight">
-              Access Requirements
-            </Text>
-            <Text className="text-gray-400 text-sm mt-1 font-bold">
-              Verification required for loan evaluation.
-            </Text>
-          </View>
-
-          {/* Permissions List */}
-          <View className="w-full">
-            <PermissionItem
-              icon="📷"
-              title="Camera Access"
-              desc="Required for KYC and document verification."
-            />
-            <PermissionItem
-              icon="📍"
-              title="Location Services"
-              desc="Help us verify your address for faster processing."
-            />
-            <PermissionItem
-              icon="🔔"
-              title="Notifications"
-              desc="Stay updated on your application status."
-            />
-          </View>
-
-          {/* Privacy Note */}
-          <View className="bg-gray-50 p-4 rounded-xl mt-2 mb-8 border border-gray-100">
-            <Text className="text-gray-600 text-[10px] text-center leading-4 font-medium">
-              Your data is encrypted. We will NOT use these permissions for any purpose other than loan evaluation.
-            </Text>
-          </View>
-
-          {/* Footer Controls */}
-          <View className="w-full mt-auto pb-10">
-            <Button
-              variant="ghost"
-              className="!p-0 !min-h-0 !h-auto mb-6 !items-start !justify-start"
-              contentClassName="!items-start !justify-start"
-              onPress={() => setConsented(!consented)}
-            >
-              <View className="flex-row items-center w-full">
-                <View className="mr-3">
-                  <Ionicons
-                    name={consented ? "checkbox" : "square-outline"}
-                    size={22}
-                    color={consented ? "#1d4ed8" : "#64748b"}
-                  />
-                </View>
-                <Text className="flex-1 text-gray-700 font-bold text-xs">
-                  I agree to provide the required permissions
-                </Text>
-              </View>
-            </Button>
-
-            <Button
-              title="Allow & Continue"
-              variant="primary"
-              size="lg"
-              onPress={handleRequestPermissions}
-              disabled={!consented || loading}
-              loading={loading}
-            />
-          </View>
-        </MotiView>
+      <View className="flex-1 px-6">
+        <PermissionCard
+          permission={permission}
+          stepIndex={currentStep}
+          totalSteps={PERMISSIONS.length}
+          onAllow={handleAllow}
+          onSkip={advance}
+          loading={loading}
+        />
       </View>
     </SafeAreaView>
   );
 };
+
+// ──────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────
+const styles = StyleSheet.create({
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#e2e8f0",
+    marginHorizontal: 4,
+  },
+  dotActive: {
+    width: 28,
+    borderRadius: 6,
+    backgroundColor: "#f97316",
+  },
+  dotCompleted: {
+    backgroundColor: "#fdba74",
+  },
+  iconCircleOuter: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconCircleInner: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  decorDot: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  decorDotSm: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+});

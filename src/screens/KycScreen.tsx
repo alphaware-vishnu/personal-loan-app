@@ -107,11 +107,11 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
                   />
                 </View>
                 <Text className="text-slate-900 text-lg font-bold mt-6">
-                  {step === 1 ? "Upload Voter ID" : "Verify Details"}
+                  {step === 1 ? "Upload PAN Card" : "Verify Details"}
                 </Text>
                 <Text className="text-slate-500 text-center mt-2 px-6">
                   {step === 1
-                    ? "Please upload clear photos of both sides of your Voter Identity Card for instant verification."
+                    ? "Please upload clear photos of your PAN Card for instant verification."
                     : "Confirm your identity details for the customer profile."}
                 </Text>
               </View>
@@ -150,9 +150,9 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
                     </View>
                   </View>
 
-                  {/* Voter ID Number Input */}
+                  {/* PAN Card Number Input */}
                   <View className="mb-6">
-                    <Text className="text-slate-900 font-bold mb-2 ml-1">Voter ID Number</Text>
+                    <Text className="text-slate-900 font-bold mb-2 ml-1">PAN Number</Text>
                     <View className="h-14 bg-slate-50 rounded-xl border border-slate-100 px-4 flex-row items-center">
                       <Ionicons name="card-outline" size={20} color="#64748b" />
                       <TextInput
@@ -183,7 +183,7 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
                         />
                       </View>
                       <Text className="flex-1 text-slate-700 font-medium leading-5 text-left text-sm pt-0.5">
-                        I hereby consent to the use of my Voter ID details for identity verification and loan evaluation purposes.
+                        I hereby consent to the use of my PAN Card details for identity verification and loan evaluation purposes.
                       </Text>
                     </View>
                   </Button>
