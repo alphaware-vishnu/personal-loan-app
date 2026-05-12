@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Modal, StyleSheet, Image } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Modal, StyleSheet, Image, ToastAndroid } from "react-native";
 import { MotiView } from "../components/Motion";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "../components/Button";
 import { DocumentPickerSheet } from "../components/DocumentPickerSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 
 interface BankFormScreenProps {
   onSubmit: () => void;
@@ -20,16 +22,12 @@ export interface BankDetails {
 
 import { useLoanStore } from "../store/loanStore";
 import { DocumentUploadField } from "../components/DocumentUploadField";
+import { updateStepStatus } from "../services/api";
+import { cleanNameInput } from "../utils";
+import Toast from 'react-native-toast-message';
 
 export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack }) => {
-  const { documentRequirements, uploadedDocs, addCustomerBank } = useLoanStore();
-  const [details, setDetails] = useState<BankDetails>({
-    accountName: "",
-    accountNumber: "",
-    ifsc: "",
-    branch: "",
-  });
-
+  const { documentRequirements, uploadedDocs, addCustomerBank, applicationId } = useLoanStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
@@ -41,39 +39,70 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
   const passbookReq = allDocTypes.find(t => t.documentName === "Bank-Passbook");
   const houseReq = allDocTypes.find(t => t.documentName === "House Pictures");
 
+  const validationSchema = Yup.object().shape({
+    accountName: Yup.string()
+      .min(3, "Name must be at least 3 characters")
+      .matches(/^[a-zA-Z\s]*$/, "Special characters and numbers are not allowed")
+      .required("Account holder name is required"),
+    accountNumber: Yup.string()
+      .min(9, "Account number must be at least 9 digits")
+      .matches(/^[0-9]*$/, "Only digits are allowed")
+      .required("Account number is required"),
+    ifsc: Yup.string()
+      .length(11, "IFSC must be exactly 11 characters")
+      .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format")
+      .required("IFSC code is required"),
+    branch: Yup.string()
+      .min(3, "Branch name is too short")
+      .required("Branch name is required"),
+  });
+
+  const formik = useFormik({
+    initialValues: {
+      accountName: "",
+      accountNumber: "",
+      ifsc: "",
+      branch: "",
+    },
+    validationSchema,
+    onSubmit: (values) => {
+      setIsLoading(true);
+      
+      addCustomerBank({
+        accountHolderName: values.accountName,
+        accountNo: values.accountNumber,
+        bank: "SBI",
+        branch: values.branch,
+        ifsc: values.ifsc,
+        city: "Mumbai",
+        accountType: 'SAVINGS',
+        isDefault: true
+      });
+
+      const syncStatus = async () => {
+        if (applicationId) {
+          try {
+            await updateStepStatus(applicationId, { bankVerificationCompleted: true });
+          } catch (error) {
+            console.error('[BankForm] Failed to update status:', error);
+          }
+        }
+      };
+      
+      syncStatus();
+
+      setTimeout(() => {
+        setIsLoading(false);
+        setSuccessModalVisible(true);
+      }, 1200);
+    },
+  });
+
   const isFormValid =
-    details.accountName.trim().length > 2 &&
-    details.accountNumber.trim().length > 8 &&
-    details.ifsc.trim().length === 11 &&
-    details.branch.trim().length > 2 &&
+    formik.isValid &&
+    formik.dirty &&
     (passbookReq ? !!uploadedDocs[passbookReq.id] : true) &&
     (houseReq ? !!uploadedDocs[houseReq.id] : true);
-
-  const updateField = (field: keyof BankDetails, value: string) => {
-    setDetails(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleFinish = () => {
-    setIsLoading(true);
-    
-    // Save bank details to store for customer creation
-    addCustomerBank({
-      accountHolderName: details.accountName,
-      accountNo: details.accountNumber,
-      bank: "SBI", // Placeholder or fetch from IFSC if possible
-      branch: details.branch,
-      ifsc: details.ifsc,
-      city: "Mumbai", // Default placeholder
-      accountType: 'SAVINGS',
-      isDefault: true
-    });
-
-    // Simulate API save
-    setTimeout(() => {
-      setIsLoading(false);
-      setSuccessModalVisible(true);
-    }, 1200);
-  };
 
   const proceedToSanction = () => {
     setSuccessModalVisible(false);
@@ -118,65 +147,94 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
               {/* Account Holder Name */}
               <View className="mb-6">
                 <Text className="text-slate-900 font-bold mb-2 ml-1">Account Holder Name</Text>
-                <View className="h-14 bg-slate-50 rounded-xl border border-slate-100 px-4 flex-row items-center">
-                  <Ionicons name="person-outline" size={20} color="#64748b" />
+                <View className={`h-14 bg-slate-50 rounded-xl border px-4 flex-row items-center ${formik.touched.accountName && formik.errors.accountName ? 'border-red-500' : 'border-slate-100'}`}>
+                  <Ionicons name="person-outline" size={20} color={formik.touched.accountName && formik.errors.accountName ? '#ef4444' : '#64748b'} />
                   <TextInput
                     autoCapitalize="words"
                     placeholder="Enter full name"
                     placeholderTextColor="#94a3b8"
                     className="flex-1 ml-3 text-slate-900 font-medium text-base"
-                    value={details.accountName}
-                    onChangeText={(val) => updateField("accountName", val)}
+                    value={formik.values.accountName}
+                    onBlur={formik.handleBlur('accountName')}
+                    onChangeText={(val) => {
+                      if (/[^a-zA-Z\s]/.test(val)) {
+                        Toast.show({
+                          type: 'info',
+                          text1: 'Invalid Character',
+                          text2: 'Numbers and special characters are not allowed.',
+                          position: 'top',
+                        });
+                        if (Platform.OS === 'android') {
+                          ToastAndroid.show('Special characters not allowed', ToastAndroid.SHORT);
+                        }
+                      }
+                      formik.setFieldValue("accountName", val);
+                    }}
                   />
                 </View>
+                {formik.touched.accountName && formik.errors.accountName && (
+                  <Text className="text-red-500 text-[10px] font-bold mt-1 ml-1">{formik.errors.accountName}</Text>
+                )}
               </View>
 
               {/* Account Number */}
               <View className="mb-6">
                 <Text className="text-slate-900 font-bold mb-2 ml-1">Account Number</Text>
-                <View className="h-14 bg-slate-50 rounded-xl border border-slate-100 px-4 flex-row items-center">
-                  <Ionicons name="card-outline" size={20} color="#64748b" />
+                <View className={`h-14 bg-slate-50 rounded-xl border px-4 flex-row items-center ${formik.touched.accountNumber && formik.errors.accountNumber ? 'border-red-500' : 'border-slate-100'}`}>
+                  <Ionicons name="card-outline" size={20} color={formik.touched.accountNumber && formik.errors.accountNumber ? '#ef4444' : '#64748b'} />
                   <TextInput
                     keyboardType="number-pad"
                     placeholder="Enter account number"
                     placeholderTextColor="#94a3b8"
                     className="flex-1 ml-3 text-slate-900 font-medium text-base"
-                    value={details.accountNumber}
-                    onChangeText={(val) => updateField("accountNumber", val)}
+                    value={formik.values.accountNumber}
+                    onBlur={formik.handleBlur('accountNumber')}
+                    onChangeText={formik.handleChange('accountNumber')}
                   />
                 </View>
+                {formik.touched.accountNumber && formik.errors.accountNumber && (
+                  <Text className="text-red-500 text-[10px] font-bold mt-1 ml-1">{formik.errors.accountNumber}</Text>
+                )}
               </View>
 
               {/* IFSC Code */}
               <View className="mb-6">
                 <Text className="text-slate-900 font-bold mb-2 ml-1">IFSC Code</Text>
-                <View className="h-14 bg-slate-50 rounded-xl border border-slate-100 px-4 flex-row items-center">
-                  <Ionicons name="business-outline" size={20} color="#64748b" />
+                <View className={`h-14 bg-slate-50 rounded-xl border px-4 flex-row items-center ${formik.touched.ifsc && formik.errors.ifsc ? 'border-red-500' : 'border-slate-100'}`}>
+                  <Ionicons name="business-outline" size={20} color={formik.touched.ifsc && formik.errors.ifsc ? '#ef4444' : '#64748b'} />
                   <TextInput
                     autoCapitalize="characters"
                     placeholder="e.g. SBIN0001234"
                     placeholderTextColor="#94a3b8"
                     maxLength={11}
                     className="flex-1 ml-3 text-slate-900 font-medium text-base"
-                    value={details.ifsc}
-                    onChangeText={(val) => updateField("ifsc", val)}
+                    value={formik.values.ifsc}
+                    onBlur={formik.handleBlur('ifsc')}
+                    onChangeText={formik.handleChange('ifsc')}
                   />
                 </View>
+                {formik.touched.ifsc && formik.errors.ifsc && (
+                  <Text className="text-red-500 text-[10px] font-bold mt-1 ml-1">{formik.errors.ifsc}</Text>
+                )}
               </View>
 
               {/* Branch Name */}
               <View className="mb-10">
                 <Text className="text-slate-900 font-bold mb-2 ml-1">Branch Name</Text>
-                <View className="h-14 bg-slate-50 rounded-xl border border-slate-100 px-4 flex-row items-center">
-                  <Ionicons name="location-outline" size={20} color="#64748b" />
+                <View className={`h-14 bg-slate-50 rounded-xl border px-4 flex-row items-center ${formik.touched.branch && formik.errors.branch ? 'border-red-500' : 'border-slate-100'}`}>
+                  <Ionicons name="location-outline" size={20} color={formik.touched.branch && formik.errors.branch ? '#ef4444' : '#64748b'} />
                   <TextInput
                     placeholder="Enter branch name"
                     placeholderTextColor="#94a3b8"
                     className="flex-1 ml-3 text-slate-900 font-medium text-base"
-                    value={details.branch}
-                    onChangeText={(val) => updateField("branch", val)}
+                    value={formik.values.branch}
+                    onBlur={formik.handleBlur('branch')}
+                    onChangeText={formik.handleChange('branch')}
                   />
                 </View>
+                {formik.touched.branch && formik.errors.branch && (
+                  <Text className="text-red-500 text-[10px] font-bold mt-1 ml-1">{formik.errors.branch}</Text>
+                )}
               </View>
 
               {/* Uploads Section */}
@@ -208,7 +266,7 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
               size="lg"
               disabled={!isFormValid}
               loading={isLoading}
-              onPress={handleFinish}
+              onPress={()=>formik.handleSubmit()}
             />
           </View>
         </View>

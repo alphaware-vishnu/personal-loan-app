@@ -21,7 +21,7 @@ export const DocumentViewer = ({ isVisible, onClose, uri, title }: DocumentViewe
     <Modal visible={isVisible} transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.backdrop} />
-        
+
         <MotiView
           from={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -46,21 +46,21 @@ export const DocumentViewer = ({ isVisible, onClose, uri, title }: DocumentViewe
                   PDF Preview is not available in the demo.
                 </Text>
                 <Text className="text-slate-400 text-xs mt-2 text-center">
-                   FilePath: {uri}
+                  FilePath: {uri}
                 </Text>
               </View>
             ) : (
-              <Image 
-                source={{ uri }} 
-                className="w-full h-full" 
-                resizeMode="contain" 
+              <Image
+                source={{ uri }}
+                className="w-full h-full"
+                resizeMode="contain"
               />
             )}
           </View>
 
           {/* Footer */}
           <View className="p-6 bg-white border-t border-slate-100">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={onClose}
               className="bg-primary-950 py-4 rounded-2xl items-center"
             >

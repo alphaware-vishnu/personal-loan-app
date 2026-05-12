@@ -25,7 +25,7 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
     setIsUploading(true);
     try {
       const fileName = uri.split('/').pop() || `doc_${requirement.id}.${type === 'image' ? 'jpg' : 'pdf'}`;
-      
+
       const formData = new FormData();
       // @ts-ignore
       formData.append('files', {
@@ -35,11 +35,11 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
       });
 
       const response = await uploadDocument(formData);
-      
+
       // The API response for upload usually returns the ID or AWS path
       // Adjusting based on standard patterns (user didn't provide upload response JSON, only download)
       const awsId = response.data?.data?.[0] || response.data?.fileUuid || "temp-aws-id";
-      
+
       updateUploadedDoc(requirement.id, {
         uri,
         awsId: String(awsId),
@@ -63,14 +63,14 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
 
   const handleView = async () => {
     if (!currentDoc?.awsId) return;
-    
+
     try {
       // In a real app, awsId is likely an integer ID for the download API
       const id = parseInt(currentDoc.awsId);
       if (isNaN(id)) {
-          setRemoteUri(currentDoc.uri);
-          setViewerVisible(true);
-          return;
+        setRemoteUri(currentDoc.uri);
+        setViewerVisible(true);
+        return;
       }
 
       const response = await getDocumentDownloadPath(id);
@@ -101,13 +101,11 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
       <TouchableOpacity
         onPress={() => setPickerVisible(true)}
         disabled={isUploading}
-        className={`p-5 rounded-2xl border-2 flex-row items-center ${
-          currentDoc ? "border-green-500 bg-green-50" : "border-slate-100 bg-slate-50 border-dashed"
-        }`}
+        className={`p-5 rounded-2xl border-2 flex-row items-center ${currentDoc ? "border-green-500 bg-green-50" : "border-slate-100 bg-slate-50 border-dashed"
+          }`}
       >
-        <View className={`w-12 h-12 rounded-xl items-center justify-center overflow-hidden ${
-          currentDoc ? "bg-green-50" : "bg-slate-200"
-        }`}>
+        <View className={`w-12 h-12 rounded-xl items-center justify-center overflow-hidden ${currentDoc ? "bg-green-50" : "bg-slate-200"
+          }`}>
           {isUploading ? (
             <ActivityIndicator color="#64748b" />
           ) : currentDoc ? (
@@ -132,7 +130,7 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
 
         {currentDoc && !isUploading && (
           <View className="flex-row items-center">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleView}
               className="mr-4 p-2 bg-white rounded-full border border-slate-100 shadow-sm"
             >

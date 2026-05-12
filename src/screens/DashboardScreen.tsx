@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   TouchableOpacity,
+  Modal,
 } from "react-native";
 import { LoanCard } from "../components/LoanCard";
 import { LoanSelectionModal } from "../components/LoanSelectionModal";
@@ -27,11 +28,13 @@ const { width } = Dimensions.get("window");
 interface DashboardScreenProps {
   onStartLoan: () => void;
   onSchemeSelect: (scheme: any) => void;
-  onViewDetails: (applicationId: number) => void;
+  onViewDetails: (applicationId: number, autoOpenRepay?: boolean) => void;
+  onViewProfile: () => void;
 }
 
-export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails }: DashboardScreenProps) => {
+export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails, onViewProfile }: DashboardScreenProps) => {
   const [modalVisible, setModalVisible] = React.useState(false);
+  const [menuVisible, setMenuVisible] = React.useState(false);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const { setScheme, setCustomerId, setCalculationResults, setDocumentRequirements, customerInfo } = useLoanStore();
   const { authData } = useAuthStore();
@@ -102,31 +105,101 @@ export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails }: 
 
   // --- UI Components ---
   const Header = () => (
-    <View className="px-6 pt-4 mb-2">
+    <View className="px-6 pt-2 mb-6">
       <View className="flex-row justify-between items-center mb-6">
-        <TouchableOpacity style={styles.iconButton}>
+        <TouchableOpacity 
+          style={styles.iconButton}
+          onPress={() => setMenuVisible(true)}
+        >
           <Ionicons name="menu-outline" size={24} color="#1A1A1A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Antigravity</Text>
         <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="notifications-outline" size={24} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
-      <MotiView
-   
-      
-        className="mb-6"
+      <View>
+        <Text className="text-slate-500 text-[11px] font-black uppercase tracking-widest mb-1">Welcome back,</Text>
+        <Text className="text-slate-900 text-3xl font-black tracking-tight">{firstName}</Text>
+      </View>
+
+      {/* Side Menu Popover */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
       >
-        <Text className="text-3xl font-black text-slate-900">Hello, {firstName} 👋</Text>
-        <Text className="text-sm text-slate-500 mt-1 font-medium">Ready to manage your finances today?</Text>
-      </MotiView>
+        <TouchableOpacity 
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
+          <MotiView
+            from={{ opacity: 0, translateX: -50 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            transition={{ type: 'timing', duration: 300 }}
+            className="w-2/3 h-full bg-white shadow-2xl pt-16 px-6"
+          >
+            <View className="mb-10">
+              <View className="w-16 h-16 bg-blue-50 rounded-2xl items-center justify-center mb-4 border border-blue-100">
+                <Ionicons name="person" size={32} color="#3B82F6" />
+              </View>
+              <Text className="text-slate-900 text-xl font-black">{firstName}</Text>
+              <Text className="text-slate-400 text-xs font-medium">{authData?.mobile}</Text>
+            </View>
+
+            <TouchableOpacity 
+              className="flex-row items-center py-4 border-b border-slate-50"
+              onPress={() => {
+                setMenuVisible(false);
+                onViewProfile();
+              }}
+            >
+              <View className="w-10 h-10 bg-slate-50 rounded-xl items-center justify-center mr-4">
+                <Ionicons name="person-outline" size={20} color="#3B82F6" />
+              </View>
+              <Text className="text-slate-700 font-bold">My Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="flex-row items-center py-4 border-b border-slate-50">
+              <View className="w-10 h-10 bg-slate-50 rounded-xl items-center justify-center mr-4">
+                <Ionicons name="settings-outline" size={20} color="#64748B" />
+              </View>
+              <Text className="text-slate-700 font-bold">Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="flex-row items-center py-4 border-b border-slate-50">
+              <View className="w-10 h-10 bg-slate-50 rounded-xl items-center justify-center mr-4">
+                <Ionicons name="help-circle-outline" size={20} color="#64748B" />
+              </View>
+              <Text className="text-slate-700 font-bold">Support</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="flex-row items-center mt-auto mb-10 py-4">
+              <View className="w-10 h-10 bg-red-50 rounded-xl items-center justify-center mr-4">
+                <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+              </View>
+              <Text className="text-red-500 font-bold">Sign Out</Text>
+            </TouchableOpacity>
+          </MotiView>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 
-  const NotchedCard = ({ children, style, notchColor = "#ffffff" }: any) => (
-    <View style={[styles.notchedCard, style]}>
-      <View style={[styles.notch, { backgroundColor: notchColor }]} />
-      <View style={{ flex: 1, paddingTop: 10 }}>
+  const NotchedCard = ({ children, style, notchColor = "#ffffff", colors }: any) => (
+    <View style={[styles.notchedCard, style, colors && { backgroundColor: "transparent" }]}>
+      {colors && (
+        <LinearGradient colors={colors} style={[StyleSheet.absoluteFill, { borderRadius: 32 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+      )}
+      {/* Improved Notch with smooth shoulders */}
+      <View style={[styles.notchContainer]}>
+        <View style={[styles.notchShoulder, styles.notchShoulderLeft, { backgroundColor: colors ? colors[0] : '#FFF' }]} />
+        <View style={[styles.notch, { backgroundColor: notchColor }]} />
+        <View style={[styles.notchShoulder, styles.notchShoulderRight, { backgroundColor: colors ? colors[1] : '#FFF' }]} />
+      </View>
+      
+      <View style={{ flex: 1, paddingTop: 10, zIndex: 10 }}>
         {children}
       </View>
     </View>
@@ -181,13 +254,26 @@ export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails }: 
                   parallaxScrollingOffset: 50,
                 }}
                 renderItem={({ item }: { item: any }) => (
-                  <NotchedCard style={[styles.mainStatCard, { backgroundColor: "#3B82F6", marginHorizontal: 0 }]} notchColor="#EFF6FF">
+                  <TouchableOpacity 
+                    onPress={() => onViewDetails(item.id)}
+                    activeOpacity={0.9}
+                  >
+                    <NotchedCard 
+                      style={[styles.mainStatCard, { marginHorizontal: 0 }]} 
+                      colors={["#3B82F6", "#2563EB"]}
+                      notchColor="#EFF6FF"
+                    >
+                    <View className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full" />
+                    <View className="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-400/20 rounded-full" />
+                    
                     <View className="flex-row justify-between items-start mb-2">
                       <View className="flex-1 pr-4">
                         <Text style={[styles.cardLabel, { color: "#FFF", fontSize: 14 }]}>Personal Loan</Text>
-                        <Text style={[styles.cardSubLabel, { color: "rgba(255,255,255,0.8)", fontSize: 11 }]}>
-                          ID: {item.id || 'N/A'} • {item.applicationStatus}
-                        </Text>
+                        <View className="bg-white/20 self-start px-2 py-0.5 rounded-md mt-1">
+                          <Text className="text-white text-[9px] font-black uppercase tracking-widest">
+                            {item.applicationStatus}
+                          </Text>
+                        </View>
                       </View>
                       <View style={[styles.swapButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
                         <Ionicons name="card" size={18} color="#FFF" />
@@ -195,23 +281,30 @@ export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails }: 
                     </View>
 
                     <View className="mt-2">
-                      <Text className="text-white/60 text-[10px] uppercase font-bold">Outstanding Amount</Text>
+                      <Text className="text-blue-100 text-[10px] uppercase font-black tracking-wider">Outstanding Amount</Text>
                       <Text className="text-white text-3xl font-black">{formatAmount(item.requestedAmount)}</Text>
                     </View>
 
                     <View className="flex-row items-center justify-between mt-auto">
                       <View>
-                        <Text className="text-white/60 text-[10px] uppercase font-bold">Next EMI</Text>
+                        <Text className="text-blue-100 text-[10px] uppercase font-black tracking-wider">Next EMI</Text>
                         <Text className="text-white text-xs font-bold">₹{(item.requestedAmount * 0.05).toFixed(0)} • 15 May</Text>
                       </View>
-                      <TouchableOpacity
-                        className="bg-orange-500 px-6 py-2.5 rounded-2xl shadow-lg shadow-orange-300"
-                        activeOpacity={0.8}
-                      >
-                        <Text className="text-white text-xs font-black uppercase tracking-wider">Repay Now</Text>
-                      </TouchableOpacity>
+                      {item.applicationStatus === "DISBURSED" && (
+                        <TouchableOpacity
+                          className="bg-white px-6 py-2.5 rounded-2xl shadow-lg shadow-black/10 flex-row items-center"
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            onViewDetails(item.id, true);
+                          }}
+                        >
+                          <Text className="text-blue-600 text-xs font-black uppercase tracking-wider">Repay Now</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </NotchedCard>
+                </TouchableOpacity>
                 )}
               />
             ) : (
@@ -276,7 +369,13 @@ export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails }: 
                 </View>
               ) : schemes.length > 0 ? (
                 schemes.slice(0, 3).map((scheme: any, idx: number) => (
-                  <NotchedCard key={scheme.id} style={[styles.schemeSummaryCard, { backgroundColor: idx % 2 === 0 ? "#7C3AED" : "#4F46E5" }]} notchColor="#ffffff">
+                  <NotchedCard 
+                    key={scheme.id} 
+                    style={styles.schemeSummaryCard} 
+                    colors={idx % 2 === 0 ? ["#8B5CF6", "#7C3AED"] : ["#6366F1", "#4F46E5"]} 
+                    notchColor="#ffffff"
+                  >
+                    <View className="absolute -top-16 -right-16 w-32 h-32 bg-white/10 rounded-full" />
                     <TouchableOpacity
                       onPress={() => handleSelect(scheme)}
                       activeOpacity={0.9}
@@ -364,21 +463,35 @@ export const DashboardScreen = ({ onStartLoan, onSchemeSelect, onViewDetails }: 
                   onPress={() => onViewDetails(app.id)}
                 >
                   <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      <View className="bg-orange-50 p-2 rounded-xl mr-4">
-                        <Ionicons name="document-text" size={20} color="#F97316" />
+                    <View className="flex-row items-center flex-1">
+                      <View className="bg-slate-50 w-12 h-12 rounded-xl items-center justify-center mr-4 border border-slate-100">
+                        <Ionicons name="wallet" size={20} color="#3B82F6" />
                       </View>
                       <View>
-                        <Text className="text-sm font-bold text-slate-900">{formatAmount(app.requestedAmount)}</Text>
-                        <Text className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">{app.applicationStatus}</Text>
+                        <Text className="text-sm font-black text-slate-900 tracking-tight">{formatAmount(app.requestedAmount)}</Text>
+                        <View className="flex-row items-center mt-1">
+                          <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
+                          <Text className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{app.applicationStatus}</Text>
+                        </View>
                       </View>
                     </View>
-                    <View className="flex-row items-center">
-                      <View className="bg-blue-50 px-2 py-1 rounded-md mr-3">
-                        <Text className="text-blue-600 text-[8px] font-black">VIEW</Text>
+                    {app.applicationStatus === "DISBURSED" ? (
+                      <TouchableOpacity 
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          onViewDetails(app.id, true);
+                        }}
+                        className="bg-blue-600 px-4 py-2 rounded-xl flex-row items-center shadow-sm shadow-blue-200"
+                      >
+                        <Text className="text-white text-[9px] font-black uppercase tracking-widest mr-1">Repay</Text>
+                        <Ionicons name="wallet-outline" size={12} color="#FFF" />
+                      </TouchableOpacity>
+                    ) : (
+                      <View className="bg-slate-50 px-3 py-2 rounded-xl flex-row items-center border border-slate-100">
+                        <Text className="text-slate-600 text-[9px] font-black uppercase tracking-widest mr-1">View</Text>
+                        <Ionicons name="arrow-forward" size={12} color="#64748B" />
                       </View>
-                      <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-                    </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               ))
@@ -430,19 +543,37 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     padding: 24,
     position: "relative",
-    overflow: "visible", // Critical for the notch effect
+    overflow: "visible", 
+  },
+  notchContainer: {
+    position: "absolute",
+    top: -1,
+    left: 0,
+    right: 0,
+    height: 30,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    zIndex: 20,
   },
   notch: {
-    position: "absolute",
-    top: -15, // Lifted up to show the top rounded corners as 'shoulders'
-    alignSelf: "center",
-    width: 140,
-    height: 35,
-    borderTopLeftRadius: 15, // Outward curve effect
-    borderTopRightRadius: 15, // Outward curve effect
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
-    zIndex: 1,
+    width: 120,
+    height: 22,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  notchShoulder: {
+    width: 16,
+    height: 16,
+    marginTop: 0,
+  },
+  notchShoulderLeft: {
+    borderTopRightRadius: 16,
+    marginRight: -0.5, // Bleed over to prevent gap
+  },
+  notchShoulderRight: {
+    borderTopLeftRadius: 16,
+    marginLeft: -0.5, // Bleed over to prevent gap
   },
   mainStatCard: {
     height: 200,
@@ -548,5 +679,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "#F1F5F9",
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
   },
 });

@@ -13,7 +13,7 @@ const { width } = Dimensions.get("window");
 
 import { useAuthStore } from "../store/authStore";
 import { useLoanStore } from "@/store/loanStore";
-import { createApplication, createCustomer } from "@/services/api";
+import { createApplication, createCustomer, updateApplication, updateStepStatus } from "@/services/api";
 
 export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) => {
   const [hasConsented, setHasConsented] = useState(false);
@@ -21,7 +21,7 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const loanStoreState = useLoanStore();
-  const { requestedAmount, interest, tenure, emi, reset, customerInfo, setCustomerId } = loanStoreState;
+  const { requestedAmount, interest, tenure, emi, reset, customerInfo, setCustomerId, applicationId } = loanStoreState;
   const { mobile: verifiedMobile, authData, setCustomerId: setAuthCustomerId } = useAuthStore();
 
   const handleDownload = () => {
@@ -48,7 +48,7 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
           id: finalCustomerId || undefined, 
           applicantName: customerInfo.applicantName,
           mobileNumber: verifiedMobile || customerInfo.mobileNumber,
-          voterId: customerInfo.voterId,
+          voterId: customerInfo.panNumber,
           gender: "MALE",
           leadSource: 'HEYLON',
           leadStatus: "ACTIVE",
@@ -88,8 +88,9 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
       setCustomerId(Number(finalCustomerId));
       setAuthCustomerId(Number(finalCustomerId)); // Persist to authStore for dashboard
 
-      // 2. Create Application with the final Customer ID
+      // 2. Update Application with the final Customer ID and other details
       const applicationPayload = {
+        id: applicationId,
         requestedAmount: loanStoreState.requestedAmount,
         disbursalAmount: loanStoreState.disbursalAmount,
         emi: loanStoreState.emi,
@@ -107,8 +108,14 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
         })),
       };
 
-      console.log('[API] Submitting Application:', JSON.stringify(applicationPayload, null, 2));
-      await createApplication(applicationPayload);
+      console.log('[API] Updating Application (PATCH):', JSON.stringify(applicationPayload, null, 2));
+      await updateApplication(applicationPayload);
+
+      // 3. Mark agreement as completed
+      if (applicationId) {
+        await updateStepStatus(applicationId, { loanAgreementCompleted: true });
+        console.log('[Sanction] Step status updated: loanAgreementCompleted = true');
+      }
 
       Alert.alert(
         "Application Successful",

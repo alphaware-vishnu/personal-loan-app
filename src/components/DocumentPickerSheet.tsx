@@ -32,6 +32,8 @@ export const DocumentPickerSheet = ({
       return;
     }
 
+    onClose(); // Close modal before launching native UI to prevent dimming
+
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -40,11 +42,11 @@ export const DocumentPickerSheet = ({
 
     if (!result.canceled) {
       onSelect(result.assets[0].uri, "image");
-      onClose();
     }
   };
 
   const handleGallery = async () => {
+    onClose(); // Close modal before launching native UI
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -53,11 +55,11 @@ export const DocumentPickerSheet = ({
 
     if (!result.canceled) {
       onSelect(result.assets[0].uri, "image");
-      onClose();
     }
   };
 
   const handleFile = async () => {
+    onClose(); // Close modal before launching native UI
     const result = await DocumentPicker.getDocumentAsync({
       type: ["image/*", "application/pdf"],
       copyToCacheDirectory: true,
@@ -65,7 +67,6 @@ export const DocumentPickerSheet = ({
 
     if (!result.canceled) {
       onSelect(result.assets[0].uri, result.assets[0].mimeType || "file");
-      onClose();
     }
   };
 

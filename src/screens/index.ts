@@ -1,3 +1,11 @@
-// Screens barrel export
-// Add screen exports here as you build them
-export {};
+export * from './OnboardingScreen';
+export * from './AuthScreen';
+export * from './PermissionsScreen';
+export * from './DashboardScreen';
+export * from './KycScreen';
+export * from './VerificationScreen';
+export * from './CreditScoreScreen';
+export * from './AddressFormScreen';
+export * from './BankFormScreen';
+export * from './SanctionLetterScreen';
+export * from './ApplicationDetailsScreen';

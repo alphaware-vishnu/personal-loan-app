@@ -36,7 +36,7 @@ export interface CustomerBank {
 export interface CustomerInfo {
   applicantName: string;
   mobileNumber: string;
-  voterId: string;
+  panNumber: string;
   customerBanks: CustomerBank[];
 }
 
@@ -50,7 +50,10 @@ export interface LoanApplicationState {
   schemeMasterId: number | null;
   repaymentFrequency: string;
   customerId: number | null;
+  applicationId: number | null;
+  productId: number | null;
   applicationDocuments: ApplicationDocument[];
+  selectedScheme: any | null;
 
   // Customer Data
   customerInfo: CustomerInfo;
@@ -73,13 +76,14 @@ export interface LoanApplicationState {
   addCustomerBank: (bank: CustomerBank) => void;
   hydrateCustomerData: (data: any) => void;
   setCustomerId: (id: number) => void;
+  setApplicationData: (applicationId: number, productId: number) => void;
   reset: () => void;
 }
 
 const initialCustomerInfo: CustomerInfo = {
   applicantName: '',
   mobileNumber: '',
-  voterId: '',
+  panNumber: '',
   customerBanks: [],
 };
 
@@ -92,13 +96,17 @@ export const useLoanStore = create<LoanApplicationState>((set) => ({
   schemeMasterId: null,
   repaymentFrequency: 'MONTHLY',
   customerId: null,
+  applicationId: null,
+  productId: null,
   applicationDocuments: [],
+  selectedScheme: null,
   customerInfo: initialCustomerInfo,
   documentRequirements: [],
   uploadedDocs: {},
   isExistingCustomer: false,
 
   setScheme: (scheme) => set({
+    selectedScheme: scheme,
     schemeMasterId: scheme.id,
     requestedAmount: scheme.loanAmount,
     tenure: scheme.defaultTenure,
@@ -149,12 +157,17 @@ export const useLoanStore = create<LoanApplicationState>((set) => ({
     customerInfo: {
       applicantName: data.applicantName || '',
       mobileNumber: data.mobileNumber || '',
-      voterId: data.voterId || '',
+      panNumber: data.voterId || '', // Map backend voterId to panNumber
       customerBanks: data.customerBanks || [],
     }
   }),
 
   setCustomerId: (id) => set({ customerId: id }),
+  
+  setApplicationData: (applicationId, productId) => set({ 
+    applicationId, 
+    productId 
+  }),
 
   reset: () => set({
     requestedAmount: 0,
@@ -165,7 +178,10 @@ export const useLoanStore = create<LoanApplicationState>((set) => ({
     schemeMasterId: null,
     repaymentFrequency: 'MONTHLY',
     customerId: null,
+    applicationId: null,
+    productId: null,
     applicationDocuments: [],
+    selectedScheme: null,
     customerInfo: initialCustomerInfo,
     documentRequirements: [],
     uploadedDocs: {},

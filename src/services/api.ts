@@ -10,7 +10,8 @@ declare module 'axios' {
 
 // Replace with your actual API base URL
 // const BASE_URL = 'http://192.168.1.21:9096/api/lms';
-const BASE_URL = 'http://192.168.1.32:9096/api/lms';
+// const BASE_URL = 'http://192.168.1.32:9096/api/lms';
+const BASE_URL = 'https://apipersonalproduct.alphawarenext.com/api/lms';
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -119,6 +120,11 @@ export const createCustomer = (payload: any) => {
   return api.patch(`/customer`, payload);
 };
 
+export const calculateEmi = (payload: any) => {
+  return api.post(`/application/calculate/emi`, payload);
+};
+
+
 export const getCustomerApplications = (customerId: number) => {
   return api.get(`/application/customer/${customerId}`);
 };
@@ -131,7 +137,30 @@ export const getCustomerById = (customerId: number) => {
   return api.get(`/customer/${customerId}`);
 };
 
+export const updateStepStatus = (applicationId: number, status: { 
+  rulesEngineCompleted?: boolean; 
+  bankVerificationCompleted?: boolean; 
+  loanAgreementCompleted?: boolean 
+}) => {
+  return api.patch(`/application/${applicationId}/step-status`, status);
+};
 
+export const getLoanAccountById = (id: number) => {
+  return api.get(`/account/${id}`);
+};
 
+export const createRepayment = (data: {
+  amount: number;
+  paymentMode: string;
+  remark: string;
+  loanAccountId: number;
+  emiId: number;
+  refNo: string;
+  discount: number;
+}) => {
+  return api.post(`/account/repayment`, data);
+};
 
-
+export const updateApplication = (data: any) => {
+  return api.patch('/application', data);
+};

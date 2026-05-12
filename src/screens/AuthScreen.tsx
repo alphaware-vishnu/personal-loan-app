@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Image,
   Dimensions,
   Pressable,
   StyleSheet,
@@ -19,6 +18,8 @@ import { sendOtp, verifyOtp, getCustomerById } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import { useLoanStore } from "../store/loanStore";
 import { QueryError } from "@/types/query.type";
+import { Feather } from "@expo/vector-icons";
+import { MotiView } from "../components/Motion";
 
 const { width } = Dimensions.get("window");
 const OTP_LENGTH = 4;
@@ -45,13 +46,16 @@ const MobileScreen = ({ mobile, setMobile, onSubmit }: MobileScreenProps) => {
           keyboardShouldPersistTaps="handled"
         >
           <View className="flex-1 px-7">
-            {/* Illustration */}
-            <View className="items-center mt-12 mb-4">
-              <Image
-                source={require("../../assets/auth_mobile_sketch.png")}
-                style={{ width: width * 0.55, height: 180 }}
-                resizeMode="contain"
-              />
+            {/* Illustration Icon */}
+            <View className="items-center mt-12 mb-10">
+              <MotiView
+                from={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", duration: 1500 }}
+                className="w-32 h-32 rounded-full bg-orange-50 items-center justify-center border border-orange-100 shadow-sm"
+              >
+                <Feather name="smartphone" size={56} color="#f97316" />
+              </MotiView>
             </View>
 
             {/* Title */}
@@ -246,13 +250,16 @@ const OtpScreen = ({ mobile, onBack, onVerify }: OtpScreenProps) => {
               <Text className="text-xl text-slate-700">←</Text>
             </TouchableOpacity>
 
-            {/* Illustration */}
-            <View className="items-center mt-2 mb-4">
-              <Image
-                source={require("../../assets/auth_otp_sketch.png")}
-                style={{ width: width * 0.5, height: 160 }}
-                resizeMode="contain"
-              />
+            {/* Illustration Icon */}
+            <View className="items-center mt-8 mb-10">
+              <MotiView
+                from={{ scale: 0.5, opacity: 0, rotate: "-15deg" }}
+                animate={{ scale: 1, opacity: 1, rotate: "0deg" }}
+                transition={{ type: "spring", duration: 1500 }}
+                className="w-32 h-32 rounded-full bg-orange-50 items-center justify-center border border-orange-100 shadow-sm"
+              >
+                <Feather name="shield" size={56} color="#f97316" />
+              </MotiView>
             </View>
 
             {/* Title */}

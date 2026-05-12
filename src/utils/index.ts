@@ -15,3 +15,10 @@ export const formatLabel = (label: string): string => {
     .replace(/voter id/gi, 'PAN Card')
     .replace(/voter/gi, 'PAN Card');
 };
+/**
+ * Sanitizes name input by removing numbers and special characters.
+ * Allows only alphabets and spaces.
+ */
+export const cleanNameInput = (text: string): string => {
+  return text.replace(/[^a-zA-Z\s]/g, "");
+};

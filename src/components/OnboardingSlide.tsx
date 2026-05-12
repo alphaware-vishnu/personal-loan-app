@@ -1,7 +1,7 @@
 import React from "react";
-import { View, Text, Image, Dimensions, StyleSheet, Platform } from "react-native";
+import { View, Text, Dimensions, StyleSheet, Platform } from "react-native";
 import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
 
@@ -17,7 +17,7 @@ interface FloatingIcon {
 interface OnboardingSlideProps {
   title: string;
   description: string;
-  image: any;
+  icon: keyof typeof Feather.glyphMap;
   highlightWord?: string;
   bgColor?: string;
   textColor?: string;
@@ -28,7 +28,7 @@ interface OnboardingSlideProps {
 export const OnboardingSlide = ({
   title,
   description,
-  image,
+  icon,
   highlightWord,
   bgColor = "#FFFFFF",
   textColor = "#111827",
@@ -138,7 +138,7 @@ export const OnboardingSlide = ({
               }}
               style={[styles.imagePulseRing, { backgroundColor: primaryColor }]}
             />
-            <Image source={image} style={styles.image} resizeMode="cover" />
+            <Feather name={icon} size={50} color={primaryColor} />
           </MotiView>
         </MotiView>
       </View>

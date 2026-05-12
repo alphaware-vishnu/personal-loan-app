@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import LottieView from "lottie-react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./src/services/queryClient";
+import Toast from 'react-native-toast-message';
 
 import { MotiView, MotiText } from "./src/components/Motion";
 import { LoanCard } from "@/components/LoanCard";
@@ -22,17 +23,23 @@ import { VerificationScreen } from "@/screens/VerificationScreen";
 import { BankFormScreen } from "@/screens/BankFormScreen";
 import { SanctionLetterScreen } from "@/screens/SanctionLetterScreen";
 import { ApplicationDetailsScreen } from "@/screens/ApplicationDetailsScreen";
+import { CreditScoreScreen } from "@/screens/CreditScoreScreen";
+import { ProfileScreen } from "@/screens/ProfileScreen";
+import { useAuthStore } from "@/store/authStore";
+
 import NetworkLogger, { startNetworkLogging } from "react-native-network-logger";
 import { TouchableOpacity, Modal, SafeAreaView } from "react-native";
 
 startNetworkLogging();
 
-export type Flow = "onboarding" | "auth" | "permissions" | "dashboard" | "application" | "kyc" | "verifying" | "address" | "bankDetails" | "sanctionLetter" | "applicationDetails";
+export type Flow = "onboarding" | "auth" | "permissions" | "dashboard" | "application" | "kyc" | "verifying" | "creditScore" | "address" | "bankDetails" | "sanctionLetter" | "applicationDetails" | "profile";
+
 
 function AppContent() {
   const [history, setHistory] = useState<Flow[]>(["onboarding"]);
   const [selectedScheme, setSelectedScheme] = useState<any>(null);
-  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+  const [selectedAutoRepay, setSelectedAutoRepay] = useState<boolean>(false);
   const [showLogger, setShowLogger] = useState(false);
 
   // ... keeping rest of screen logic intact ...
@@ -77,14 +84,14 @@ function AppContent() {
 
     if (flow === "auth") {
       return (
-        <AuthScreen 
+        <AuthScreen
           onVerify={(isExisting) => {
             if (isExisting) {
               push("dashboard");
             } else {
               push("permissions");
             }
-          }} 
+          }}
         />
       );
     }
@@ -101,10 +108,21 @@ function AppContent() {
             setSelectedScheme(scheme);
             push("kyc");
           }}
-          onViewDetails={(appId) => {
+          onViewDetails={(appId, autoRepay) => {
             setSelectedApplicationId(appId);
+            setSelectedAutoRepay(!!autoRepay);
             push("applicationDetails");
           }}
+          onViewProfile={() => push("profile")}
+        />
+      );
+    }
+
+    if (flow === "profile") {
+      return (
+        <ProfileScreen
+          customerId={useAuthStore.getState().authData?.customerId!}
+          onBack={pop}
         />
       );
     }
@@ -113,7 +131,11 @@ function AppContent() {
       return (
         <ApplicationDetailsScreen
           applicationId={selectedApplicationId!}
-          onBack={pop}
+          autoOpenRepay={selectedAutoRepay}
+          onBack={() => {
+            setSelectedAutoRepay(false);
+            pop();
+          }}
         />
       );
     }
@@ -130,14 +152,25 @@ function AppContent() {
     if (flow === "verifying") {
       return (
         <VerificationScreen
-          onComplete={() => replace("address")}
+          onComplete={() => replace("creditScore")}
+
           title="Verifying Identity"
           message="Our automated system is verifying your document photos. This usually takes a few seconds."
         />
       );
     }
 
+    if (flow === "creditScore") {
+      return (
+        <CreditScoreScreen
+          onNext={() => replace("address")}
+          onBack={pop}
+        />
+      );
+    }
+
     if (flow === "address") {
+
       return (
         <AddressFormScreen
           onNext={() => replace("bankDetails")}
@@ -217,6 +250,7 @@ function AppContent() {
         </SafeAreaView>
       </Modal>
 
+
     </GestureHandlerRootView>
   );
 }
@@ -225,6 +259,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
+      <Toast />
     </QueryClientProvider>
   );
 }

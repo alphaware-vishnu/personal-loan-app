@@ -13,19 +13,19 @@ const DATA = [
     title: "Find perfect loan in your area",
     highlightWord: "loan",
     description: "We will help you with finding best loan scheme in your area. You can set your preferences and more!",
-    image: require("../../assets/start_loan_sketch.png"),
+    icon: "map-pin" as const,
   },
   {
     title: "Quick and secure processing",
     highlightWord: "secure",
     description: "Your data is encrypted and approvals are lightning fast for ultimate peace of mind.",
-    image: require("../../assets/security_blue_sketch.png"),
+    icon: "shield" as const,
   },
   {
     title: "Start saving with high rewards",
     highlightWord: "saving",
     description: "Earn and spend points like cash with our most popular high-limit schemes.",
-    image: require("../../assets/points_blue_sketch.png"),
+    icon: "gift" as const,
   },
 ];
 
@@ -60,7 +60,7 @@ export const OnboardingScreen = ({ onStart }: OnboardingScreenProps) => {
               title={item.title}
               highlightWord={item.highlightWord}
               description={item.description}
-              image={item.image}
+              icon={item.icon}
               primaryColor={THEME_COLOR}
               bgColor="#FFFFFF"
               textColor="#111827"
