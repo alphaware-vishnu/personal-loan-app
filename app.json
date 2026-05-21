@@ -45,6 +45,9 @@
       "eas": {
         "projectId": "1073fe6f-fd69-44ab-8443-459559807653"
       }
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

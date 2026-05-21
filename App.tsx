@@ -7,14 +7,15 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import LottieView from "lottie-react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./src/services/queryClient";
-import Toast from 'react-native-toast-message';
 
 import { MotiView, MotiText } from "./src/components/Motion";
 import { LoanCard } from "@/components/LoanCard";
-import { OnboardingScreen } from "@/screens/OnboardingScreen";
-import { AuthScreen } from "@/screens/AuthScreen";
-import { PermissionsScreen } from "@/screens/PermissionsScreen";
-import { DashboardScreen } from "@/screens/DashboardScreen";
+import { SplashScreen } from "@/screens/onboarding/SplashScreen";
+import { IntroCarouselScreen } from "@/screens/onboarding/IntroCarouselScreen";
+import { PermissionsScreen } from "@/screens/onboarding/PermissionsScreen";
+import { MobileInputScreen } from "@/screens/auth/MobileInputScreen";
+import { OtpVerificationScreen } from "@/screens/auth/OtpVerificationScreen";
+import { DashboardScreen } from "@/screens/dashboard/DashboardScreen";
 import { ApplicationFormScreen } from "@/screens/ApplicationFormScreen";
 
 import { AddressFormScreen } from "@/screens/AddressFormScreen";
@@ -24,19 +25,74 @@ import { BankFormScreen } from "@/screens/BankFormScreen";
 import { SanctionLetterScreen } from "@/screens/SanctionLetterScreen";
 import { ApplicationDetailsScreen } from "@/screens/ApplicationDetailsScreen";
 import { CreditScoreScreen } from "@/screens/CreditScoreScreen";
+
+// ─── New Screens (Phase 7: Finalization & Dashboard) ───
+import { BankAccountScreen } from "@/screens/bank/BankAccountScreen";
+import { AgreementScreen } from "@/screens/agreement/AgreementScreen";
+import { DisbursalScreen } from "@/screens/disbursal/DisbursalScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { useAuthStore } from "@/store/authStore";
+
+// ─── New Screens (Phase 5: Profile Setup) ───
+import { PanVerificationScreen } from "@/screens/profile/PanVerificationScreen";
+import { EmploymentTypeScreen } from "@/screens/profile/EmploymentTypeScreen";
+import { WorkAddressScreen } from "@/screens/profile/WorkAddressScreen";
+import { PersonalAddressScreen } from "@/screens/profile/PersonalAddressScreen";
+import { ProfileCompletionScreen } from "@/screens/profile/ProfileCompletionScreen";
+
+// ─── New Screens (Phase 6: Eligibility & KYC) ───
+import { IncomeInputScreen } from "@/screens/eligibility/IncomeInputScreen";
+import { BankStatementUploadScreen } from "@/screens/eligibility/BankStatementUploadScreen";
+import { EligibilityProcessingScreen } from "@/screens/eligibility/EligibilityProcessingScreen";
+import { OfferScreen } from "@/screens/eligibility/OfferScreen";
+import { AadhaarVerificationScreen } from "@/screens/kyc/AadhaarVerificationScreen";
+import { SelfieVerificationScreen } from "@/screens/kyc/SelfieVerificationScreen";
+
+// ─── Theme ───
+import { ThemeProvider } from "@/theme";
 
 import NetworkLogger, { startNetworkLogging } from "react-native-network-logger";
 import { TouchableOpacity, Modal, SafeAreaView } from "react-native";
 
 startNetworkLogging();
 
-export type Flow = "onboarding" | "auth" | "permissions" | "dashboard" | "application" | "kyc" | "verifying" | "creditScore" | "address" | "bankDetails" | "sanctionLetter" | "applicationDetails" | "profile";
+export type Flow =
+  | "splash"
+  | "introCarousel"
+  | "mobileInput"
+  | "otpVerification"
+  | "permissions"
+  | "dashboard"
+  | "application"
+  | "kyc"
+  | "verifying"
+  | "creditScore"
+  | "address"
+  | "bankDetails"
+  | "sanctionLetter"
+  | "applicationDetails"
+  | "profile"
+  // New profile setup screens
+  | "panVerification"
+  | "employmentType"
+  | "workAddress"
+  | "personalAddress"
+  | "profileCompletion"
+  // New eligibility & KYC screens
+  | "incomeInput"
+  | "bankStatementUpload"
+  | "eligibilityProcessing"
+  | "offer"
+  | "aadhaarVerification"
+  | "selfieVerification"
+  // New finalization screens
+  | "agreement"
+  | "disbursal";
 
 
 function AppContent() {
-  const [history, setHistory] = useState<Flow[]>(["onboarding"]);
+  const [history, setHistory] = useState<Flow[]>(["aadhaarVerification"]);
+  const [mobile, setMobile] = useState("");
   const [selectedScheme, setSelectedScheme] = useState<any>(null);
    const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
   const [selectedAutoRepay, setSelectedAutoRepay] = useState<boolean>(false);
@@ -78,28 +134,142 @@ function AppContent() {
   }, [history]);
 
   const renderScreen = () => {
-    if (flow === "onboarding") {
-      return <OnboardingScreen onStart={() => push("auth")} />;
+    if (flow === "splash") {
+      return <SplashScreen onFinish={(isLoggedIn) => replace(isLoggedIn ? "dashboard" : "introCarousel")} />;
     }
 
-    if (flow === "auth") {
+    if (flow === "introCarousel") {
+      return <IntroCarouselScreen onStart={() => push("mobileInput")} />;
+    }
+
+    if (flow === "mobileInput") {
       return (
-        <AuthScreen
+        <MobileInputScreen
+          mobile={mobile}
+          setMobile={setMobile}
+          onNext={() => push("otpVerification")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "otpVerification") {
+      return (
+        <OtpVerificationScreen
+          mobile={mobile}
+          onBack={pop}
           onVerify={(isExisting) => {
-            if (isExisting) {
-              push("dashboard");
-            } else {
-              push("permissions");
-            }
+            replace(isExisting ? "dashboard" : "permissions");
           }}
         />
       );
     }
 
     if (flow === "permissions") {
-      return <PermissionsScreen onContinue={() => push("dashboard")} />;
+      return <PermissionsScreen onContinue={() => push("panVerification")} />;
     }
 
+    // ─── New Profile Setup Flow (Step 1) ───
+    if (flow === "panVerification") {
+      return (
+        <PanVerificationScreen
+          onNext={() => push("employmentType")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "employmentType") {
+      return (
+        <EmploymentTypeScreen
+          onNext={() => push("workAddress")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "workAddress") {
+      return (
+        <WorkAddressScreen
+          onNext={() => push("personalAddress")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "personalAddress") {
+      return (
+        <PersonalAddressScreen
+          onNext={() => push("profileCompletion")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "profileCompletion") {
+      return (
+        <ProfileCompletionScreen
+          onContinue={() => replace("incomeInput")}
+        />
+      );
+    }
+
+    // ─── New Eligibility & KYC Flow (Step 2 & 3) ───
+    if (flow === "incomeInput") {
+      return (
+        <IncomeInputScreen
+          onNext={() => push("bankStatementUpload")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "bankStatementUpload") {
+      return (
+        <BankStatementUploadScreen
+          onNext={() => replace("eligibilityProcessing")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "eligibilityProcessing") {
+      return (
+        <EligibilityProcessingScreen
+          onComplete={() => replace("offer")}
+        />
+      );
+    }
+
+    if (flow === "offer") {
+      return (
+        <OfferScreen
+          onNext={() => push("aadhaarVerification")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "aadhaarVerification") {
+      return (
+        <AadhaarVerificationScreen
+          onNext={() => push("selfieVerification")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "selfieVerification") {
+      return (
+        <SelfieVerificationScreen
+          onNext={() => replace("bankDetails")}
+          onBack={pop}
+        />
+      );
+    }
+
+
+    // ─── Existing Screens ───
     if (flow === "dashboard") {
       return (
         <DashboardScreen
@@ -114,6 +284,7 @@ function AppContent() {
             push("applicationDetails");
           }}
           onViewProfile={() => push("profile")}
+          onResumeOnboarding={(screenKey) => push(screenKey)}
         />
       );
     }
@@ -181,9 +352,26 @@ function AppContent() {
 
     if (flow === "bankDetails") {
       return (
-        <BankFormScreen
-          onSubmit={() => replace("sanctionLetter")}
+        <BankAccountScreen
+          onNext={() => replace("agreement")}
           onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "agreement") {
+      return (
+        <AgreementScreen
+          onNext={() => replace("disbursal")}
+          onBack={pop}
+        />
+      );
+    }
+
+    if (flow === "disbursal") {
+      return (
+        <DisbursalScreen
+          onComplete={() => replace("dashboard")}
         />
       );
     }
@@ -210,7 +398,7 @@ function AppContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style={flow === "onboarding" ? "auto" : "dark"} />
+      <StatusBar style={flow === "splash" || flow === "introCarousel" ? "auto" : "dark"} />
       {renderScreen()}
 
       {/* Floating Debug Button */}
@@ -255,12 +443,66 @@ function AppContent() {
   );
 }
 
+import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
+
+const toastConfig = {
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#22c55e' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: 'bold'
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#64748b'
+      }}
+      text2NumberOfLines={3}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{ borderLeftColor: '#ef4444' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: 'bold'
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#64748b'
+      }}
+      text2NumberOfLines={5}
+    />
+  ),
+  info: (props: any) => (
+    <InfoToast
+      {...props}
+      style={{ borderLeftColor: '#3b82f6' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: 'bold'
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#64748b'
+      }}
+      text2NumberOfLines={3}
+    />
+  )
+};
+
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-      <Toast />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+        <Toast config={toastConfig} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
-

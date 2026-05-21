@@ -4,12 +4,12 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
   Dimensions,
   Image,
   Platform,
 } from "react-native";
+import LottieView from 'lottie-react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { MotiView } from "moti";
@@ -38,7 +38,13 @@ export const ProfileScreen = ({ customerId, onBack }: ProfileScreenProps) => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#2563EB" />
+        <LottieView
+          source={require('../../assets/loader.json')}
+          autoPlay
+          loop
+          style={{ width: 100, height: 100 }}
+          resizeMode="contain"
+        />
         <Text className="mt-4 text-slate-500 font-medium">Fetching Profile...</Text>
       </View>
     );
@@ -174,9 +180,7 @@ export const ProfileScreen = ({ customerId, onBack }: ProfileScreenProps) => {
                 <View className="flex-1">
                   <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Current Address</Text>
                   <Text className="text-slate-900 font-bold text-sm leading-5">
-                    {customer.address?.house}, {customer.address?.street}{"\n"}
-                    {customer.address?.talukaName}, {customer.address?.districtName}{"\n"}
-                    {customer.address?.stateName} - {customer.address?.pinCode}
+                    {customer.address?.house}, {customer.address?.street}, {customer.address?.talukaName}, {customer.address?.districtName}, {customer.address?.stateName} - {customer.address?.pinCode}
                   </Text>
                 </View>
               </View>

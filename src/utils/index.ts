@@ -22,3 +22,10 @@ export const formatLabel = (label: string): string => {
 export const cleanNameInput = (text: string): string => {
   return text.replace(/[^a-zA-Z\s]/g, "");
 };
+
+// Export security utilities
+export * from './security/secureStorage';
+export * from './security/encryption';
+export * from './security/deviceInfo';
+export * from './security/sessionManager';
+

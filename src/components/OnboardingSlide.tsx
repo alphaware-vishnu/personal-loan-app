@@ -111,7 +111,7 @@ export const OnboardingSlide = ({
               }}
               style={[
                 styles.floatingIconWrapper,
-                
+                { top: icon.top as any, left: icon.left as any }
               ]}
             >
               <View style={[styles.iconCircle, { shadowColor: icon.color }]}>

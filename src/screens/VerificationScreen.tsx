@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { MotiView, MotiText } from "../components/Motion";
 import LottieView from "lottie-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,6 +7,8 @@ import { useLoanStore } from "../store/loanStore";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { Button } from "../components/Button";
 import { createApplication } from "../services/api";
+import { useMutation } from "@tanstack/react-query";
+import Toast from "react-native-toast-message";
 
 interface VerificationScreenProps {
   onComplete: () => void;
@@ -21,7 +23,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
 }) => {
   const [isVerified, setIsVerified] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const { 
     emi, 
     disbursalAmount, 
@@ -33,40 +35,44 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
     setApplicationData
   } = useLoanStore();
 
-  const handleContinue = async () => {
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        customerId: String(customerId),
-        requestedAmount: String(requestedAmount),
-        schemeMasterId: String(schemeMasterId),
-        emi: String(emi),
-        repaymentFrequency: repaymentFrequency === 'MONTHLY' ? "2" : "2",
-        disbursalAmount: String(disbursalAmount),
-        applicationDocuments: applicationDocuments.map(doc => ({
-          categoryId: doc.categoryId,
-          documentTypeId: doc.documentTypeId,
-          awsDocumentIds: doc.awsDocumentIds,
-          documentNumber: doc.documentNumber
-        }))
-      };
-
-      console.log('[Verification] Creating application with payload:', JSON.stringify(payload, null, 2));
-      const response = await createApplication(payload);
-      
+  const createApplicationMutation = useMutation({
+    mutationFn: (payload: any) => createApplication(payload),
+    onSuccess: (response) => {
       const appData = response.data?.data || response.data;
       if (appData?.applicationId) {
         setApplicationData(appData.applicationId, appData.productId);
       }
-
       onComplete();
-    } catch (error: any) {
-      console.error('[Verification] Error creating application:', error?.response?.data || error.message);
-      // For now, proceed to next screen anyway to not block user
-      onComplete();
-    } finally {
-      setIsSubmitting(false);
+    },
+    onError: (error: any) => {
+      const errorMsg = error.response?.data?.message || "Failed to create application";
+      Toast.show({
+        type: 'error',
+        text1: 'Submission Failed',
+        text2: errorMsg,
+        position: 'top'
+      });
+      // Fallback to proceed if desired, or stay on screen
+      // onComplete(); 
     }
+  });
+
+  const handleContinue = () => {
+    const payload = {
+      customerId: String(customerId),
+      requestedAmount: String(requestedAmount),
+      schemeMasterId: String(schemeMasterId),
+      emi: String(emi),
+      repaymentFrequency: repaymentFrequency === 'MONTHLY' ? "2" : "2",
+      disbursalAmount: String(disbursalAmount),
+      applicationDocuments: applicationDocuments.map(doc => ({
+        categoryId: doc.categoryId,
+        documentTypeId: doc.documentTypeId,
+        awsDocumentIds: doc.awsDocumentIds,
+        documentNumber: doc.documentNumber
+      }))
+    };
+    createApplicationMutation.mutate(payload);
   };
 
   const steps = [
@@ -214,16 +220,22 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
                 variant="primary" 
                 size="lg" 
                 onPress={handleContinue}
-                loading={isSubmitting}
+                loading={createApplicationMutation.isPending}
               />
             </View>
           </MotiView>
         )}
 
         {!isVerified && (
-          <View className="absolute bottom-20 items-center w-full">
-            <ActivityIndicator color="#172554" size="small" />
-            <Text className="text-slate-400 text-xs font-medium mt-4 uppercase tracking-widest">
+          <View className="absolute bottom-16 items-center w-full">
+            <LottieView
+              source={require('../../assets/loader.json')}
+              autoPlay
+              loop
+              style={{ width: 70, height: 70 }}
+              resizeMode="contain"
+            />
+            <Text className="text-slate-400 text-xs font-medium mt-2 uppercase tracking-widest">
               Fetching data from secure servers...
             </Text>
           </View>

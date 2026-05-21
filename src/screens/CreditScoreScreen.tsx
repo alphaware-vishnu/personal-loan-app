@@ -9,6 +9,8 @@ import LottieView from "lottie-react-native";
 import { useLoanStore } from "../store/loanStore";
 import { ScrollView } from "react-native-gesture-handler";
 import { updateStepStatus } from "../services/api";
+import { useMutation } from "@tanstack/react-query";
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get("window");
 const GAUGE_SIZE = 300;
@@ -23,7 +25,6 @@ export const CreditScoreScreen: React.FC<CreditScoreScreenProps> = ({ onNext, on
   const [isEvaluating, setIsEvaluating] = useState(true);
   const [score, setScore] = useState(0);
   const [percentage, setPercentage] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { customerInfo, applicationId } = useLoanStore();
 
   const firstName = customerInfo.applicantName.split(" ")[0] || "Guest";
@@ -120,19 +121,30 @@ export const CreditScoreScreen: React.FC<CreditScoreScreenProps> = ({ onNext, on
     ));
   };
 
-  const handleContinue = async () => {
+  const statusMutation = useMutation({
+    mutationFn: (data: { id: number; status: any }) => updateStepStatus(data.id, data.status),
+    onSuccess: () => {
+      onNext();
+    },
+    onError: (error: any) => {
+      console.error('[CreditScore] Failed to update step status on continue:', error);
+      const errorMsg = error.response?.data?.message || "Failed to update application status";
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: errorMsg,
+        position: 'top'
+      });
+      onNext(); // Proceed anyway
+    }
+  });
+
+  const handleContinue = () => {
     if (applicationId) {
-      setIsSubmitting(true);
-      try {
-        await updateStepStatus(applicationId, { rulesEngineCompleted: true });
-        console.log('[CreditScore] Step status updated on continue: rulesEngineCompleted = true');
-        onNext();
-      } catch (error) {
-        console.error('[CreditScore] Failed to update step status on continue:', error);
-        onNext(); // Proceed anyway
-      } finally {
-        setIsSubmitting(false);
-      }
+      statusMutation.mutate({ 
+        id: applicationId, 
+        status: { rulesEngineCompleted: true } 
+      });
     } else {
       onNext();
     }
@@ -306,8 +318,8 @@ export const CreditScoreScreen: React.FC<CreditScoreScreenProps> = ({ onNext, on
                 variant="primary" 
                 size="lg" 
                 onPress={handleContinue}
-                loading={isSubmitting}
-                icon={!isSubmitting ? <Ionicons name="arrow-forward" size={20} color="white" /> : undefined}
+                loading={statusMutation.isPending}
+                icon={!statusMutation.isPending ? <Ionicons name="arrow-forward" size={20} color="white" /> : undefined}
               />
               <Text className="text-center text-slate-400 text-[10px] mt-4 font-medium uppercase tracking-widest">
                 Data provided by CIBIL & Equifax

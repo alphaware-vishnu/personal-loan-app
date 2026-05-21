@@ -4,6 +4,7 @@ import { MotiView } from "../components/Motion";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { Button } from "../components/Button";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useLoanStore } from "../store/loanStore";
@@ -36,7 +37,6 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
     setCalculationResults
   } = useLoanStore();
 
-  const [isLoading, setIsLoading] = useState(false);
   const verifiedMobile = useAuthStore(state => state.mobile);
 
   // Find relevant categories and types from dynamic requirements
@@ -59,6 +59,30 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
     hasConsented: Yup.boolean().oneOf([true], "Consent is required"),
   });
 
+  const kycMutation = useMutation({
+    mutationFn: async (payload: { customer: any; calculation: any }) => {
+      await createCustomer(payload.customer);
+      return await calculateEmi(payload.calculation);
+    },
+    onSuccess: (calcResponse) => {
+      if (calcResponse.data.data) {
+        const { emi, disbursementAmount } = calcResponse.data.data;
+        setCalculationResults(emi, disbursementAmount);
+      }
+      onNext();
+    },
+    onError: (error: any) => {
+      console.error('[KYC] Error:', error?.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || "Failed to process KYC details";
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: errorMsg,
+        position: 'top'
+      });
+    }
+  });
+
   const formik = useFormik({
     initialValues: {
       applicantName: "Rahul Sharma",
@@ -66,53 +90,35 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
       hasConsented: false,
     },
     validationSchema,
-    onSubmit: async (values) => {
-      setIsLoading(true);
-      
-      try {
-        const payload = {
-          id: customerId,
-          mobileNumber: verifiedMobile || "",
-          applicantName: values.applicantName,
-          branchId: 1,
-          age: 25,
-          gender: "MALE",
-          leadSource: "ALFIN",
-          voterId: values.panNumber,
-          isVoterIdActive: true
-        };
+    onSubmit: (values) => {
+      const customerPayload = {
+        id: customerId,
+        mobileNumber: verifiedMobile || "",
+        applicantName: values.applicantName,
+        branchId: 1,
+        age: 25,
+        gender: "MALE",
+        leadSource: "ALFIN",
+        voterId: values.panNumber,
+        isVoterIdActive: true
+      };
 
-        console.log('[KYC] Submitting with payload:', payload);
-        await createCustomer(payload);
+      const calculationPayload = {
+        requestedAmount: requestedAmount,
+        interest: interest,
+        tenure: tenure,
+        repaymentFrequency: repaymentFrequency,
+        repaymentDate: "",
+        schemeMasterId: String(schemeMasterId)
+      };
 
-        const calculationPayload = {
-          requestedAmount: requestedAmount,
-          interest: interest,
-          tenure: tenure,
-          repaymentFrequency: repaymentFrequency,
-          repaymentDate: "",
-          schemeMasterId: String(schemeMasterId)
-        };
+      setCustomerInfo({
+        applicantName: values.applicantName,
+        mobileNumber: verifiedMobile || "",
+        panNumber: values.panNumber,
+      });
 
-        const calcResponse = await calculateEmi(calculationPayload);
-        
-        if (calcResponse.data.data) {
-          const { emi, disbursementAmount } = calcResponse.data.data;
-          setCalculationResults(emi, disbursementAmount);
-        }
-
-        setCustomerInfo({
-          applicantName: values.applicantName,
-          mobileNumber: verifiedMobile || "",
-          panNumber: values.panNumber,
-        });
-
-        setIsLoading(false);
-        onNext();
-      } catch (error: any) {
-        console.error('[KYC] Error:', error?.response?.data || error.message);
-        setIsLoading(false);
-      }
+      kycMutation.mutate({ customer: customerPayload, calculation: calculationPayload });
     },
   });
 
@@ -300,7 +306,7 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
               size="lg"
               onPress={handleNext}
               disabled={step === 1 ? !isStep1Complete : !isStep2Complete}
-              loading={isLoading}
+              loading={kycMutation.isPending}
             />
             <Text className="text-center text-slate-400 text-xs mt-4">
               Your data is encrypted and securely stored.

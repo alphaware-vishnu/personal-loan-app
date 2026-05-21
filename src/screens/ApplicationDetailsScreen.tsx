@@ -14,13 +14,13 @@ import {
   Linking,
   Platform,
 } from "react-native";
+import LottieView from "lottie-react-native";
 import { MotiView } from "../components/Motion";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { getApplicationDetails, getDocumentDownloadPath, getLoanAccountById, createRepayment } from "../services/api";
 import { Layout } from "react-native-reanimated";
-import LottieView from "lottie-react-native";
 import { formatLabel } from "../utils";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -125,8 +125,14 @@ export const ApplicationDetailsScreen = ({
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center" edges={["top", "bottom"]}>
-        <View className="w-16 h-16 bg-white rounded-3xl items-center justify-center shadow-sm border border-slate-100 mb-4">
-          <ActivityIndicator size="large" color="#172554" />
+        <View className="w-24 h-24 bg-white rounded-3xl items-center justify-center shadow-sm border border-slate-100 mb-4">
+          <LottieView
+            source={require('../../assets/loader.json')}
+            autoPlay
+            loop
+            style={{ width: 80, height: 80 }}
+            resizeMode="contain"
+          />
         </View>
         <Text className="text-slate-900 text-lg font-bold mt-2">Loading Application</Text>
         <Text className="text-slate-400 mt-1 font-medium">Fetching your details...</Text>
@@ -250,6 +256,11 @@ export const ApplicationDetailsScreen = ({
  * ───────────────────────────────────────────── */
 const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any) => {
   const queryClient = useQueryClient();
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["loanAccount", app?.loanAccountId],
+    queryFn: () => getLoanAccountById(app.loanAccountId).then((res) => res.data),
+    enabled: !!app?.loanAccountId,
+  });
   const [selectedEmi, setSelectedEmi] = useState<any>(null);
   const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
   const [repaymentForm, setRepaymentForm] = useState({
@@ -257,7 +268,6 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     refNo: "",
     remark: ""
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isFailed, setIsFailed] = useState(false);
   const [availableUpiApps, setAvailableUpiApps] = useState<any[]>([]);
@@ -326,13 +336,10 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
         await Linking.openURL(upiUrl);
       }
       
-      setIsSubmitting(true);
       setTimeout(() => {
-        setIsSubmitting(false);
         setIsFailed(true);
       }, 2000);
     } catch (e) {
-      setIsSubmitting(false);
       setIsFailed(true);
     }
   };
@@ -385,55 +392,65 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     setRepaymentModalVisible(false);
     setIsSuccess(false);
     setIsFailed(false);
-    setIsSubmitting(false);
   };
 
-  const handleRepay = async () => {
+  const repaymentMutation = useMutation({
+    mutationFn: (data: any) => createRepayment(data),
+    onSuccess: () => {
+      setIsSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ["loanAccount", app.loanAccountId] });
+    },
+    onError: (error: any) => {
+      setIsFailed(true);
+      const errorMsg = error.response?.data?.message || "Something went wrong";
+      Toast.show({
+        type: 'error',
+        text1: 'Payment Failed',
+        text2: errorMsg,
+        position: 'bottom'
+      });
+    }
+  });
+
+  const handleRepay = () => {
     if (!selectedEmi) return;
     
     if (repaymentForm.paymentMode === 'UPI') {
-      await launchUpiPayment(selectedUpiApp);
+      launchUpiPayment(selectedUpiApp);
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await createRepayment({
-        amount: selectedEmi.emi,
-        paymentMode: repaymentForm.paymentMode,
-        remark: repaymentForm.remark,
-        loanAccountId: app.loanAccountId,
-        emiId: selectedEmi.id,
-        refNo: repaymentForm.refNo,
-        discount: 0
-      });
-      setIsSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ["loanAccount", app.loanAccountId] });
-    } catch (e) {
-      setIsFailed(true);
-    } finally {
-      setIsSubmitting(false);
-    }
+    repaymentMutation.mutate({
+      amount: selectedEmi.emi,
+      paymentMode: repaymentForm.paymentMode,
+      remark: repaymentForm.remark,
+      loanAccountId: app.loanAccountId,
+      emiId: selectedEmi.id,
+      refNo: repaymentForm.refNo,
+      discount: 0
+    });
   };
-
-  const { data: response, isLoading } = useQuery({
-    queryKey: ["loanAccount", app?.loanAccountId],
-    queryFn: () => getLoanAccountById(app.loanAccountId).then((res) => res.data),
-    enabled: !!app?.loanAccountId,
-  });
 
   if (isLoading || !response) {
     return (
       <View className="py-20 items-center justify-center">
-        <ActivityIndicator size="large" color="#6366f1" />
+        <LottieView
+          source={require('../../assets/loader.json')}
+          autoPlay
+          loop
+          style={{ width: 100, height: 100 }}
+          resizeMode="contain"
+        />
         <Text className="text-slate-400 mt-4 font-bold tracking-widest text-xs uppercase">Loading Account</Text>
       </View>
     );
   }
 
   const loan = response.data;
-  const progressPercent = loan.totalPayableAmount > 0
-    ? Math.round((loan.paidAmount / loan.totalPayableAmount) * 100)
+  const paidEmisCount = loan.emis?.filter((e: any) => e.paymentStatus === "PAID").length || 0;
+  const totalEmisCount = loan.emis?.length || 0;
+  const progressPercent = totalEmisCount > 0
+    ? Math.round((paidEmisCount / totalEmisCount) * 100)
     : 0;
 
   const nextEmi = loan.emis?.find((e: any) => e.paymentStatus === "UNPAID");
@@ -502,7 +519,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
               <Ionicons name="wallet-outline" size={16} color="#4c1d95" />
               <Text className="text-[#4c1d95] font-black text-xs ml-2 tracking-wide">Repay</Text>
             </Pressable>
-            <Pressable 
+            {/* <Pressable 
               className="flex-1 bg-purple-800/50 flex-row items-center justify-center py-3.5 rounded-2xl border border-white/10 ml-2 active:bg-purple-800/70"
               style={({ pressed }) => [
                 pressed && { transform: [{ scale: 0.98 }] }
@@ -510,7 +527,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
             >
               <Ionicons name="document-text-outline" size={16} color="white" />
               <Text className="text-white font-black text-xs ml-2 tracking-wide">Statement</Text>
-            </Pressable>
+            </Pressable> */}
           </View>
         </LinearGradient>
       </MotiView>
@@ -856,12 +873,12 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 
                 <Pressable
                   onPress={handleRepay}
-                  disabled={isSubmitting}
+                  disabled={repaymentMutation.isPending}
                   className={`bg-purple-600 py-4 rounded-2xl flex-row justify-center items-center mb-4 ${
-                    isSubmitting ? "opacity-50" : "active:opacity-90"
+                    repaymentMutation.isPending ? "opacity-50" : "active:opacity-90"
                   }`}
                   style={({ pressed }) => [
-                    !isSubmitting && {
+                    !repaymentMutation.isPending && {
                       shadowColor: "#7c3aed",
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.3,
@@ -871,7 +888,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                     pressed && { transform: [{ scale: 0.98 }] }
                   ]}
                 >
-                  {isSubmitting ? (
+                  {repaymentMutation.isPending ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <>
@@ -1066,9 +1083,15 @@ const DocumentsTab = ({ app }: any) => {
       } else {
         alert("Could not load document preview.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('View failed:', error);
-      alert("Error loading document.");
+      const errorMsg = error.response?.data?.message || "Error loading document.";
+      Toast.show({
+        type: 'error',
+        text1: 'View Failed',
+        text2: errorMsg,
+        position: 'bottom'
+      });
     } finally {
       setIsLoadingDoc(null);
     }

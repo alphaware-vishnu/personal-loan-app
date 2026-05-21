@@ -7,6 +7,7 @@ import { DocumentPickerSheet } from "../components/DocumentPickerSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { useMutation } from "@tanstack/react-query";
 
 interface BankFormScreenProps {
   onSubmit: () => void;
@@ -28,7 +29,6 @@ import Toast from 'react-native-toast-message';
 
 export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack }) => {
   const { documentRequirements, uploadedDocs, addCustomerBank, applicationId } = useLoanStore();
-  const [isLoading, setIsLoading] = useState(false);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
   // Find relevant categories and types from dynamic requirements
@@ -57,6 +57,22 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
       .required("Branch name is required"),
   });
 
+  const statusMutation = useMutation({
+    mutationFn: (data: { id: number; status: any }) => updateStepStatus(data.id, data.status),
+    onSuccess: () => {
+      setSuccessModalVisible(true);
+    },
+    onError: (error: any) => {
+      const errorMsg = error.response?.data?.message || "Failed to update application status";
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: errorMsg,
+        position: 'top'
+      });
+    }
+  });
+
   const formik = useFormik({
     initialValues: {
       accountName: "",
@@ -66,8 +82,6 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
     },
     validationSchema,
     onSubmit: (values) => {
-      setIsLoading(true);
-      
       addCustomerBank({
         accountHolderName: values.accountName,
         accountNo: values.accountNumber,
@@ -79,22 +93,14 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
         isDefault: true
       });
 
-      const syncStatus = async () => {
-        if (applicationId) {
-          try {
-            await updateStepStatus(applicationId, { bankVerificationCompleted: true });
-          } catch (error) {
-            console.error('[BankForm] Failed to update status:', error);
-          }
-        }
-      };
-      
-      syncStatus();
-
-      setTimeout(() => {
-        setIsLoading(false);
+      if (applicationId) {
+        statusMutation.mutate({ 
+          id: applicationId, 
+          status: { bankVerificationCompleted: true } 
+        });
+      } else {
         setSuccessModalVisible(true);
-      }, 1200);
+      }
     },
   });
 
@@ -265,7 +271,7 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
               variant="primary"
               size="lg"
               disabled={!isFormValid}
-              loading={isLoading}
+              loading={statusMutation.isPending}
               onPress={()=>formik.handleSubmit()}
             />
           </View>
