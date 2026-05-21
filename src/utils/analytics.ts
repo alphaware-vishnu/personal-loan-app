@@ -69,6 +69,12 @@ export type AnalyticsEvent =
   | 'dashboard_viewed'
   | 'loan_details_viewed'
   | 'repayment_initiated'
+  // Razorpay Payments
+  | 'razorpay_checkout_opened'
+  | 'razorpay_payment_success'
+  | 'razorpay_payment_failed'
+  | 'razorpay_autopay_authorized'
+  | 'razorpay_autopay_failed'
   // Errors
   | 'api_error'
   | 'crash';

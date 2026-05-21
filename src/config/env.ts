@@ -19,6 +19,8 @@ interface EnvConfig {
   eligibilityPollMaxAttempts: number;
   apiRetryAttempts: number;
   apiRetryDelayMs: number;
+  /** Razorpay Key ID for payment checkout */
+  razorpayKeyId: string;
 }
 
 const configs: Record<Environment, EnvConfig> = {
@@ -36,6 +38,7 @@ const configs: Record<Environment, EnvConfig> = {
     eligibilityPollMaxAttempts: 20,
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1000,
+    razorpayKeyId: 'rzp_test_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay test key
   },
   staging: {
     environment: 'staging',
@@ -51,6 +54,7 @@ const configs: Record<Environment, EnvConfig> = {
     eligibilityPollMaxAttempts: 20,
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1000,
+    razorpayKeyId: 'rzp_test_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay test key
   },
   production: {
     environment: 'production',
@@ -66,6 +70,7 @@ const configs: Record<Environment, EnvConfig> = {
     eligibilityPollMaxAttempts: 30,
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1500,
+    razorpayKeyId: 'rzp_live_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay live key
   },
 };
 
