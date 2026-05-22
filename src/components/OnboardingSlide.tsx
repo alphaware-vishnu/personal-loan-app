@@ -8,6 +8,7 @@ const { width } = Dimensions.get("window");
 interface FloatingIcon {
   name: keyof typeof Ionicons.glyphMap;
   color: string;
+  darkColor: string;
   size: number;
   top: number | string;
   left: number | string;
@@ -33,14 +34,52 @@ export const OnboardingSlide = ({
   bgColor = "#FFFFFF",
   textColor = "#111827",
   descColor = "#6B7280",
-  primaryColor = "#EA580C",
+  primaryColor = "#4F46E5",
 }: OnboardingSlideProps) => {
+  // Detect dark mode by checking background luminance
+  const isDark =
+    bgColor === "#0B0F19" ||
+    bgColor === "#151E2E" ||
+    bgColor.toLowerCase().includes("0b0f") ||
+    bgColor.toLowerCase().includes("151e");
 
   const floatingIcons: FloatingIcon[] = [
-    { name: "document-text", color: "#3B82F6", size: 22, top: "15%", left: "12%", delay: 0 },
-    { name: "cash", color: "#10B981", size: 24, top: "22%", left: "78%", delay: 500 },
-    { name: "pie-chart", color: "#EA580C", size: 22, top: "75%", left: "15%", delay: 1000 },
-    { name: "shield-checkmark", color: "#8B5CF6", size: 24, top: "65%", left: "80%", delay: 1500 },
+    {
+      name: "document-text",
+      color: "#3B82F6",
+      darkColor: "#60A5FA",
+      size: 20,
+      top: "18%",
+      left: "10%",
+      delay: 0,
+    },
+    {
+      name: "cash",
+      color: "#10B981",
+      darkColor: "#34D399",
+      size: 22,
+      top: "20%",
+      left: "80%",
+      delay: 500,
+    },
+    {
+      name: "pie-chart",
+      color: "#F59E0B",
+      darkColor: "#FBBF24",
+      size: 20,
+      top: "72%",
+      left: "12%",
+      delay: 1000,
+    },
+    {
+      name: "shield-checkmark",
+      color: "#8B5CF6",
+      darkColor: "#A78BFA",
+      size: 22,
+      top: "68%",
+      left: "82%",
+      delay: 1500,
+    },
   ];
 
   const renderTitle = () => {
@@ -65,8 +104,7 @@ export const OnboardingSlide = ({
 
   return (
     <View style={[styles.container, { width, backgroundColor: bgColor }]}>
-      
-      {/* ─── Illustration Section (Top) ─── */}
+      {/* ─── Illustration Section ─── */}
       <View style={styles.imageSection}>
         <MotiView
           from={{ scale: 0.8, opacity: 0 }}
@@ -74,7 +112,7 @@ export const OnboardingSlide = ({
           transition={{ type: "spring", delay: 100, damping: 20 }}
           style={styles.circleContainer}
         >
-          {/* Outer Ring */}
+          {/* Outer Ring — dashed */}
           <MotiView
             from={{ scale: 0.9, rotate: "0deg" }}
             animate={{ scale: 1, rotate: "360deg" }}
@@ -83,9 +121,18 @@ export const OnboardingSlide = ({
               type: "timing",
               duration: 20000,
             }}
-            style={[styles.ring, styles.outerRing, { borderColor: `${primaryColor}20` }]}
+            style={[
+              styles.ring,
+              styles.outerRing,
+              {
+                borderColor: isDark
+                  ? `${primaryColor}25`
+                  : `${primaryColor}18`,
+              },
+            ]}
           />
-          {/* Inner Ring */}
+
+          {/* Inner Ring — solid */}
           <MotiView
             from={{ scale: 0.95, rotate: "360deg" }}
             animate={{ scale: 1, rotate: "0deg" }}
@@ -94,59 +141,106 @@ export const OnboardingSlide = ({
               type: "timing",
               duration: 25000,
             }}
-            style={[styles.ring, styles.innerRing, { borderColor: `${primaryColor}40` }]}
+            style={[
+              styles.ring,
+              styles.innerRing,
+              {
+                borderColor: isDark
+                  ? `${primaryColor}35`
+                  : `${primaryColor}30`,
+              },
+            ]}
           />
 
           {/* Floating Icons */}
-          {floatingIcons.map((icon, index) => (
+          {floatingIcons.map((floatIcon, index) => (
             <MotiView
               key={index}
-              from={{ translateY: -10 }}
-              animate={{ translateY: 10 }}
+              from={{ translateY: -8 }}
+              animate={{ translateY: 8 }}
               transition={{
                 loop: true,
                 type: "timing",
-                duration: 2000,
-                delay: icon.delay,
+                duration: 2200,
+                delay: floatIcon.delay,
               }}
               style={[
                 styles.floatingIconWrapper,
-                { top: icon.top as any, left: icon.left as any }
+                { top: floatIcon.top as any, left: floatIcon.left as any },
               ]}
             >
-              <View style={[styles.iconCircle, { shadowColor: icon.color }]}>
-                <Ionicons name={icon.name} size={icon.size} color={icon.color} />
+              <View
+                style={[
+                  styles.iconCircle,
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(30,41,59,0.9)"
+                      : "#FFFFFF",
+                    shadowColor: isDark
+                      ? floatIcon.darkColor
+                      : floatIcon.color,
+                    borderColor: isDark
+                      ? `${floatIcon.darkColor}25`
+                      : "transparent",
+                    borderWidth: isDark ? 1 : 0,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={floatIcon.name}
+                  size={floatIcon.size}
+                  color={isDark ? floatIcon.darkColor : floatIcon.color}
+                />
               </View>
             </MotiView>
           ))}
 
-          {/* Main Image Center */}
+          {/* Main Center Icon */}
           <MotiView
             from={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", delay: 400, damping: 15 }}
             style={styles.mainImageWrapper}
           >
-            {/* Pulse behind image */}
+            {/* Pulse behind icon */}
             <MotiView
-              from={{ scale: 1, opacity: 0.4 }}
+              from={{ scale: 1, opacity: 0.3 }}
               animate={{ scale: 1.5, opacity: 0 }}
               transition={{
                 loop: true,
                 type: "timing",
                 duration: 2500,
               }}
-              style={[styles.imagePulseRing, { backgroundColor: primaryColor }]}
+              style={[
+                styles.imagePulseRing,
+                { backgroundColor: primaryColor },
+              ]}
             />
-            <Feather name={icon} size={50} color={primaryColor} />
+
+            <View
+              style={[
+                styles.mainIconBg,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(30,41,59,0.95)"
+                    : "#FFFFFF",
+                  borderColor: isDark
+                    ? `${primaryColor}30`
+                    : "transparent",
+                  borderWidth: isDark ? 1.5 : 0,
+                },
+              ]}
+            >
+              <Feather name={icon} size={48} color={primaryColor} />
+            </View>
           </MotiView>
         </MotiView>
       </View>
 
-      {/* ─── Text Content Section (Bottom) ─── */}
+      {/* ─── Text Content ─── */}
       <View style={styles.textSection}>
         <MotiView
-          from={{ opacity: 0, translateY: 30 }}
+          from={{ opacity: 0, translateY: 25 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: "spring", delay: 500, damping: 20 }}
         >
@@ -154,7 +248,7 @@ export const OnboardingSlide = ({
         </MotiView>
 
         <MotiView
-          from={{ opacity: 0, translateY: 20 }}
+          from={{ opacity: 0, translateY: 15 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: "spring", delay: 600, damping: 20 }}
         >
@@ -167,7 +261,7 @@ export const OnboardingSlide = ({
   );
 };
 
-const CIRCLE_SIZE = width * 0.75;
+const CIRCLE_SIZE = width * 0.72;
 
 const styles = StyleSheet.create({
   container: {
@@ -175,10 +269,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   imageSection: {
-    height: CIRCLE_SIZE + 40,
+    height: CIRCLE_SIZE + 30,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 40,
+    marginBottom: 36,
   },
   circleContainer: {
     width: CIRCLE_SIZE,
@@ -189,7 +283,7 @@ const styles = StyleSheet.create({
   ring: {
     position: "absolute",
     borderRadius: CIRCLE_SIZE / 2,
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   outerRing: {
     width: "100%",
@@ -197,8 +291,8 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   innerRing: {
-    width: "65%",
-    height: "65%",
+    width: "62%",
+    height: "62%",
     borderStyle: "solid",
   },
   floatingIconWrapper: {
@@ -206,60 +300,57 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
+    width: 46,
+    height: 46,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 5,
   },
   mainImageWrapper: {
-    width: CIRCLE_SIZE * 0.45,
-    height: CIRCLE_SIZE * 0.45,
-    borderRadius: (CIRCLE_SIZE * 0.45) / 2,
-    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 8,
     zIndex: 5,
   },
   imagePulseRing: {
     position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: 999,
+    width: CIRCLE_SIZE * 0.42,
+    height: CIRCLE_SIZE * 0.42,
+    borderRadius: CIRCLE_SIZE * 0.21,
   },
-  image: {
-    width: "90%",
-    height: "90%",
-    borderRadius: 999,
+  mainIconBg: {
+    width: CIRCLE_SIZE * 0.4,
+    height: CIRCLE_SIZE * 0.4,
+    borderRadius: CIRCLE_SIZE * 0.12,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
   },
   textSection: {
-    paddingHorizontal: 32,
+    paddingHorizontal: 36,
     alignItems: "center",
   },
   title: {
     fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-black",
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "900",
-    lineHeight: 40,
+    lineHeight: 38,
     textAlign: "center",
     letterSpacing: -0.5,
   },
   description: {
     fontFamily: Platform.OS === "ios" ? "System" : "sans-serif",
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 23,
     textAlign: "center",
-    marginTop: 16,
+    marginTop: 14,
     fontWeight: "400",
   },
 });

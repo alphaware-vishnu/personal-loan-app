@@ -35,7 +35,7 @@ export interface OnboardingStep {
   /** Order in the flow (ascending) */
   order: number;
   /** Group this step belongs to */
-  group: 'pre_auth' | 'profile' | 'eligibility' | 'kyc' | 'finalization';
+  group: 'pre_auth' | 'profile' | 'eligibility' | 'kyc' | 'bank_verification' | 'loan_agreement' | 'disbursal';
   /** Icon name (Ionicons) */
   icon: string;
 }
@@ -66,9 +66,9 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'kyc_selfie', title: 'Selfie Verification', subtitle: 'Liveliness test', screenKey: 'SelfieVerification', isRequired: true, isEnabled: true, order: 11, group: 'kyc', icon: 'camera-outline' },
 
   // Finalization (Steps 4-6)
-  { id: 'bank_account', title: 'Bank Account', subtitle: 'Disbursal bank', screenKey: 'BankAccount', isRequired: true, isEnabled: true, order: 12, group: 'finalization', icon: 'wallet-outline' },
-  { id: 'agreement', title: 'Sanction Agreement', subtitle: 'Review & sign', screenKey: 'Agreement', isRequired: true, isEnabled: true, order: 13, group: 'finalization', icon: 'document-attach-outline' },
-  { id: 'disbursal', title: 'Disbursal Status', subtitle: 'Payout status', screenKey: 'Disbursal', isRequired: true, isEnabled: true, order: 14, group: 'finalization', icon: 'checkmark-circle-outline' },
+  { id: 'bank_account', title: 'Bank Account', subtitle: 'Disbursal bank', screenKey: 'BankAccount', isRequired: true, isEnabled: true, order: 12, group: 'bank_verification', icon: 'wallet-outline' },
+  { id: 'agreement', title: 'Sanction Agreement', subtitle: 'Review & sign', screenKey: 'Agreement', isRequired: true, isEnabled: true, order: 13, group: 'loan_agreement', icon: 'document-attach-outline' },
+  { id: 'disbursal', title: 'Disbursal Status', subtitle: 'Payout status', screenKey: 'Disbursal', isRequired: true, isEnabled: true, order: 14, group: 'disbursal', icon: 'checkmark-circle-outline' },
 ];
 
 export const getTrackableSteps = (): OnboardingStep[] => {

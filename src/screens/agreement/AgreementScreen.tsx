@@ -31,6 +31,7 @@ import { formatCurrency } from '../../utils/formatters';
 interface AgreementScreenProps {
   onNext: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 interface Point {
@@ -38,7 +39,7 @@ interface Point {
   y: number;
 }
 
-export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack }) => {
+export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack, onSkip }) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
@@ -215,7 +216,7 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
         contentContainerStyle={[styles.scrollContent, { paddingHorizontal: theme.screenPadding }]}
       >
         <View style={styles.stepIndicator}>
-          <StepIndicator totalSteps={6} currentStep={5} showLabel />
+          <StepIndicator totalSteps={1} currentStep={0} showLabel stageName="Loan Agreement" />
         </View>
 
         <MotiView
@@ -448,6 +449,15 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
           loading={isSubmitting}
           onPress={handleSubmit}
         />
+        {onSkip && (
+          <AppButton
+            title="Skip, I'll do later"
+            variant="ghost"
+            size="md"
+            onPress={onSkip}
+            style={{ marginTop: 8 }}
+          />
+        )}
       </MotiView>
     </ScreenWrapper>
   );

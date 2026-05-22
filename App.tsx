@@ -91,7 +91,7 @@ export type Flow =
 
 
 function AppContent() {
-  const [history, setHistory] = useState<Flow[]>(["aadhaarVerification"]);
+  const [history, setHistory] = useState<Flow[]>(["splash"]);
   const [mobile, setMobile] = useState("");
   const [selectedScheme, setSelectedScheme] = useState<any>(null);
    const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
@@ -202,6 +202,7 @@ function AppContent() {
         <PersonalAddressScreen
           onNext={() => push("profileCompletion")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -220,6 +221,7 @@ function AppContent() {
         <IncomeInputScreen
           onNext={() => push("bankStatementUpload")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -246,6 +248,7 @@ function AppContent() {
         <OfferScreen
           onNext={() => push("aadhaarVerification")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -255,6 +258,7 @@ function AppContent() {
         <AadhaarVerificationScreen
           onNext={() => push("selfieVerification")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -264,6 +268,7 @@ function AppContent() {
         <SelfieVerificationScreen
           onNext={() => replace("bankDetails")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -355,6 +360,7 @@ function AppContent() {
         <BankAccountScreen
           onNext={() => replace("agreement")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -364,6 +370,7 @@ function AppContent() {
         <AgreementScreen
           onNext={() => replace("disbursal")}
           onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }

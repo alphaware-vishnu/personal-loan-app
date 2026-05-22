@@ -69,7 +69,7 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <StepIndicator totalSteps={4} currentStep={2} showLabel />
+          <StepIndicator totalSteps={4} currentStep={2} showLabel stageName="Profile Setup" />
 
           <MotiView
             from={{ opacity: 0, translateY: 10 }}

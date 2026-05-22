@@ -19,9 +19,10 @@ import { OtpInput } from '../../components/ui/OtpInput';
 interface AadhaarVerificationScreenProps {
   onNext: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps> = ({ onNext, onBack }) => {
+export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps> = ({ onNext, onBack, onSkip }) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
@@ -116,7 +117,7 @@ export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps>
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <StepIndicator totalSteps={4} currentStep={4} showLabel />
+          <StepIndicator totalSteps={2} currentStep={0} showLabel stageName="KYC Verification" />
 
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
@@ -206,6 +207,15 @@ export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps>
               variant="primary"
               size="lg"
               style={styles.button}
+            />
+          )}
+          {!isLoading && onSkip && (
+            <AppButton
+              title="Skip, I'll do later"
+              variant="ghost"
+              size="md"
+              onPress={onSkip}
+              style={{ marginTop: 8 }}
             />
           )}
         </MotiView>

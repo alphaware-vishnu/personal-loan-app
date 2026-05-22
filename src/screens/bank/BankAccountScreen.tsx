@@ -37,11 +37,12 @@ import { useDebounce } from '../../hooks';
 interface BankAccountScreenProps {
   onNext: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 type AutoPayMethod = 'enach' | 'upi';
 
-export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, onBack }) => {
+export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, onBack, onSkip }) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
@@ -251,7 +252,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           contentContainerStyle={[styles.scrollContent, { paddingHorizontal: theme.screenPadding }]}
         >
           <View style={styles.stepIndicator}>
-            <StepIndicator totalSteps={6} currentStep={4} showLabel />
+            <StepIndicator totalSteps={1} currentStep={0} showLabel stageName="Bank Verification" />
           </View>
 
           <MotiView
@@ -472,6 +473,15 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           disabled={!isFormValid}
           loading={statusMutation.isPending}
         />
+        {onSkip && (
+          <AppButton
+            title="Skip, I'll do later"
+            variant="ghost"
+            size="md"
+            onPress={onSkip}
+            style={{ marginTop: 8 }}
+          />
+        )}
       </MotiView>
     </ScreenWrapper>
   );

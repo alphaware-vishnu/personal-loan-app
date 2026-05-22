@@ -17,9 +17,10 @@ import { AppButton } from '../../components/ui/AppButton';
 interface PersonalAddressScreenProps {
   onNext: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ onNext, onBack }) => {
+export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ onNext, onBack, onSkip }) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { formData, updateFormData, completeStep, setProfileCompleted } = useOnboardingStore();
@@ -73,7 +74,7 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
       <SafeHeader title="Personal Address" onBack={onBack} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <StepIndicator totalSteps={4} currentStep={3} showLabel />
+          <StepIndicator totalSteps={4} currentStep={3} showLabel stageName="Profile Setup" />
 
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
@@ -117,6 +118,16 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
               disabled={!isComplete}
               style={styles.button}
             />
+
+            {onSkip && (
+              <AppButton
+                title="Skip, I'll do later"
+                variant="ghost"
+                size="md"
+                onPress={onSkip}
+                style={styles.skipButton}
+              />
+            )}
           </MotiView>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -157,6 +168,9 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 24,
+    marginBottom: 24,
+  },
+  skipButton: {
     marginBottom: 24,
   },
 });

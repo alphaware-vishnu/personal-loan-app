@@ -15,9 +15,10 @@ import { AppInput } from '../../components/ui/AppInput';
 interface IncomeInputScreenProps {
   onNext: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, onBack }) => {
+export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, onBack, onSkip }) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { formData, updateFormData, completeStep } = useOnboardingStore();
@@ -68,7 +69,7 @@ export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, on
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <StepIndicator totalSteps={4} currentStep={3} showLabel />
+          <StepIndicator totalSteps={3} currentStep={0} showLabel stageName="Eligibility Check" />
 
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
@@ -125,6 +126,15 @@ export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, on
             size="lg"
             style={styles.button}
           />
+          {onSkip && (
+            <AppButton
+              title="Skip, I'll do later"
+              variant="ghost"
+              size="md"
+              onPress={onSkip}
+              style={{ marginTop: 8 }}
+            />
+          )}
         </MotiView>
       </KeyboardAvoidingView>
     </ScreenWrapper>

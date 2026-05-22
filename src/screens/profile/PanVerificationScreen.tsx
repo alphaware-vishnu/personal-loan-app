@@ -26,7 +26,8 @@ interface PanVerificationScreenProps {
 
 export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ onNext, onBack }) => {
   const colors = useColors();
-  const { theme } = useTheme();
+  const { mode } = useTheme();
+  const isDark = mode === 'dark';
   const { formData, updateFormData, completeStep } = useOnboardingStore();
   const { setPanVerified } = useKycStore();
 
@@ -61,7 +62,6 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
       if (result.isValid) {
         setPanData(result);
         setIsVerified(true);
-        // Save to onboarding draft
         const age = calculateAge(result.dateOfBirth);
         updateFormData({
           panNumber: result.panNumber,
@@ -70,7 +70,6 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
           age,
           gender: result.gender,
         });
-        // Save to KYC store
         setPanVerified(result);
         trackEvent('pan_verified');
       } else {
@@ -79,7 +78,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
       }
     } catch (err: any) {
       setError(err.message || 'PAN verification failed. Proceeding in Demo mode.');
-      
+
       // Fallback
       const mockResult: PanValidationResult = {
         isValid: true,
@@ -113,10 +112,15 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
       <SafeHeader title="Identity Verification" onBack={onBack} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <StepIndicator totalSteps={4} currentStep={0} showLabel />
+          <StepIndicator totalSteps={4} currentStep={0} showLabel stageName="Profile Setup" />
 
-          <View style={styles.content}>
-            <AppText variant="h2" style={styles.title}>
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 500 }}
+            style={styles.content}
+          >
+            <AppText variant="h2" style={[styles.title, { color: colors.text }]}>
               {COPY.pan.title}
             </AppText>
             <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -134,7 +138,18 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
               error={error || undefined}
               rightIcon={
                 isVerified ? (
-                  <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+                  <View
+                    style={[
+                      styles.verifiedBadge,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(16,185,129,0.15)'
+                          : '#ECFDF5',
+                      },
+                    ]}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                  </View>
                 ) : undefined
               }
             />
@@ -154,26 +169,69 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
                 from={{ opacity: 0, translateY: 15 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{ type: 'timing', duration: 400 }}
-                style={[styles.resultCard, { backgroundColor: colors.backgroundSecondary }]}
+                style={[
+                  styles.resultCard,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.04)'
+                      : colors.surface,
+                    borderColor: isDark
+                      ? 'rgba(255,255,255,0.06)'
+                      : colors.border,
+                  },
+                ]}
               >
-                <AppText variant="labelMd" style={[styles.cardHeader, { color: colors.success }]}>
-                  <Ionicons name="checkmark-circle" size={16} /> PAN Verified Successfully
-                </AppText>
-
-                <View style={styles.detailRow}>
-                  <AppText variant="bodySm" style={{ color: colors.textSecondary }}>Name</AppText>
-                  <AppText variant="bodyMd" style={{ fontWeight: '600' }}>{panData.name}</AppText>
+                {/* Success header */}
+                <View
+                  style={[
+                    styles.resultHeader,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(16,185,129,0.1)'
+                        : '#ECFDF5',
+                    },
+                  ]}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                  <AppText
+                    variant="labelMd"
+                    style={[styles.resultHeaderText, { color: colors.success }]}
+                  >
+                    PAN Verified Successfully
+                  </AppText>
                 </View>
 
-                <View style={styles.detailRow}>
-                  <AppText variant="bodySm" style={{ color: colors.textSecondary }}>Date of Birth</AppText>
-                  <AppText variant="bodyMd" style={{ fontWeight: '600' }}>{panData.dateOfBirth}</AppText>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <AppText variant="bodySm" style={{ color: colors.textSecondary }}>Gender</AppText>
-                  <AppText variant="bodyMd" style={{ fontWeight: '600' }}>{panData.gender}</AppText>
-                </View>
+                {/* Detail rows */}
+                {[
+                  { label: 'Name', value: panData.name },
+                  { label: 'Date of Birth', value: panData.dateOfBirth },
+                  { label: 'Gender', value: panData.gender },
+                ].map((item, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.detailRow,
+                      {
+                        borderBottomColor: isDark
+                          ? 'rgba(255,255,255,0.05)'
+                          : colors.borderLight,
+                      },
+                    ]}
+                  >
+                    <AppText
+                      variant="caption"
+                      style={[styles.detailLabel, { color: colors.textMuted }]}
+                    >
+                      {item.label}
+                    </AppText>
+                    <AppText
+                      variant="bodyMd"
+                      style={{ fontWeight: '600', color: colors.text }}
+                    >
+                      {item.value}
+                    </AppText>
+                  </View>
+                ))}
 
                 <AppButton
                   title="Continue"
@@ -182,7 +240,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
                 />
               </MotiView>
             )}
-          </View>
+          </MotiView>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenWrapper>
@@ -204,33 +262,54 @@ const styles = StyleSheet.create({
   },
   title: {
     marginBottom: 8,
+    fontWeight: '800',
   },
   subtitle: {
     marginBottom: 24,
+    lineHeight: 22,
+  },
+  verifiedBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   verifyButton: {
     marginTop: 24,
   },
   resultCard: {
     marginTop: 24,
-    padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    overflow: 'hidden',
   },
-  cardHeader: {
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  resultHeaderText: {
     fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 13,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   continueButton: {
-    marginTop: 24,
+    margin: 20,
   },
 });

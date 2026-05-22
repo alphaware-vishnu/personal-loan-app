@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
 import { useColors, useTheme } from '../../theme';
 import { AppText } from './AppText';
 import { AppButton } from './AppButton';
@@ -35,29 +36,50 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
   loading,
 }) => {
   const colors = useColors();
-  const { theme } = useTheme();
+  const { mode } = useTheme();
+  const isDark = mode === 'dark';
 
   return (
-    <View style={styles.container}>
+    <MotiView
+      from={{ opacity: 0, scale: 0.95, translateY: 20 }}
+      animate={{ opacity: 1, scale: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 500 }}
+      key={permission.key}
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark
+            ? 'rgba(255,255,255,0.04)'
+            : colors.surface,
+          borderColor: isDark
+            ? 'rgba(255,255,255,0.06)'
+            : colors.border,
+        },
+      ]}
+    >
       {/* Progress Indicator */}
       <View style={styles.progressContainer}>
         {Array.from({ length: totalSteps }).map((_, i) => {
           const isCompleted = i < stepIndex;
           const isActive = i === stepIndex;
-          
+
           return (
-            <View
+            <MotiView
               key={i}
+              animate={{
+                width: isActive ? 22 : 7,
+                opacity: isActive ? 1 : isCompleted ? 0.7 : 0.2,
+              }}
+              transition={{ type: 'timing', duration: 300 }}
               style={[
                 styles.dot,
                 {
-                  backgroundColor: isCompleted
-                    ? colors.primary
-                    : isActive
-                    ? colors.primary
-                    : colors.border,
-                  opacity: isActive ? 1 : isCompleted ? 0.8 : 0.3,
-                  width: isActive ? 18 : 6,
+                  backgroundColor:
+                    isCompleted || isActive
+                      ? colors.primary
+                      : isDark
+                      ? 'rgba(255,255,255,0.15)'
+                      : colors.border,
                 },
               ]}
             />
@@ -67,17 +89,40 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
 
       {/* Hero Icon Section */}
       <View style={styles.iconContainer}>
+        {/* Outer glow ring (dark mode) / shadow ring (light mode) */}
         <View
+          style={[
+            styles.iconGlow,
+            {
+              backgroundColor: isDark
+                ? `${permission.iconColor}10`
+                : `${permission.iconColor}08`,
+            },
+          ]}
+        />
+
+        <MotiView
+          from={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', delay: 200, damping: 15 }}
           style={[
             styles.iconOuter,
             {
-              borderColor: permission.iconColor + '15',
-              backgroundColor: theme.mode === 'light' ? permission.iconBg : 'rgba(255,255,255,0.05)',
+              borderColor: isDark
+                ? `${permission.iconColor}25`
+                : `${permission.iconColor}15`,
+              backgroundColor: isDark
+                ? 'rgba(30,41,59,0.8)'
+                : permission.iconBg,
             },
           ]}
         >
-          <Ionicons name={permission.icon as any} size={48} color={permission.iconColor} />
-        </View>
+          <Ionicons
+            name={permission.icon as any}
+            size={44}
+            color={permission.iconColor}
+          />
+        </MotiView>
       </View>
 
       {/* Text Info */}
@@ -85,10 +130,32 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
         <AppText variant="h2" style={[styles.title, { color: colors.text }]}>
           {permission.title}
         </AppText>
-        <AppText variant="bodyMedium" style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {permission.subtitle}
-        </AppText>
-        <AppText variant="caption" style={[styles.description, { color: colors.textTertiary }]}>
+
+        <View
+          style={[
+            styles.subtitleBadge,
+            {
+              backgroundColor: isDark
+                ? `${permission.iconColor}15`
+                : `${permission.iconColor}12`,
+            },
+          ]}
+        >
+          <AppText
+            variant="caption"
+            style={[
+              styles.subtitleText,
+              { color: permission.iconColor },
+            ]}
+          >
+            {permission.subtitle}
+          </AppText>
+        </View>
+
+        <AppText
+          variant="bodySm"
+          style={[styles.description, { color: colors.textTertiary }]}
+        >
           {permission.description}
         </AppText>
       </View>
@@ -108,7 +175,7 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
           style={styles.skipButton}
         />
       </View>
-    </View>
+    </MotiView>
   );
 };
 
@@ -116,51 +183,69 @@ const styles = StyleSheet.create({
   container: {
     width: width - 40,
     alignItems: 'center',
-    padding: 24,
-    borderRadius: 20,
+    padding: 28,
+    borderRadius: 28,
+    borderWidth: 1,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 32,
+    marginBottom: 36,
   },
   dot: {
-    height: 6,
-    borderRadius: 3,
+    height: 7,
+    borderRadius: 3.5,
   },
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
+    position: 'relative',
+  },
+  iconGlow: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
   },
   iconOuter: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 8,
+    width: 96,
+    height: 96,
+    borderRadius: 32,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 36,
   },
   title: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+    fontWeight: '800',
   },
-  subtitle: {
-    textAlign: 'center',
+  subtitleBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 10,
     marginBottom: 16,
+  },
+  subtitleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   description: {
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
+    lineHeight: 20,
+    fontSize: 13,
   },
   buttonContainer: {
     width: '100%',
-    gap: 12,
+    gap: 10,
   },
   allowButton: {
     width: '100%',

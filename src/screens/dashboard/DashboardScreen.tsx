@@ -196,6 +196,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
             {applications.map((app: any, idx: number) => {
               const isDisbursed = app.applicationStatus === 'DISBURSED';
+              const rulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
+              const bankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
+              const loanAgreementCompleted = app.applicationStepStatus?.loanAgreementCompleted ?? app.loanAgreementCompleted;
+
+              let stageName = '';
+              const status = app.applicationStatus;
+              if (status === 'DRAFT') {
+                stageName = 'Profile Setup';
+              } else if (status === 'SUBMITTED' || status === 'UNDER_REVIEW') {
+                if (!rulesEngineCompleted) {
+                  stageName = 'Credit Check';
+                } else if (!bankVerificationCompleted) {
+                  stageName = 'Bank Verification';
+                } else if (!loanAgreementCompleted) {
+                  stageName = 'Loan Agreement';
+                } else {
+                  stageName = 'Final Review';
+                }
+              } else if (status === 'APPROVED') {
+                stageName = 'Disbursal Ready';
+              } else if (status === 'DISBURSED') {
+                stageName = 'Active Loan';
+              }
+
               return (
                 <TouchableOpacity
                   key={app.id || idx}
@@ -216,6 +240,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           <AppText variant="caption" style={{ color: colors.textSecondary, fontWeight: '700', textTransform: 'uppercase', fontSize: 9 }}>
                             {app.applicationStatus}
                           </AppText>
+                          {stageName ? (
+                            <>
+                              <AppText variant="caption" style={{ color: colors.textMuted, marginHorizontal: 4, fontSize: 9 }}>•</AppText>
+                              <AppText variant="caption" style={{ color: colors.primary, fontWeight: '800', textTransform: 'uppercase', fontSize: 9 }}>
+                                {stageName}
+                              </AppText>
+                            </>
+                          ) : null}
                         </View>
                       </View>
                     </View>

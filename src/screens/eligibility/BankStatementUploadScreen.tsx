@@ -61,7 +61,7 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
       <SafeHeader title="Verify Income" onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <StepIndicator totalSteps={4} currentStep={3} showLabel />
+        <StepIndicator totalSteps={3} currentStep={1} showLabel stageName="Eligibility Check" />
 
         <MotiView
           from={{ opacity: 0, translateY: 10 }}

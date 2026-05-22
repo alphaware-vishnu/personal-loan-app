@@ -8,6 +8,7 @@ import {
 import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Carousel from 'react-native-reanimated-carousel';
+import { MotiView } from 'moti';
 import { useColors, useTheme } from '../../../theme';
 import { NotchedCard } from '../../../components/ui/NotchedCard';
 import { AppText } from '../../../components/ui/AppText';
@@ -22,6 +23,78 @@ interface ActiveLoanCardProps {
   onApplyNow: () => void;
 }
 
+/** Thin repayment progress bar */
+const RepaymentProgressBar: React.FC<{
+  percentage: number;
+  isDark: boolean;
+}> = ({ percentage, isDark }) => {
+  const clampedPct = Math.min(Math.max(percentage, 0), 100);
+
+  return (
+    <View style={progressStyles.container}>
+      <View style={progressStyles.row}>
+        <AppText variant="caption" style={progressStyles.label}>
+          Repaid
+        </AppText>
+        <AppText variant="caption" style={progressStyles.pctText}>
+          {clampedPct}%
+        </AppText>
+      </View>
+      <View
+        style={[
+          progressStyles.track,
+          {
+            backgroundColor: isDark
+              ? 'rgba(255,255,255,0.1)'
+              : 'rgba(255,255,255,0.25)',
+          },
+        ]}
+      >
+        <MotiView
+          from={{ width: '0%' }}
+          animate={{ width: `${clampedPct}%` as any }}
+          transition={{ type: 'timing', duration: 900, delay: 300 }}
+          style={progressStyles.fill}
+        />
+      </View>
+    </View>
+  );
+};
+
+const progressStyles = StyleSheet.create({
+  container: {
+    marginTop: 10,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  label: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  pctText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  track: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#34D399',
+  },
+});
+
 export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
   applications,
   isLoading,
@@ -29,7 +102,8 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
   onApplyNow,
 }) => {
   const colors = useColors();
-  const { theme } = useTheme();
+  const { mode } = useTheme();
+  const isDark = mode === 'dark';
 
   if (isLoading) {
     return (
@@ -59,13 +133,25 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
           style={[styles.mainStatCard, { backgroundColor: colors.accent }]}
           notchColor={colors.background}
         >
-          <View style={styles.emptyCardHeader}>
-            <AppText variant="h3" style={{ color: colors.textOnPrimary, fontWeight: '800' }}>
-              No Active Loans
-            </AppText>
-            <AppText variant="bodySm" style={{ color: 'rgba(255,255,255,0.85)', marginTop: 6, lineHeight: 18 }}>
-              You don't have any active loan accounts at the moment. Take advantage of our low rates and apply today!
-            </AppText>
+          <View style={styles.emptyCardContent}>
+            <View style={[styles.emptyIconCircle, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+              <Ionicons name="wallet-outline" size={28} color="white" />
+            </View>
+            <View style={styles.emptyTextCol}>
+              <AppText variant="h3" style={{ color: colors.textOnPrimary, fontWeight: '800' }}>
+                No Active Loans
+              </AppText>
+              <AppText
+                variant="bodySm"
+                style={{
+                  color: 'rgba(255,255,255,0.8)',
+                  marginTop: 4,
+                  lineHeight: 18,
+                }}
+              >
+                Take advantage of our low rates and apply today!
+              </AppText>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -73,7 +159,15 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
             onPress={onApplyNow}
             style={[styles.applyButton, { backgroundColor: colors.surface }]}
           >
-            <AppText variant="bodyMedium" style={{ color: colors.accentDark, fontWeight: '800' }}>
+            <Ionicons name="add-circle" size={16} color={colors.accentDark} />
+            <AppText
+              variant="bodyMedium"
+              style={{
+                color: colors.accentDark,
+                fontWeight: '800',
+                marginLeft: 6,
+              }}
+            >
               Apply for Loan
             </AppText>
           </TouchableOpacity>
@@ -87,7 +181,7 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
       <Carousel
         loop={false}
         width={width}
-        height={225}
+        height={240}
         autoPlay={false}
         data={applications}
         scrollAnimationDuration={500}
@@ -97,9 +191,34 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
           parallaxScrollingOffset: 40,
         }}
         renderItem={({ item }: { item: any }) => {
+          const rulesEngineCompleted = item.applicationStepStatus?.rulesEngineCompleted ?? item.rulesEngineCompleted;
+          const bankVerificationCompleted = item.applicationStepStatus?.bankVerificationCompleted ?? item.bankVerificationCompleted;
+          const loanAgreementCompleted = item.applicationStepStatus?.loanAgreementCompleted ?? item.loanAgreementCompleted;
+
+          let stageName = '';
+          const status = item.applicationStatus;
+          if (status === 'DRAFT') {
+            stageName = 'Profile Setup';
+          } else if (status === 'SUBMITTED' || status === 'UNDER_REVIEW') {
+            if (!rulesEngineCompleted) {
+              stageName = 'Credit Engine Check';
+            } else if (!bankVerificationCompleted) {
+              stageName = 'Bank Verification';
+            } else if (!loanAgreementCompleted) {
+              stageName = 'Agreement Signing';
+            } else {
+              stageName = 'Final Review';
+            }
+          } else if (status === 'APPROVED') {
+            stageName = 'Disbursal Ready';
+          } else if (status === 'DISBURSED') {
+            stageName = 'Active Loan';
+          }
+
           const isDisbursed = item.applicationStatus === 'DISBURSED';
           const outstandingAmount = item.requestedAmount;
           const calculatedEmi = (outstandingAmount * 0.05).toFixed(0);
+          const repaidPct = isDisbursed ? 35 : 0;
 
           return (
             <TouchableOpacity
@@ -112,26 +231,79 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
                 colors={[colors.primary, colors.primaryDark]}
                 notchColor={colors.background}
               >
-                {/* Visual Decorative Bubbles */}
-                <View style={[styles.bubbleTop, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                <View style={[styles.bubbleBottom, { backgroundColor: 'rgba(255,255,255,0.06)' }]} />
+                {/* Decorative Bubbles */}
+                <View
+                  style={[
+                    styles.bubbleTop,
+                    { backgroundColor: 'rgba(255,255,255,0.08)' },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.bubbleBottom,
+                    { backgroundColor: 'rgba(255,255,255,0.04)' },
+                  ]}
+                />
 
+                {/* Top Row */}
                 <View style={styles.cardTopRow}>
                   <View style={styles.cardLabelCol}>
-                    <AppText variant="caption" style={{ color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '800' }}>
+                    <AppText variant="caption" style={styles.loanTypeLabel}>
                       Personal Loan
                     </AppText>
-                    <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                      <AppText variant="caption" style={styles.statusBadgeText}>
-                        {item.applicationStatus}
-                      </AppText>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 5 }}>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          {
+                            marginTop: 0,
+                            backgroundColor: isDisbursed
+                              ? 'rgba(52,211,153,0.25)'
+                              : 'rgba(255,255,255,0.15)',
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDot,
+                            {
+                              backgroundColor: isDisbursed ? '#34D399' : '#FBBF24',
+                            },
+                          ]}
+                        />
+                        <AppText variant="caption" style={styles.statusBadgeText}>
+                          {item.applicationStatus}
+                        </AppText>
+                      </View>
+                      
+                      {stageName ? (
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            {
+                              marginTop: 0,
+                              backgroundColor: 'rgba(255,255,255,0.12)',
+                            },
+                          ]}
+                        >
+                          <AppText variant="caption" style={[styles.statusBadgeText, { opacity: 0.95 }]}>
+                            {stageName.toUpperCase()}
+                          </AppText>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
-                  <View style={[styles.swapButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                    <Ionicons name="card" size={18} color="white" />
+                  <View
+                    style={[
+                      styles.cardIconBtn,
+                      { backgroundColor: 'rgba(255,255,255,0.12)' },
+                    ]}
+                  >
+                    <Ionicons name="card" size={16} color="white" />
                   </View>
                 </View>
 
+                {/* Amount Section */}
                 <View style={styles.amountSection}>
                   <AppText variant="caption" style={styles.outstandingLabel}>
                     Outstanding Balance
@@ -141,6 +313,7 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
                   </AppText>
                 </View>
 
+                {/* Bottom Row */}
                 <View style={styles.cardBottomRow}>
                   <View>
                     <AppText variant="caption" style={styles.outstandingLabel}>
@@ -158,14 +331,31 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
                         e.stopPropagation();
                         onViewDetails(item.id, true);
                       }}
-                      style={[styles.repayButton, { backgroundColor: colors.surface }]}
+                      style={[
+                        styles.repayButton,
+                        { backgroundColor: colors.surface },
+                      ]}
                     >
-                      <AppText variant="caption" style={[styles.repayButtonText, { color: colors.primary }]}>
+                      <AppText
+                        variant="caption"
+                        style={[
+                          styles.repayButtonText,
+                          { color: colors.primary },
+                        ]}
+                      >
                         Repay Now
                       </AppText>
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* Repayment Progress Bar */}
+                {isDisbursed && (
+                  <RepaymentProgressBar
+                    percentage={repaidPct}
+                    isDark={isDark}
+                  />
+                )}
               </NotchedCard>
             </TouchableOpacity>
           );
@@ -190,17 +380,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mainStatCard: {
-    height: 200,
+    height: 215,
     justifyContent: 'space-between',
   },
-  emptyCardHeader: {
+  emptyCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    paddingRight: 16,
+  },
+  emptyIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  emptyTextCol: {
+    flex: 1,
+    paddingRight: 8,
   },
   applyButton: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 14,
     alignSelf: 'flex-start',
     marginTop: 'auto',
   },
@@ -215,17 +420,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -40,
     right: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
   },
   bubbleBottom: {
     position: 'absolute',
     bottom: -30,
     left: -20,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -236,35 +441,52 @@ const styles = StyleSheet.create({
   cardLabelCol: {
     flex: 1,
   },
+  loanTypeLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontWeight: '800',
+    fontSize: 10,
+  },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: 4,
+    borderRadius: 8,
+    marginTop: 5,
+    gap: 5,
+  },
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   statusBadgeText: {
     color: 'white',
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  swapButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  cardIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   amountSection: {
-    marginTop: 12,
+    marginTop: 10,
     zIndex: 10,
   },
   outstandingLabel: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: 'rgba(255, 255, 255, 0.6)',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontSize: 9,
   },
   amountText: {
     color: 'white',
@@ -284,11 +506,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '800',
     marginTop: 2,
+    fontSize: 13,
   },
   repayButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -299,5 +522,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    fontSize: 11,
   },
 });

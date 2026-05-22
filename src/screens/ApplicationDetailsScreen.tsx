@@ -13,7 +13,9 @@ import {
   StyleSheet,
   Linking,
   Platform,
+  Animated,
 } from "react-native";
+import { useTheme, useColors } from "../theme";
 import LottieView from "lottie-react-native";
 import { MotiView } from "../components/Motion";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -162,6 +164,30 @@ export const ApplicationDetailsScreen = ({
 
   const statusColor = getStatusColor(app.applicationStatus);
 
+  const rulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
+  const bankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
+  const loanAgreementCompleted = app.applicationStepStatus?.loanAgreementCompleted ?? app.loanAgreementCompleted;
+
+  let stageName = '';
+  const status = app.applicationStatus;
+  if (status === 'DRAFT') {
+    stageName = 'Profile Setup';
+  } else if (status === 'SUBMITTED' || status === 'UNDER_REVIEW') {
+    if (!rulesEngineCompleted) {
+      stageName = 'Credit Check';
+    } else if (!bankVerificationCompleted) {
+      stageName = 'Bank Verification';
+    } else if (!loanAgreementCompleted) {
+      stageName = 'Agreement Signing';
+    } else {
+      stageName = 'Final Review';
+    }
+  } else if (status === 'APPROVED') {
+    stageName = 'Disbursal Ready';
+  } else if (status === 'DISBURSED') {
+    stageName = 'Active Loan';
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
       <View className="flex-1">
@@ -183,6 +209,14 @@ export const ApplicationDetailsScreen = ({
               <Text style={{ color: statusColor }} className="text-[10px] font-black uppercase tracking-widest">
                 {app.applicationStatus}
               </Text>
+              {stageName ? (
+                <>
+                  <View className="w-[1px] h-3 bg-slate-200 mx-2" />
+                  <Text className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                    {stageName}
+                  </Text>
+                </>
+              ) : null}
             </View>
 
             <TouchableOpacity className="w-10 h-10 items-center justify-center rounded-[16px] bg-slate-50 border border-slate-100 shadow-sm">
@@ -921,90 +955,110 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 /* ─────────────────────────────────────────────
  * OVERVIEW TAB
  * ───────────────────────────────────────────── */
-const OverviewTab = ({ app, formatCurrency, formatDate }: any) => (
-  <View>
-    {/* Hero Card - Premium Notched Gradient */}
-    <MotiView
-      from={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "timing", duration: 600 }}
-    >
-      <NotchedCard style={[styles.heroNotchedCard]} notchColor="#F8FAFC">
-        <LinearGradient
-          colors={["#0F172A", "#1E293B"]}
-          className="rounded-[32px] p-8 relative overflow-hidden h-full"
-        >
-          {/* Subtle Decorative Circle */}
-          <View className="absolute -right-20 -top-20 w-64 h-64 bg-blue-500/10 rounded-full" />
+const OverviewTab = ({ app, formatCurrency, formatDate }: any) => {
+  const rulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
+  const bankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
+  const loanAgreementCompleted = app.applicationStepStatus?.loanAgreementCompleted ?? app.loanAgreementCompleted;
+  const disbursalCompleted = app.applicationStatus === 'DISBURSED';
 
-          <View className="flex-row justify-between items-start mb-8">
-            <View>
-              <Text className="text-blue-400 text-[9px] font-black uppercase tracking-[2px] mb-2">Principal Amount</Text>
-              <Text className="text-white text-3xl font-black tracking-tight">
-                {formatCurrency(app.requestedAmount)}
-              </Text>
-            </View>
-            <View className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10">
-              <MaterialCommunityIcons name="wallet-outline" size={24} color="#3B82F6" />
-            </View>
-          </View>
+  const rulesEngineActive = !rulesEngineCompleted;
+  const bankVerificationActive = rulesEngineCompleted && !bankVerificationCompleted;
+  const loanAgreementActive = bankVerificationCompleted && !loanAgreementCompleted;
+  const disbursalActive = loanAgreementCompleted && !disbursalCompleted;
 
-          {/* Stats Grid - High Fidelity */}
-          <View className="flex-row flex-wrap justify-between pt-6 border-t border-white/5">
-            <View className="w-[48%] mb-6">
-              <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Monthly EMI</Text>
-              <Text className="text-white text-base font-black">{formatCurrency(app.emi)}</Text>
-            </View>
-            <View className="w-[48%] mb-6">
-              <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Interest</Text>
-              <Text className="text-white text-base font-black">{app.interest}% p.a.</Text>
-            </View>
-            <View className="w-[48%]">
-              <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Tenure</Text>
-              <Text className="text-white text-base font-black">{app.tenure} Months</Text>
-            </View>
-            <View className="w-[48%]">
-              <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Disbursal</Text>
-              <Text className="text-white text-base font-black">{formatCurrency(app.disbursalAmount)}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-      </NotchedCard>
-    </MotiView>
+  return (
+    <View>
+      {/* Hero Card - Premium Notched Gradient */}
+      <MotiView
+        from={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "timing", duration: 600 }}
+      >
+        <NotchedCard style={[styles.heroNotchedCard]} notchColor="#F8FAFC">
+          <LinearGradient
+            colors={["#0F172A", "#1E293B"]}
+            className="rounded-[32px] p-8 relative overflow-hidden h-full"
+          >
+            {/* Subtle Decorative Circle */}
+            <View className="absolute -right-20 -top-20 w-64 h-64 bg-blue-500/10 rounded-full" />
 
-    {/* Application Timeline */}
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 600, delay: 200 }}
-    >
-      <View className="flex-row justify-between items-center mb-4">
-        <Text style={styles.sectionTitle}>Track Progress</Text>
-        <TouchableOpacity>
-          <Text className="text-blue-600 text-xs font-black uppercase tracking-widest">History</Text>
-        </TouchableOpacity>
-      </View>
+            <View className="flex-row justify-between items-start mb-8">
+              <View>
+                <Text className="text-blue-400 text-[9px] font-black uppercase tracking-[2px] mb-2">Principal Amount</Text>
+                <Text className="text-white text-3xl font-black tracking-tight">
+                  {formatCurrency(app.requestedAmount)}
+                </Text>
+              </View>
+              <View className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10">
+                <MaterialCommunityIcons name="wallet-outline" size={24} color="#3B82F6" />
+              </View>
+            </View>
 
-      <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
-        <StepItem
-          title="Rules Engine Check"
-          subtitle="Credit & eligibility verification"
-          isCompleted={app.applicationStepStatus?.rulesEngineCompleted}
-          isFirst
-        />
-        <StepItem
-          title="Bank Verification"
-          subtitle="Validating disbursal account"
-          isCompleted={app.applicationStepStatus?.bankVerificationCompleted}
-        />
-        <StepItem
-          title="Loan Agreement"
-          subtitle="Digital signing & final review"
-          isCompleted={app.applicationStepStatus?.loanAgreementCompleted}
-          isLast
-        />
-      </View>
-    </MotiView>
+            {/* Stats Grid - High Fidelity */}
+            <View className="flex-row flex-wrap justify-between pt-6 border-t border-white/5">
+              <View className="w-[48%] mb-6">
+                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Monthly EMI</Text>
+                <Text className="text-white text-base font-black">{formatCurrency(app.emi)}</Text>
+              </View>
+              <View className="w-[48%] mb-6">
+                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Interest</Text>
+                <Text className="text-white text-base font-black">{app.interest}% p.a.</Text>
+              </View>
+              <View className="w-[48%]">
+                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Tenure</Text>
+                <Text className="text-white text-base font-black">{app.tenure} Months</Text>
+              </View>
+              <View className="w-[48%]">
+                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Disbursal</Text>
+                <Text className="text-white text-base font-black">{formatCurrency(app.disbursalAmount)}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </NotchedCard>
+      </MotiView>
+
+      {/* Application Timeline */}
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: "timing", duration: 600, delay: 200 }}
+      >
+        <View className="flex-row justify-between items-center mb-4">
+          <Text style={styles.sectionTitle}>Track Progress</Text>
+          <TouchableOpacity>
+            <Text className="text-blue-600 text-xs font-black uppercase tracking-widest">History</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
+          <StepItem
+            title="Rules Engine Check"
+            subtitle="Credit & eligibility verification"
+            isCompleted={rulesEngineCompleted}
+            isActive={rulesEngineActive}
+            isFirst
+          />
+          <StepItem
+            title="Bank Verification"
+            subtitle="Validating disbursal account"
+            isCompleted={bankVerificationCompleted}
+            isActive={bankVerificationActive}
+          />
+          <StepItem
+            title="Loan Agreement"
+            subtitle="Digital signing & final review"
+            isCompleted={loanAgreementCompleted}
+            isActive={loanAgreementActive}
+          />
+          <StepItem
+            title="Loan Disbursal"
+            subtitle="Disbursal of funds to bank account"
+            isCompleted={disbursalCompleted}
+            isActive={disbursalActive}
+            isLast
+          />
+        </View>
+      </MotiView>
 
     {/* Information Grid */}
     <MotiView
@@ -1040,8 +1094,9 @@ const OverviewTab = ({ app, formatCurrency, formatDate }: any) => (
         <Text className="text-indigo-900/70 text-sm font-medium leading-6">{app.remark}</Text>
       </MotiView>
     )}
-  </View>
-);
+    </View>
+  );
+};
 
 /* ─────────────────────────────────────────────
  * DOCUMENTS TAB
@@ -1406,31 +1461,119 @@ const StatPill = ({ label, value }: { label: string; value: string }) => (
   </View>
 );
 
-const StepItem = ({ title, subtitle, isCompleted, isFirst, isLast }: any) => (
-  <View className="flex-row">
-    <View className="items-center mr-5">
-      <View
-        className={`w-10 h-10 rounded-2xl items-center justify-center border-2 ${isCompleted ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200" : "bg-white border-slate-100"
-          }`}
-      >
+const PulsingDot = () => {
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <View style={{ width: 12, height: 12, marginRight: 6, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View
+        style={{
+          transform: [{ scale: pulseAnim }],
+          position: 'absolute',
+          width: 10,
+          height: 10,
+          borderRadius: 5,
+          backgroundColor: '#a855f7',
+          opacity: 0.4,
+        }}
+      />
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#7c3aed' }} />
+    </View>
+  );
+};
+
+const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast }: any) => {
+  const { theme } = useTheme();
+  const isDark = theme.mode === 'dark';
+
+  return (
+    <View className="flex-row">
+      <View style={{ paddingTop: isActive ? 6 : 8 }} className="items-center mr-5">
         {isCompleted ? (
-          <Ionicons name="checkmark-done" size={20} color="white" />
+          <View className="w-10 h-10 rounded-2xl items-center justify-center border-2 bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200">
+            <Ionicons name="checkmark-done" size={20} color="white" />
+          </View>
+        ) : isActive ? (
+          <View
+            style={{
+              backgroundColor: isDark ? 'rgba(124, 58, 237, 0.2)' : '#f3e8ff',
+              borderColor: '#a855f7',
+            }}
+            className="w-10 h-10 rounded-2xl items-center justify-center border-2 shadow-sm"
+          >
+            <View className="w-3 h-3 bg-purple-600 rounded-full" />
+          </View>
         ) : (
-          <View className="w-2.5 h-2.5 bg-slate-200 rounded-full" />
+          <View className="w-10 h-10 rounded-2xl items-center justify-center border-2 bg-white border-slate-100">
+            <View className="w-2.5 h-2.5 bg-slate-200 rounded-full" />
+          </View>
+        )}
+        {!isLast && (
+          <View className={`w-0.5 flex-1 my-1 ${isCompleted ? "bg-emerald-500" : "bg-slate-100"}`} />
         )}
       </View>
-      {!isLast && (
-        <View className={`w-0.5 flex-1 my-1 ${isCompleted ? "bg-emerald-500" : "bg-slate-100"}`} />
-      )}
+
+      <View
+        style={
+          isActive
+            ? {
+                backgroundColor: isDark ? 'rgba(124, 58, 237, 0.1)' : 'rgba(243, 232, 255, 0.5)',
+                borderColor: isDark ? 'rgba(168, 85, 247, 0.4)' : '#e9d5ff',
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: !isLast ? 16 : 0,
+              }
+            : {
+                marginBottom: !isLast ? 32 : 8,
+                paddingTop: 8,
+              }
+        }
+        className="flex-1"
+      >
+        {isActive && (
+          <View className="flex-row items-center bg-purple-100 dark:bg-purple-950/40 px-2.5 py-1 rounded-full self-start mb-2 border border-purple-200 dark:border-purple-800">
+            <PulsingDot />
+            <Text className="text-purple-700 dark:text-purple-300 text-[9px] font-black uppercase tracking-widest">
+              In Progress
+            </Text>
+          </View>
+        )}
+        <Text
+          className={`font-black text-sm tracking-tight ${
+            isCompleted ? "text-slate-900" : isActive ? "text-purple-950" : "text-slate-400"
+          }`}
+        >
+          {title}
+        </Text>
+        <Text
+          className={`text-[11px] font-bold mt-1 leading-4 ${
+            isActive ? "text-purple-900/60" : "text-slate-400"
+          }`}
+        >
+          {subtitle}
+        </Text>
+      </View>
     </View>
-    <View className={`flex-1 ${!isLast ? "mb-8" : "mb-2"}`}>
-      <Text className={`font-black text-sm tracking-tight ${isCompleted ? "text-slate-900" : "text-slate-400"}`}>
-        {title}
-      </Text>
-      <Text className="text-slate-400 text-[11px] font-bold mt-1 leading-4">{subtitle}</Text>
-    </View>
-  </View>
-);
+  );
+};
 
 const DetailRow = ({ label, value, isLast }: any) => (
   <View className={`flex-row justify-between py-4 ${!isLast ? "border-b border-slate-50" : ""}`}>

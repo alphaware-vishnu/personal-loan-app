@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useColors } from '../../theme';
+import { MotiView } from 'moti';
+import { useColors, useTheme } from '../../theme';
 import { AppText } from '../../components/ui/AppText';
 import { OtpInput } from '../../components/ui/OtpInput';
 import { AppButton } from '../../components/ui/AppButton';
@@ -26,6 +34,8 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   onVerify,
 }) => {
   const colors = useColors();
+  const { mode } = useTheme();
+  const isDark = mode === 'dark';
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
@@ -122,63 +132,182 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     resendOtpMutation.mutate(`91${mobile}`);
   };
 
+  // Format timer display
+  const formatTime = (s: number) => `0:${s.toString().padStart(2, '0')}`;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom']}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <TouchableOpacity
+            onPress={onBack}
+            style={[
+              styles.backButton,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255,255,255,0.06)'
+                  : colors.backgroundSecondary,
+                borderColor: isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : colors.border,
+              },
+            ]}
+          >
+            <Ionicons name="arrow-back" size={18} color={colors.text} />
           </TouchableOpacity>
 
           <View style={styles.content}>
             {/* Icon */}
-            <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight + '20' }]}>
-              <Feather name="shield" size={40} color={colors.primary} />
-            </View>
+            <MotiView
+              from={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', delay: 100, damping: 15 }}
+            >
+              <View
+                style={[
+                  styles.iconContainer,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(16,185,129,0.12)'
+                      : '#ECFDF5',
+                    borderColor: isDark
+                      ? 'rgba(16,185,129,0.2)'
+                      : 'transparent',
+                    borderWidth: isDark ? 1 : 0,
+                  },
+                ]}
+              >
+                <Feather name="shield" size={36} color={colors.success} />
+              </View>
+            </MotiView>
 
             {/* Title / Subtitle */}
-            <AppText variant="h2" style={styles.title}>
-              Verify your number
-            </AppText>
-            <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
-              We sent a 4-digit code to +91 {mobile}.
-            </AppText>
+            <MotiView
+              from={{ opacity: 0, translateY: 15 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 500, delay: 200 }}
+            >
+              <AppText variant="h2" style={[styles.title, { color: colors.text }]}>
+                Verify your number
+              </AppText>
+              <AppText
+                variant="bodyMd"
+                style={[styles.subtitle, { color: colors.textSecondary }]}
+              >
+                We sent a 4-digit code to{' '}
+                <AppText
+                  variant="bodyMd"
+                  style={{ color: colors.text, fontWeight: '700' }}
+                >
+                  +91 {mobile}
+                </AppText>
+              </AppText>
+            </MotiView>
 
             {/* OTP Input Fields */}
-            <OtpInput
-              code={otp}
-              onChangeCode={setOtp}
-              length={OTP_LENGTH}
-            />
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 500, delay: 350 }}
+            >
+              <OtpInput
+                code={otp}
+                onChangeCode={setOtp}
+                length={OTP_LENGTH}
+              />
+            </MotiView>
 
             {/* Resend Timer / Action */}
-            <View style={styles.resendContainer}>
+            <MotiView
+              from={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ type: 'timing', duration: 500, delay: 450 }}
+              style={styles.resendContainer}
+            >
               {canResend ? (
-                <TouchableOpacity onPress={handleResend} disabled={resendOtpMutation.isPending}>
-                  <AppText variant="bodyMd" style={{ color: colors.primary, fontWeight: '600' }}>
+                <TouchableOpacity
+                  onPress={handleResend}
+                  disabled={resendOtpMutation.isPending}
+                  style={[
+                    styles.resendButton,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(99,102,241,0.12)'
+                        : colors.primaryLight,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="refresh"
+                    size={14}
+                    color={colors.primary}
+                    style={{ marginRight: 5 }}
+                  />
+                  <AppText
+                    variant="bodySm"
+                    style={{ color: colors.primary, fontWeight: '700' }}
+                  >
                     Resend Code
                   </AppText>
                 </TouchableOpacity>
               ) : (
-                <AppText variant="bodyMd" style={{ color: colors.textSecondary }}>
-                  Resend code in <AppText variant="bodyMd" style={{ color: colors.text, fontWeight: '600' }}>{timer}s</AppText>
-                </AppText>
+                <View
+                  style={[
+                    styles.timerContainer,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(255,255,255,0.04)'
+                        : colors.backgroundSecondary,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={14}
+                    color={colors.textMuted}
+                    style={{ marginRight: 5 }}
+                  />
+                  <AppText
+                    variant="bodySm"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    Resend code in{' '}
+                    <AppText
+                      variant="bodySm"
+                      style={{ color: colors.text, fontWeight: '700' }}
+                    >
+                      {formatTime(timer)}
+                    </AppText>
+                  </AppText>
+                </View>
               )}
-            </View>
+            </MotiView>
 
             {/* Verify CTA */}
-            <AppButton
-              title="Verify & Continue"
-              onPress={handleSubmit}
-              disabled={otp.length !== OTP_LENGTH}
-              loading={verifyOtpMutation.isPending}
-              style={styles.submitButton}
-            />
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 500, delay: 500 }}
+            >
+              <AppButton
+                title="Verify & Continue"
+                onPress={handleSubmit}
+                disabled={otp.length !== OTP_LENGTH}
+                loading={verifyOtpMutation.isPending}
+                style={styles.submitButton}
+              />
+            </MotiView>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -198,35 +327,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   backButton: {
-    marginTop: 16,
+    marginTop: 12,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
   },
   content: {
     flex: 1,
-    paddingTop: 40,
+    paddingTop: 36,
     paddingBottom: 24,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   title: {
-    marginBottom: 12,
+    marginBottom: 10,
+    fontWeight: '800',
   },
   subtitle: {
     marginBottom: 32,
+    lineHeight: 22,
   },
   resendContainer: {
     alignItems: 'center',
     marginVertical: 24,
+  },
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   submitButton: {
     marginTop: 8,

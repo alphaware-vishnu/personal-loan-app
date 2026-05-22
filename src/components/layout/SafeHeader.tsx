@@ -1,11 +1,13 @@
 /**
  * SafeHeader — Reusable screen header with back button and title
+ * Fibe-inspired design with rounded-square back button and subtle styling
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
+import { AppText } from '../ui/AppText';
 
 interface SafeHeaderProps {
   title: string;
@@ -22,36 +24,49 @@ export const SafeHeader: React.FC<SafeHeaderProps> = ({
   showBack = true,
   rightAction,
 }) => {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === 'dark';
 
   return (
     <View style={styles.container}>
       {showBack && onBack ? (
         <TouchableOpacity
           onPress={onBack}
-          style={[styles.backButton, { backgroundColor: theme.colors.backgroundTertiary }]}
+          style={[
+            styles.backButton,
+            {
+              backgroundColor: isDark
+                ? 'rgba(255,255,255,0.06)'
+                : theme.colors.backgroundSecondary,
+              borderColor: isDark
+                ? 'rgba(255,255,255,0.08)'
+                : theme.colors.border,
+            },
+          ]}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+          <Ionicons name="arrow-back" size={18} color={theme.colors.text} />
         </TouchableOpacity>
       ) : (
         <View style={styles.spacer} />
       )}
 
       <View style={styles.titleContainer}>
-        <Text
+        <AppText
+          variant="label"
           style={[styles.title, { color: theme.colors.text }]}
           numberOfLines={1}
         >
           {title}
-        </Text>
+        </AppText>
         {subtitle && (
-          <Text
+          <AppText
+            variant="caption"
             style={[styles.subtitle, { color: theme.colors.textSecondary }]}
             numberOfLines={1}
           >
             {subtitle}
-          </Text>
+          </AppText>
         )}
       </View>
 
@@ -68,25 +83,27 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   titleContainer: {
     flex: 1,
     alignItems: 'center',
   },
   title: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   spacer: {

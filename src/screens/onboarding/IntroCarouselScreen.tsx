@@ -3,6 +3,7 @@ import { View, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Carousel, { ICarouselInstance } from 'react-native-reanimated-carousel';
 import * as Haptics from 'expo-haptics';
+import { MotiView } from 'moti';
 import { useColors, useTheme } from '../../theme';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
@@ -43,7 +44,8 @@ interface IntroCarouselScreenProps {
 
 export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStart }) => {
   const colors = useColors();
-  const { theme } = useTheme();
+  const { mode } = useTheme();
+  const isDark = mode === 'dark';
   const [currentIndex, setCurrentIndex] = useState(0);
   const carouselRef = useRef<ICarouselInstance>(null);
 
@@ -67,13 +69,58 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
     onStart();
   };
 
+  const isLastSlide = currentIndex === SLIDES_DATA.length - 1;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      {/* Header Skip button */}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom']}
+    >
+      {/* Header — Skip */}
       <View style={styles.header}>
-        {currentIndex < SLIDES_DATA.length - 1 && (
-          <TouchableOpacity onPress={handleSkip}>
-            <AppText variant="bodyMd" style={{ color: colors.textSecondary, fontWeight: '600' }}>
+        <View style={styles.headerLeft}>
+          {/* Step counter */}
+          <View
+            style={[
+              styles.stepCounter,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255,255,255,0.06)'
+                  : colors.backgroundSecondary,
+              },
+            ]}
+          >
+            <AppText
+              variant="caption"
+              style={[
+                styles.stepText,
+                { color: isDark ? colors.textMuted : colors.textTertiary },
+              ]}
+            >
+              {currentIndex + 1}/{SLIDES_DATA.length}
+            </AppText>
+          </View>
+        </View>
+
+        {!isLastSlide && (
+          <TouchableOpacity
+            onPress={handleSkip}
+            style={[
+              styles.skipButton,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255,255,255,0.06)'
+                  : colors.backgroundSecondary,
+              },
+            ]}
+          >
+            <AppText
+              variant="bodySm"
+              style={[
+                styles.skipText,
+                { color: isDark ? colors.textMuted : colors.textSecondary },
+              ]}
+            >
               Skip
             </AppText>
           </TouchableOpacity>
@@ -85,7 +132,7 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
         <Carousel
           ref={carouselRef}
           width={width}
-          height={height * 0.55}
+          height={height * 0.58}
           data={SLIDES_DATA}
           onSnapToItem={(index) => setCurrentIndex(index)}
           renderItem={({ item }) => (
@@ -103,20 +150,29 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
         />
       </View>
 
-      {/* Footer Area */}
+      {/* Footer */}
       <View style={styles.footer}>
         {/* Pagination Dots */}
         <View style={styles.dotsContainer}>
           {SLIDES_DATA.map((_, index) => {
             const isActive = index === currentIndex;
+            const isPast = index < currentIndex;
             return (
-              <View
+              <MotiView
                 key={index}
+                animate={{
+                  width: isActive ? 28 : 8,
+                  opacity: isActive ? 1 : isPast ? 0.6 : 0.25,
+                }}
+                transition={{ type: 'timing', duration: 300 }}
                 style={[
                   styles.dot,
                   {
-                    backgroundColor: isActive ? colors.primary : colors.borderLight,
-                    width: isActive ? 24 : 8,
+                    backgroundColor: isActive || isPast
+                      ? colors.primary
+                      : isDark
+                      ? 'rgba(255,255,255,0.15)'
+                      : colors.borderLight,
                   },
                 ]}
               />
@@ -126,7 +182,7 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
 
         {/* Action Button */}
         <AppButton
-          title={currentIndex === SLIDES_DATA.length - 1 ? "Get Started" : "Continue"}
+          title={isLastSlide ? 'Get Started' : 'Continue'}
           onPress={handleNext}
           style={styles.button}
         />
@@ -140,11 +196,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: 48,
+    height: 52,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepCounter: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  stepText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  skipText: {
+    fontWeight: '600',
+    fontSize: 13,
   },
   carouselContainer: {
     flex: 1,
@@ -152,14 +231,14 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 28,
     alignItems: 'center',
   },
   dotsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
     gap: 6,
   },
   dot: {

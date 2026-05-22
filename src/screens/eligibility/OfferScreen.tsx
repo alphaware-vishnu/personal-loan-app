@@ -16,9 +16,10 @@ import { AppButton } from '../../components/ui/AppButton';
 interface OfferScreenProps {
   onNext: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack }) => {
+export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip }) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
@@ -64,7 +65,7 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack }) => {
       <SafeHeader title="Personalized Offer" onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <StepIndicator totalSteps={4} currentStep={3} showLabel />
+        <StepIndicator totalSteps={3} currentStep={2} showLabel stageName="Eligibility Check" />
 
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
@@ -194,6 +195,15 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack }) => {
           size="lg"
           style={styles.button}
         />
+        {onSkip && (
+          <AppButton
+            title="Skip, I'll do later"
+            variant="ghost"
+            size="md"
+            onPress={onSkip}
+            style={{ marginTop: 8 }}
+          />
+        )}
       </MotiView>
     </ScreenWrapper>
   );

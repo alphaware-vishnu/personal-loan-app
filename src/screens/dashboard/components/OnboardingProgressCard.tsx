@@ -27,6 +27,15 @@ const STEP_TO_FLOW: Record<OnboardingStepId, string> = {
   disbursal: 'disbursal',
 };
 
+const GROUP_TO_STAGE: Record<string, string> = {
+  profile: 'Profile Setup',
+  eligibility: 'Eligibility Check',
+  kyc: 'KYC Verification',
+  bank_verification: 'Bank Verification',
+  loan_agreement: 'Loan Agreement',
+  disbursal: 'Loan Disbursal',
+};
+
 interface OnboardingProgressCardProps {
   onResume: (screen: any) => void;
 }
@@ -44,6 +53,7 @@ export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = Rea
   // Find the first incomplete step
   const nextStep = trackableSteps.find((step) => !completedSteps.includes(step.id));
   const nextFlowTarget = nextStep ? STEP_TO_FLOW[nextStep.id] : 'dashboard';
+  const stageName = nextStep ? (GROUP_TO_STAGE[nextStep.group] || nextStep.group) : '';
 
   const handleResume = () => {
     onResume(nextFlowTarget);
@@ -52,10 +62,19 @@ export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = Rea
   return (
     <AppCard style={styles.card}>
       <View style={styles.header}>
-        <View style={[styles.badge, { backgroundColor: colors.accentLight }]}>
-          <AppText variant="caption" style={{ color: colors.accentDark, fontWeight: '800' }}>
-            ONBOARDING IN PROGRESS
-          </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <View style={[styles.badge, { backgroundColor: colors.accentLight }]}>
+            <AppText variant="caption" style={{ color: colors.accentDark, fontWeight: '800' }}>
+              ONBOARDING
+            </AppText>
+          </View>
+          {stageName ? (
+            <View style={[styles.badge, { backgroundColor: colors.primaryLight }]}>
+              <AppText variant="caption" style={{ color: colors.primary, fontWeight: '800', fontSize: 9 }}>
+                {stageName.toUpperCase()}
+              </AppText>
+            </View>
+          ) : null}
         </View>
         <AppText variant="caption" style={{ color: colors.textSecondary }}>
           {completedCount} of {totalSteps} steps completed

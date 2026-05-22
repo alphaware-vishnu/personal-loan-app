@@ -43,7 +43,7 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
       <SafeHeader title="Work Details" onBack={onBack} />
 
       <View style={styles.content}>
-        <StepIndicator totalSteps={4} currentStep={1} showLabel />
+        <StepIndicator totalSteps={4} currentStep={1} showLabel stageName="Profile Setup" />
 
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
