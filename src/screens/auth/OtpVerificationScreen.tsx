@@ -17,8 +17,10 @@ import { OtpInput } from '../../components/ui/OtpInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { verifyOtp, sendOtp } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
+import { useOnboardingStore } from '../../store/onboardingStore';
 import Toast from 'react-native-toast-message';
 import { AuthData } from '../../types/auth.type';
+import { env } from '../../config/env';
 
 interface OtpVerificationScreenProps {
   mobile: string;
@@ -26,7 +28,7 @@ interface OtpVerificationScreenProps {
   onVerify: (isExisting: boolean) => void;
 }
 
-const OTP_LENGTH = 4;
+const OTP_LENGTH = env.otpLength;
 
 export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   mobile,
@@ -60,13 +62,20 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     onSuccess: async (response: any) => {
       const data = response?.data?.data;
       if (data) {
-        setAuth(data, mobile);
-        onVerify(!data.isFirstLogin);
+        const onboardingState = useOnboardingStore.getState();
+        const isFirstLogin = data.isFirstLogin ?? !onboardingState.hasCompletedProfile;
+        const authData: AuthData = {
+          ...data,
+          isFirstLogin,
+        };
+        setAuth(authData, mobile);
+        onVerify(!isFirstLogin);
       } else {
         // Fallback demo login
+        const isFirstLogin = !useOnboardingStore.getState().hasCompletedProfile;
         const demoAuth: AuthData = {
           customerId: 99999,
-          isFirstLogin: true,
+          isFirstLogin,
           access_token: 'demo-token',
           refresh_token: 'demo-refresh-token',
           token_type: 'Bearer',
@@ -76,7 +85,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
           scope: '',
         };
         setAuth(demoAuth, mobile);
-        onVerify(false);
+        onVerify(!isFirstLogin);
       }
     },
     onError: (error: any) => {
@@ -86,9 +95,10 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         text1: 'Demo Mode Bypass',
         text2: 'Invalid OTP api response. Proceeding in Demo mode.',
       });
+      const isFirstLogin = !useOnboardingStore.getState().hasCompletedProfile;
       const demoAuth: AuthData = {
         customerId: 99999,
-        isFirstLogin: true,
+        isFirstLogin,
         access_token: 'demo-token',
         refresh_token: 'demo-refresh-token',
         token_type: 'Bearer',
@@ -98,7 +108,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         scope: '',
       };
       setAuth(demoAuth, mobile);
-      onVerify(false);
+      onVerify(!isFirstLogin);
     },
   });
 
@@ -205,7 +215,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
                 variant="bodyMd"
                 style={[styles.subtitle, { color: colors.textSecondary }]}
               >
-                We sent a 4-digit code to{' '}
+                We sent a {OTP_LENGTH}-digit code to{' '}
                 <AppText
                   variant="bodyMd"
                   style={{ color: colors.text, fontWeight: '700' }}

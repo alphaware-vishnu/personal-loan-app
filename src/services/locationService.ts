@@ -4,6 +4,7 @@
  */
 
 import * as Location from 'expo-location';
+import { api } from '../api/client';
 import type { Address } from '../types/customer.type';
 
 export interface LocationResult {
@@ -11,6 +12,37 @@ export interface LocationResult {
   longitude: number;
   address: Address;
 }
+
+export interface LocationSuggestion {
+  placeId: string;
+  formatted: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  countryCode?: string;
+  postcode?: string;
+  latitude?: number;
+  longitude?: number;
+  resultType?: string;
+}
+
+/**
+ * Fetch autocomplete suggestions for a given text query.
+ */
+export const getAutocompleteSuggestions = async (text: string): Promise<LocationSuggestion[]> => {
+  if (!text || text.trim().length < 3) return [];
+  try {
+    const response = await api.get<LocationSuggestion[]>('/location/autocomplete', {
+      params: { text },
+    });
+    return response.data || [];
+  } catch (error: any) {
+    console.error('[Location Service] Autocomplete failed:', error);
+    return [];
+  }
+};
 
 /**
  * Request location permission and get current position with reverse geocoding.

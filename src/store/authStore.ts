@@ -6,6 +6,7 @@ import { getSecureItem, setSecureItem, removeSecureItem } from '../utils/securit
 interface AuthState {
   authData: AuthData | null;
   token: string | null;
+  refreshToken: string | null;
   mobile: string | null;
   isLoggedIn: boolean;
   deviceId: string | null;
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       authData: null,
       token: null,
+      refreshToken: null,
       mobile: null,
       isLoggedIn: false,
       deviceId: null,
@@ -42,6 +44,7 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (data: AuthData, mobile?: string) => set({ 
         authData: data, 
         token: data.access_token, 
+        refreshToken: data.refresh_token,
         mobile: mobile || null,
         isLoggedIn: true,
         lastActive: Date.now(),
@@ -54,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
       clearAuth: () => set({ 
         authData: null, 
         token: null, 
+        refreshToken: null,
         mobile: null,
         isLoggedIn: false,
         lastActive: null,

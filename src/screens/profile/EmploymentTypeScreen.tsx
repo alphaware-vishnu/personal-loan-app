@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -12,6 +12,8 @@ import { trackEvent } from '../../utils/analytics';
 import type { EmploymentType } from '../../constants/onboardingSteps';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
+import { getCustomerProfile, updateCustomerProfile, mapApiToLocalEmploymentType, mapLocalToApiEmploymentType } from '../../services/customerService';
+import { useAuthStore } from '../../store/authStore';
 
 interface EmploymentTypeScreenProps {
   onNext: () => void;
@@ -22,21 +24,74 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
   const colors = useColors();
   const { theme } = useTheme();
   const { formData, updateFormData, completeStep } = useOnboardingStore();
-  const [selected, setSelected] = useState<EmploymentType | null>(
-    formData.employmentType || null
-  );
+  const [selected, setSelected] = useState<EmploymentType | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const customerId = useAuthStore.getState().authData?.customerId || 99999;
+      setIsProfileLoading(true);
+      try {
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.success && profile.data) {
+          const mappedType = mapApiToLocalEmploymentType(profile.data.employmentType);
+          if (mappedType) {
+            setSelected(mappedType);
+            updateFormData({ employmentType: mappedType });
+          } else if (formData.employmentType) {
+            setSelected(formData.employmentType);
+          }
+        }
+      } catch (err) {
+        console.error('[Employment Screen] Failed to load profile:', err);
+        if (formData.employmentType) {
+          setSelected(formData.employmentType);
+        }
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const handleSelect = (type: EmploymentType) => {
     setSelected(type);
     trackEvent('employment_selected', { type });
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selected) return;
-    updateFormData({ employmentType: selected });
-    completeStep('employment');
-    onNext();
+    const customerId = useAuthStore.getState().authData?.customerId || 99999;
+    setIsSaving(true);
+    try {
+      // Map local to api
+      const apiType = mapLocalToApiEmploymentType(selected);
+      await updateCustomerProfile({
+        id: customerId,
+        employmentType: apiType,
+      });
+
+      updateFormData({ employmentType: selected });
+      completeStep('employment');
+      onNext();
+    } catch (err) {
+      console.error('[Employment Screen] Failed to save profile:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isProfileLoading) {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Work Details" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -64,6 +119,7 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
             title={COPY.employment.cta}
             onPress={handleContinue}
             disabled={!selected}
+            loading={isSaving}
             style={styles.button}
           />
         </MotiView>

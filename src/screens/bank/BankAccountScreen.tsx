@@ -33,6 +33,8 @@ import { uploadDocument } from '../../services/documentService';
 import { updateStepStatus } from '../../services/applicationService';
 import { trackEvent } from '../../utils/analytics';
 import { useDebounce } from '../../hooks';
+import { getCustomerProfile, updateCustomerProfile } from '../../services/customerService';
+import { useAuthStore } from '../../store/authStore';
 
 interface BankAccountScreenProps {
   onNext: () => void;
@@ -59,6 +61,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
   const [branchName, setBranchName] = useState('');
   const [bankName, setBankName] = useState('');
   const [isLooingUpIfsc, setIsLookingUpIfsc] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   // Document picker states
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -112,7 +115,8 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
       ifscCode: '',
     },
     validationSchema: bankDetailsSchema,
-    onSubmit: (values) => {
+    onSubmit: async (values) => {
+      const customerId = useAuthStore.getState().authData?.customerId || 99999;
       addCustomerBank({
         accountHolderName: values.accountName,
         accountNo: values.accountNumber,
@@ -123,17 +127,64 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
         isDefault: true,
       });
 
-      if (applicationId) {
-        statusMutation.mutate({
-          id: applicationId,
-          status: { bankVerificationCompleted: true },
+      try {
+        await updateCustomerProfile({
+          id: customerId,
+          bank: {
+            holderName: values.accountName,
+            accountNo: values.accountNumber,
+            ifscCode: values.ifscCode,
+            autoDebitType: selectedAutoPay.toUpperCase(),
+          },
         });
-      } else {
-        completeStep('bank_account');
-        onNext();
+
+        if (applicationId) {
+          statusMutation.mutate({
+            id: applicationId,
+            status: { bankVerificationCompleted: true },
+          });
+        } else {
+          completeStep('bank_account');
+          onNext();
+        }
+      } catch (err: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Save Failed',
+          text2: err.message || 'Failed to save bank details.',
+        });
       }
     },
   });
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const customerId = useAuthStore.getState().authData?.customerId || 99999;
+      setIsProfileLoading(true);
+      try {
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.success && profile.data) {
+          const data = profile.data;
+          if (data.bank) {
+            formik.setValues({
+              accountName: data.bank.holderName || '',
+              accountNumber: data.bank.accountNo || '',
+              confirmAccountNumber: data.bank.accountNo || '',
+              ifscCode: data.bank.ifscCode || '',
+            });
+            if (data.bank.autoDebitType) {
+              setSelectedAutoPay(data.bank.autoDebitType.toLowerCase() as AutoPayMethod);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[Bank Account Screen] Failed to load profile:', err);
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const debouncedIfsc = useDebounce(formik.values.ifscCode, 500);
 
@@ -233,9 +284,22 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
 
   const isFormValid =
     formik.isValid &&
-    formik.dirty &&
+    (formik.dirty || !!formik.values.accountNumber) &&
     (passbookReq ? uploadedDocs[passbookReq.id] : true) &&
     (houseReq ? uploadedDocs[houseReq.id] : true);
+
+  if (isProfileLoading) {
+    return (
+      <ScreenWrapper padded={false}>
+        <View style={styles.headerWrapper}>
+          <SafeHeader title="Disbursal Bank Details" onBack={onBack} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper padded={false}>

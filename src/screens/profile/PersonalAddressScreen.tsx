@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
@@ -13,6 +13,8 @@ import { trackEvent } from '../../utils/analytics';
 import type { Address } from '../../types/customer.type';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
+import { getCustomerProfile, updateCustomerProfile, mapApiToLocalAddress, mapLocalToApiHomeAddress } from '../../services/customerService';
+import { useAuthStore } from '../../store/authStore';
 
 interface PersonalAddressScreenProps {
   onNext: () => void;
@@ -27,16 +29,45 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
 
   const [sameAsWork, setSameAsWork] = useState(formData.sameAsWorkAddress || false);
 
-  const [address, setAddress] = useState<Address>(
-    formData.personalAddress || {
-      flatNo: '',
-      area: '',
-      city: '',
-      stateName: '',
-      pinCode: '',
-      countryName: 'India',
-    }
-  );
+  const [address, setAddress] = useState<Address>({
+    flatNo: '',
+    area: '',
+    city: '',
+    stateName: '',
+    pinCode: '',
+    countryName: 'India',
+  });
+
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const customerId = useAuthStore.getState().authData?.customerId || 99999;
+      setIsProfileLoading(true);
+      try {
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.success && profile.data) {
+          const data = profile.data;
+          if (data.homeAddress) {
+            const localHomeAddress = mapApiToLocalAddress(data.homeAddress);
+            setAddress(localHomeAddress);
+            updateFormData({ personalAddress: localHomeAddress });
+          } else if (formData.personalAddress) {
+            setAddress(formData.personalAddress);
+          }
+        }
+      } catch (err) {
+        console.error('[Personal Address Screen] Failed to load profile:', err);
+        if (formData.personalAddress) {
+          setAddress(formData.personalAddress);
+        }
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const handleSameAsWork = () => {
     const newValue = !sameAsWork;
@@ -56,24 +87,48 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
     (address.pinCode?.trim().length || 0) === 6 &&
     (address.stateName?.trim().length || 0) > 1;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!isComplete) return;
+    const customerId = useAuthStore.getState().authData?.customerId || 99999;
+    setIsSaving(true);
+    try {
+      const apiHomeAddress = mapLocalToApiHomeAddress(address);
+      await updateCustomerProfile({
+        id: customerId,
+        homeAddress: apiHomeAddress,
+      });
 
-    updateFormData({
-      personalAddress: address,
-      sameAsWorkAddress: sameAsWork,
-    });
-    completeStep('personal_address');
-    setProfileCompleted(true);
-    trackEvent('address_submitted', { type: 'personal' });
-    onNext();
+      updateFormData({
+        personalAddress: address,
+        sameAsWorkAddress: sameAsWork,
+      });
+      completeStep('personal_address');
+      setProfileCompleted(true);
+      trackEvent('address_submitted', { type: 'personal' });
+      onNext();
+    } catch (err) {
+      console.error('[Personal Address Screen] Failed to save profile:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isProfileLoading) {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Personal Address" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
       <SafeHeader title="Personal Address" onBack={onBack} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <StepIndicator totalSteps={4} currentStep={3} showLabel stageName="Profile Setup" />
 
           <MotiView
@@ -116,6 +171,7 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
               title={COPY.address.cta}
               onPress={handleContinue}
               disabled={!isComplete}
+              loading={isSaving}
               style={styles.button}
             />
 

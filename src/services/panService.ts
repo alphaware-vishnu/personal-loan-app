@@ -17,25 +17,28 @@ import type { PanValidationResult } from '../types/customer.type';
  */
 export const validatePan = async (panNumber: string): Promise<PanValidationResult> => {
   try {
-    // TODO: Replace with actual PAN validation API endpoint
-    // const response = await api.post('/kyc/pan/validate', { panNumber });
-    // return response.data.data;
+    const response = await api.post(`/customer/pan-validation`, null, {
+      params: { pan: panNumber },
+    });
 
-    // ─── Mock Implementation ───
-    // Simulates a PAN validation API call for development
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+    const success = response.data?.success;
+    const responseData = response.data?.data;
+    const dataNode = responseData?.data;
 
-    // Generate mock data based on PAN
-    const mockResult: PanValidationResult = {
-      isValid: true,
-      panNumber: panNumber.toUpperCase(),
-      name: generateMockName(panNumber),
-      dateOfBirth: '1995-06-15',
-      gender: panNumber.charAt(3) === 'P' ? 'MALE' : panNumber.charAt(3) === 'C' ? 'FEMALE' : 'MALE',
+    if (!success || !dataNode) {
+      throw new Error(response.data?.message || 'PAN validation failed.');
+    }
+
+    const isPanValid = dataNode.status === 'VALID' || dataNode.status === 'ACTIVE';
+
+    return {
+      isValid: isPanValid,
+      panNumber: dataNode.pan || panNumber.toUpperCase(),
+      name: dataNode.name || '',
+      dateOfBirth: '1995-06-15', // Default since DOB is not returned by this API
+      gender: panNumber.charAt(3) === 'P' ? 'MALE' : panNumber.charAt(3) === 'C' ? 'FEMALE' : 'MALE', // Default gender derived from PAN
       category: 'Individual',
     };
-
-    return mockResult;
   } catch (error: any) {
     console.error('[PAN Service] Validation failed:', error);
     throw new Error(error.response?.data?.message || 'PAN validation failed. Please try again.');

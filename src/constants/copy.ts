@@ -68,11 +68,11 @@ export const COPY = {
   // ─── Auth ───
   auth: {
     mobileTitle: 'Enter your mobile number',
-    mobileSubtitle: 'We\'ll send a 4-digit code to verify your account.',
+    mobileSubtitle: 'We\'ll send a 6-digit code to verify your account.',
     mobilePlaceholder: '98765 43210',
     mobileCta: 'Send Verification Code',
     otpTitle: 'Verify your number',
-    otpSubtitle: 'Enter the 4-digit code sent to',
+    otpSubtitle: 'Enter the 6-digit code sent to',
     otpResend: 'Resend code',
     otpResendActive: 'Resend code in {seconds}s',
     otpVerifyCta: 'Verify & Continue',

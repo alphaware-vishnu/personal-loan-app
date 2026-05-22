@@ -1,9 +1,5 @@
-/**
- * WorkAddressScreen — GPS auto-fill for company/work address
- */
-
-import React, { useState } from 'react';
-import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -17,6 +13,8 @@ import type { Address } from '../../types/customer.type';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
+import { getCustomerProfile, updateCustomerProfile, mapLocalToApiOfficeAddress } from '../../services/customerService';
+import { useAuthStore } from '../../store/authStore';
 
 interface WorkAddressScreenProps {
   onNext: () => void;
@@ -28,18 +26,59 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
   const { theme } = useTheme();
   const { formData, updateFormData, completeStep } = useOnboardingStore();
 
-  const [address, setAddress] = useState<Address>(
-    formData.workAddress || {
-      flatNo: '',
-      area: '',
-      city: '',
-      stateName: '',
-      pinCode: '',
-      countryName: 'India',
-    }
-  );
+  const [address, setAddress] = useState<Address>({
+    flatNo: '',
+    area: '',
+    city: '',
+    stateName: '',
+    pinCode: '',
+    countryName: 'India',
+  });
 
-  const [companyName, setCompanyName] = useState(formData.companyName || '');
+  const [companyName, setCompanyName] = useState('');
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const customerId = useAuthStore.getState().authData?.customerId || 99999;
+      setIsProfileLoading(true);
+      try {
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.success && profile.data) {
+          const data = profile.data;
+          if (data.officeAddress) {
+            const localWorkAddress: Address = {
+              flatNo: data.officeAddress.building || '',
+              area: data.officeAddress.area || '',
+              city: data.officeAddress.city || '',
+              stateName: data.officeAddress.state || '',
+              pinCode: data.officeAddress.postcode || '',
+              countryName: data.officeAddress.country || 'India',
+            };
+            setAddress(localWorkAddress);
+            setCompanyName(data.officeAddress.officeName || '');
+            updateFormData({
+              workAddress: localWorkAddress,
+              companyName: data.officeAddress.officeName || '',
+            });
+          } else if (formData.workAddress) {
+            setAddress(formData.workAddress);
+            setCompanyName(formData.companyName || '');
+          }
+        }
+      } catch (err) {
+        console.error('[Work Address Screen] Failed to load profile:', err);
+        if (formData.workAddress) {
+          setAddress(formData.workAddress);
+          setCompanyName(formData.companyName || '');
+        }
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const isComplete =
     (companyName.trim().length || 0) > 1 &&
@@ -48,17 +87,41 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
     (address.stateName?.trim().length || 0) > 1 &&
     (address.pinCode?.trim().length || 0) === 6;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!isComplete) return;
-    
-    updateFormData({
-      workAddress: address,
-      companyName,
-    });
-    completeStep('work_address');
-    trackEvent('address_submitted', { type: 'work' });
-    onNext();
+    const customerId = useAuthStore.getState().authData?.customerId || 99999;
+    setIsSaving(true);
+    try {
+      const apiOfficeAddress = mapLocalToApiOfficeAddress(address, companyName);
+      await updateCustomerProfile({
+        id: customerId,
+        officeAddress: apiOfficeAddress,
+      });
+
+      updateFormData({
+        workAddress: address,
+        companyName,
+      });
+      completeStep('work_address');
+      trackEvent('address_submitted', { type: 'work' });
+      onNext();
+    } catch (err) {
+      console.error('[Work Address Screen] Failed to save profile:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isProfileLoading) {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title={COPY.address.workTitle} onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -68,7 +131,7 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <StepIndicator totalSteps={4} currentStep={2} showLabel stageName="Profile Setup" />
 
           <MotiView
@@ -95,12 +158,14 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
               value={address}
               onChange={setAddress}
               error={undefined}
+              isWorkAddress={true}
             />
 
             <AppButton
               title={COPY.address.cta}
               onPress={handleContinue}
               disabled={!isComplete}
+              loading={isSaving}
               style={styles.button}
             />
           </MotiView>
