@@ -109,6 +109,8 @@ export const OtpInput: React.FC<OtpInputProps> = ({
         onBlur={() => setIsFocused(false)}
         textContentType="oneTimeCode"
         autoComplete="one-time-code"
+        caretHidden={true}
+        underlineColorAndroid="transparent"
       />
     </Pressable>
   );
@@ -119,6 +121,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginVertical: 12,
+    position: 'relative',
   },
   cellsContainer: {
     flexDirection: 'row',
@@ -140,9 +143,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.01,
+    color: 'transparent',
+    backgroundColor: 'transparent',
   },
 });

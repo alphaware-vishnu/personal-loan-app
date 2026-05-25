@@ -26,7 +26,7 @@ interface EnvConfig {
 const configs: Record<Environment, EnvConfig> = {
   development: {
     environment: 'development',
-    apiBaseUrl: 'http://192.168.0.113:9092/api/los-personal/',
+    apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/',
     tenantId: 'product-dev',
     enableDebugTools: true,
     enableNetworkLogger: true,
@@ -42,7 +42,7 @@ const configs: Record<Environment, EnvConfig> = {
   },
   staging: {
     environment: 'staging',
-    apiBaseUrl: 'http://192.168.0.113:9092/api/los-personal/    ',
+    apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/    ',
     tenantId: 'product-staging',
     enableDebugTools: true,
     enableNetworkLogger: false,
@@ -59,7 +59,7 @@ const configs: Record<Environment, EnvConfig> = {
   production: {
     environment: 'production',
     // apiBaseUrl: 'https://apipersonalproduct.alphawarenext.com/api/lms',
-    apiBaseUrl: 'http://192.168.0.113:9092/api/los-personal/',
+    apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/',
     tenantId: 'product-prod',
     enableDebugTools: false,
     enableNetworkLogger: false,

@@ -56,7 +56,7 @@ export const MobileInputScreen: React.FC<MobileInputScreenProps> = ({
 
   const handleSubmit = () => {
     if (mobile.length !== 10) return;
-    sendOtpMutation.mutate(`91${mobile}`);
+    sendOtpMutation.mutate(`${mobile}`);
   };
 
   return (

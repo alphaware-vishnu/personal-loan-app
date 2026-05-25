@@ -16,6 +16,7 @@ export interface VerifyOtpParams {
 export const sendOtp = (mobile: string) => {
   return api.post(`/otp/send`, { mobile }, {
     skipAuth: true,
+    
   });
 };
 
@@ -23,8 +24,6 @@ export const sendOtp = (mobile: string) => {
  * Verify the OTP entered by the user
  */
 export const verifyOtp = (data: VerifyOtpParams) => {
-  const { mobile, otp } = data;
-  return api.post(`/otp/verify`, { mobile, otp }, {
-    skipAuth: true,
-  });
+  const { mobile, otp, skipOtp } = data;
+  return api.post(`/otp/verify`, { mobile, otp, skipOtp }, );
 };
