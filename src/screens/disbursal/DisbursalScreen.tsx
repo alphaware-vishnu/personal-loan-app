@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  ActivityIndicator,
   Dimensions,
   Animated,
   Easing,
@@ -180,7 +179,12 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
                           <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                         </MotiView>
                       ) : isActive ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <LottieView
+                          source={require('../../../assets/loader.json')}
+                          autoPlay
+                          loop
+                          style={{ width: 24, height: 24 }}
+                        />
                       ) : (
                         <View style={[styles.dotCircle, { borderColor: colors.border }]} />
                       )}

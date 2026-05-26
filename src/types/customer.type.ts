@@ -21,8 +21,6 @@ export interface Customer {
   leadStatus?: string;
   applicationSource?: string;
   clientType?: string;
-  isVoterIdActive?: boolean;
-  voterId?: string; // Backend field name for PAN
 
   // Addresses
   workAddress?: Address;

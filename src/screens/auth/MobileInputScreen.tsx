@@ -17,6 +17,7 @@ import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { sendOtp } from '../../services/authService';
 import Toast from 'react-native-toast-message';
+import { MeshBackground } from '@/components';
 
 interface MobileInputScreenProps {
   mobile: string;
@@ -60,19 +61,21 @@ export const MobileInputScreen: React.FC<MobileInputScreenProps> = ({
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top', 'bottom']}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
+    <MeshBackground style={styles.container}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top', 'bottom']}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.flex, { backgroundColor: 'transparent' }]}
         >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            style={{ backgroundColor: 'transparent' }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Back Button */}
           <TouchableOpacity
             onPress={onBack}
@@ -230,7 +233,8 @@ export const MobileInputScreen: React.FC<MobileInputScreenProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </MeshBackground>
   );
 };
 

@@ -7,6 +7,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import LottieView from "lottie-react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./src/services/queryClient";
+import * as Location from 'expo-location';
+import { Camera } from 'expo-camera';
+import * as Notifications from 'expo-notifications';
 
 import { MotiView, MotiText } from "./src/components/Motion";
 import { LoanCard } from "@/components/LoanCard";
@@ -90,16 +93,41 @@ export type Flow =
   | "disbursal";
 
 
+const checkRequiredPermissions = async (): Promise<boolean> => {
+  try {
+    const { status: cameraStatus } = await Camera.getCameraPermissionsAsync();
+    const { status: locationStatus } = await Location.getForegroundPermissionsAsync();
+    const { status: notificationsStatus } = await Notifications.getPermissionsAsync();
+
+    return (
+      cameraStatus === 'granted' &&
+      locationStatus === 'granted' &&
+      notificationsStatus === 'granted'
+    );
+  } catch (e) {
+    console.warn('Error checking permissions:', e);
+    return false;
+  }
+};
+
 function AppContent() {
   const [history, setHistory] = useState<Flow[]>(["splash"]);
   const [mobile, setMobile] = useState("");
   const [selectedScheme, setSelectedScheme] = useState<any>(null);
-   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
   const [selectedAutoRepay, setSelectedAutoRepay] = useState<boolean>(false);
   const [showLogger, setShowLogger] = useState(false);
 
-  // ... keeping rest of screen logic intact ...
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const flow = history[history.length - 1];
+
+  // Auth Guard: Redirect to introCarousel if trying to access a protected screen while logged out
+  useEffect(() => {
+    const publicFlows: Flow[] = ["splash", "introCarousel", "mobileInput", "otpVerification"];
+    if (!isLoggedIn && !publicFlows.includes(flow)) {
+      setHistory(["introCarousel"]);
+    }
+  }, [isLoggedIn, flow]);
 
   const push = (screen: Flow) => {
     setHistory((prev) => [...prev, screen]);
@@ -158,8 +186,18 @@ function AppContent() {
         <OtpVerificationScreen
           mobile={mobile}
           onBack={pop}
-          onVerify={(isExisting) => {
-            replace(isExisting ? "dashboard" : "permissions");
+          onVerify={async (isExisting) => {
+            if (isExisting) {
+              replace("dashboard");
+            } else {
+              // First time user: bypass permissions screen if already granted
+              const permissionsGranted = await checkRequiredPermissions();
+              if (permissionsGranted) {
+                replace("panVerification");
+              } else {
+                replace("permissions");
+              }
+            }
           }}
         />
       );

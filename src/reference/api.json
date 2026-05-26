@@ -92,8 +92,7 @@
                 "$ref": "#/components/schemas/DigiLockerInitRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -145,17 +144,6 @@
           "customer-controller"
         ],
         "operationId": "getProfile",
-        "parameters": [
-          {
-            "name": "customerId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -173,7 +161,7 @@
         "tags": [
           "customer-controller"
         ],
-        "operationId": "createOrUpdate",
+        "operationId": "saveProfile",
         "requestBody": {
           "content": {
             "application/json": {
@@ -203,14 +191,15 @@
         "tags": [
           "customer-controller"
         ],
-        "operationId": "panValidation",
+        "operationId": "validatePan",
         "parameters": [
           {
             "name": "pan",
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^$|^(?:[A-Z]{5}[0-9]{4}[A-Z]|\\*{6}[0-9]{3}[A-Z])$"
             }
           }
         ],
@@ -220,7 +209,37 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PanValidationResponse"
+                  "$ref": "#/components/schemas/ApiResponsePanValidationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/application": {
+      "post": {
+        "tags": [
+          "application-controller"
+        ],
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseApplicationResponse"
                 }
               }
             }
@@ -236,7 +255,7 @@
         "operationId": "autocomplete",
         "parameters": [
           {
-            "name": "text",
+            "name": "query",
             "in": "query",
             "required": true,
             "schema": {
@@ -250,10 +269,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LocationSuggestion"
-                  }
+                  "$ref": "#/components/schemas/ApiResponseListLocationSuggestion"
                 }
               }
             }
@@ -267,16 +283,6 @@
           "digi-locker-controller"
         ],
         "operationId": "getKyc",
-        "parameters": [
-          {
-            "name": "transactionId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -296,24 +302,14 @@
         "tags": [
           "digi-locker-controller"
         ],
-        "operationId": "listDocs",
-        "parameters": [
-          {
-            "name": "transactionId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "getDocs",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListDigiLockerFile"
+                  "$ref": "#/components/schemas/ApiResponseDigiLockerListDocsResponse"
                 }
               }
             }
@@ -321,36 +317,20 @@
         }
       }
     },
-    "/api/lms/entity-secret": {
+    "/application/{id}": {
       "get": {
         "tags": [
-          "entity-secret-controller"
+          "application-controller"
         ],
-        "operationId": "get",
+        "operationId": "getById",
         "parameters": [
           {
-            "name": "entityId",
-            "in": "query",
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
-          },
-          {
-            "name": "entityType",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "fieldType",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
             }
           }
         ],
@@ -360,7 +340,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseString"
+                  "$ref": "#/components/schemas/ApiResponseApplicationResponse"
                 }
               }
             }
@@ -368,28 +348,20 @@
         }
       }
     },
-    "/api/lms/entity-secret/entity": {
+    "/application/customer/{customerId}": {
       "get": {
         "tags": [
-          "entity-secret-controller"
+          "application-controller"
         ],
-        "operationId": "get_1",
+        "operationId": "getByCustomerId",
         "parameters": [
           {
-            "name": "entityId",
-            "in": "query",
+            "name": "customerId",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
-          },
-          {
-            "name": "entityType",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
             }
           }
         ],
@@ -399,7 +371,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseMapStringString"
+                  "$ref": "#/components/schemas/ApiResponseListApplicationResponse"
                 }
               }
             }
@@ -414,29 +386,102 @@
         "type": "object",
         "properties": {
           "mobile": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^(?:$|(?:\\+91|0)?(?!([6-9])\\1{9})[6-9]\\d{9}|\\*{6}\\d{4})$"
           },
           "otp": {
-            "type": "string",
-            "pattern": "^[0-9]{4}$"
+            "type": "string"
+          },
+          "skipOtp": {
+            "type": "boolean"
           }
         },
         "required": [
-          "mobile",
-          "otp"
+          "mobile"
         ]
       },
       "ApiResponseAuthResponse": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean"
+          "data": {
+            "$ref": "#/components/schemas/AuthResponse"
           },
           "message": {
             "type": "string"
           },
-          "data": {
-            "$ref": "#/components/schemas/AuthResponse"
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
           }
         }
       },
@@ -446,6 +491,9 @@
           "customerId": {
             "type": "integer",
             "format": "int64"
+          },
+          "isNewCustomer": {
+            "type": "boolean"
           },
           "access_token": {
             "type": "string"
@@ -469,10 +517,6 @@
           },
           "scope": {
             "type": "string"
-          },
-          "not-before-policy": {
-            "type": "integer",
-            "format": "int32"
           }
         }
       },
@@ -481,7 +525,7 @@
         "properties": {
           "mobile": {
             "type": "string",
-            "pattern": "^[0-9]{10,13}$"
+            "pattern": "^(?:$|(?:\\+91|0)?(?!([6-9])\\1{9})[6-9]\\d{9}|\\*{6}\\d{4})$"
           }
         },
         "required": [
@@ -491,56 +535,178 @@
       "ApiResponseVoid": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean"
+          "data": {
+            "type": "object"
           },
           "message": {
             "type": "string"
           },
-          "data": {
-            "type": "object"
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
           }
         }
       },
       "DigiLockerInitRequest": {
         "type": "object",
         "properties": {
-          "mobile": {
-            "type": "string"
-          },
-          "firstName": {
-            "type": "string"
-          },
-          "lastName": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "uid": {
-            "type": "string"
-          },
           "redirectionUrl": {
             "type": "string"
           }
-        },
-        "required": [
-          "firstName",
-          "mobile",
-          "uid"
-        ]
+        }
       },
       "ApiResponseDigiLockerUrlResponse": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean"
+          "data": {
+            "$ref": "#/components/schemas/DigiLockerUrlResponse"
           },
           "message": {
             "type": "string"
           },
-          "data": {
-            "$ref": "#/components/schemas/DigiLockerUrlResponse"
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
           }
         }
       },
@@ -569,13 +735,13 @@
           }
         }
       },
-      "Bank": {
+      "CustomerBankRequest": {
         "type": "object",
         "properties": {
-          "holderName": {
+          "accountHolderName": {
             "type": "string"
           },
-          "accountNo": {
+          "accountNumber": {
             "type": "string"
           },
           "ifscCode": {
@@ -593,10 +759,6 @@
       "CustomerProfileRequest": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
           "borrowerName": {
             "type": "string"
           },
@@ -620,27 +782,32 @@
               "BUSINESS_OWNER"
             ]
           },
-          "statementDid": {
-            "type": "string"
-          },
-          "selfieDId": {
-            "type": "string"
-          },
           "homeAddress": {
-            "$ref": "#/components/schemas/HomeAddress"
+            "$ref": "#/components/schemas/HomeAddressRequest"
           },
           "officeAddress": {
-            "$ref": "#/components/schemas/OfficeAddress"
+            "$ref": "#/components/schemas/OfficeAddressRequest"
           },
           "bank": {
-            "$ref": "#/components/schemas/Bank"
+            "$ref": "#/components/schemas/CustomerBankRequest"
+          },
+          "selfieDocId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bankStatementDocId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "panNumber": {
+            "type": "string"
           }
         }
       },
-      "HomeAddress": {
+      "HomeAddressRequest": {
         "type": "object",
         "properties": {
-          "flat": {
+          "house": {
             "type": "string"
           },
           "building": {
@@ -655,15 +822,12 @@
           "state": {
             "type": "string"
           },
-          "country": {
-            "type": "string"
-          },
-          "postcode": {
+          "pincode": {
             "type": "string"
           }
         }
       },
-      "OfficeAddress": {
+      "OfficeAddressRequest": {
         "type": "object",
         "properties": {
           "officeName": {
@@ -681,10 +845,7 @@
           "state": {
             "type": "string"
           },
-          "country": {
-            "type": "string"
-          },
-          "postcode": {
+          "pincode": {
             "type": "string"
           }
         }
@@ -692,21 +853,117 @@
       "ApiResponseCustomerProfileResponse": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean"
+          "data": {
+            "$ref": "#/components/schemas/CustomerProfileResponse"
           },
           "message": {
             "type": "string"
           },
-          "data": {
-            "$ref": "#/components/schemas/CustomerProfileResponse"
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
+          }
+        }
+      },
+      "CustomerBankResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountHolderName": {
+            "type": "string"
+          },
+          "accountNumber": {
+            "type": "string"
+          },
+          "ifscCode": {
+            "type": "string"
+          },
+          "autoDebitType": {
+            "type": "string",
+            "enum": [
+              "UPI",
+              "ENACH"
+            ]
           }
         }
       },
       "CustomerProfileResponse": {
         "type": "object",
         "properties": {
-          "id": {
+          "customerId": {
             "type": "integer",
             "format": "int64"
           },
@@ -736,20 +993,170 @@
               "BUSINESS_OWNER"
             ]
           },
-          "statementDid": {
-            "type": "string"
-          },
-          "selfIdId": {
-            "type": "string"
-          },
           "homeAddress": {
-            "$ref": "#/components/schemas/HomeAddress"
+            "$ref": "#/components/schemas/HomeAddressResponse"
           },
           "officeAddress": {
-            "$ref": "#/components/schemas/OfficeAddress"
+            "$ref": "#/components/schemas/OfficeAddressResponse"
           },
           "bank": {
-            "$ref": "#/components/schemas/Bank"
+            "$ref": "#/components/schemas/CustomerBankResponse"
+          },
+          "selfieDocId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bankStatementDocId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "panNumber": {
+            "type": "string"
+          },
+          "panVerified": {
+            "type": "boolean"
+          },
+          "digiLockerVerified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HomeAddressResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "house": {
+            "type": "string"
+          },
+          "building": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "pincode": {
+            "type": "string"
+          }
+        }
+      },
+      "OfficeAddressResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "officeName": {
+            "type": "string"
+          },
+          "building": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "pincode": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponsePanValidationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PanValidationResponse"
+          },
+          "message": {
+            "type": "string"
+          },
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
           }
         }
       },
@@ -844,172 +1251,30 @@
           }
         }
       },
-      "LocationSuggestion": {
+      "ApplicationRequest": {
         "type": "object",
         "properties": {
-          "placeId": {
-            "type": "string"
+          "customerId": {
+            "type": "integer",
+            "format": "int64"
           },
-          "formatted": {
-            "type": "string"
+          "loanAmount": {
+            "type": "number"
           },
-          "addressLine1": {
-            "type": "string"
+          "tenure": {
+            "type": "integer",
+            "format": "int32"
           },
-          "addressLine2": {
-            "type": "string"
-          },
-          "city": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          },
-          "country": {
-            "type": "string"
-          },
-          "countryCode": {
-            "type": "string"
-          },
-          "postcode": {
-            "type": "string"
-          },
-          "latitude": {
-            "type": "number",
-            "format": "double"
-          },
-          "longitude": {
-            "type": "number",
-            "format": "double"
-          },
-          "resultType": {
-            "type": "string"
+          "interestRate": {
+            "type": "number"
           }
         }
       },
-      "Address": {
-        "type": "object",
-        "properties": {
-          "house": {
-            "type": "string"
-          },
-          "street": {
-            "type": "string"
-          },
-          "landmark": {
-            "type": "string"
-          },
-          "loc": {
-            "type": "string"
-          },
-          "po": {
-            "type": "string"
-          },
-          "dist": {
-            "type": "string"
-          },
-          "subdist": {
-            "type": "string"
-          },
-          "vtc": {
-            "type": "string"
-          },
-          "pincode": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          },
-          "country": {
-            "type": "string"
-          }
-        }
-      },
-      "ApiResponseDigiLockerKycResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "message": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/DigiLockerKycResponse"
-          }
-        }
-      },
-      "DigiLockerFile": {
-        "type": "object",
-        "properties": {
-          "docLink": {
-            "type": "string"
-          },
-          "docType": {
-            "type": "string"
-          },
-          "docExtension": {
-            "type": "string"
-          }
-        }
-      },
-      "DigiLockerKycResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "maskedAadhaar": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "gender": {
-            "type": "string"
-          },
-          "dob": {
-            "type": "string"
-          },
-          "careOf": {
-            "type": "string"
-          },
-          "photo": {
-            "type": "string"
-          },
-          "address": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "digilockerFiles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DigiLockerFile"
-            }
-          }
-        }
-      },
-      "ApiResponseListDigiLockerFile": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "message": {
-            "type": "string"
-          },
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DigiLockerFile"
-            }
-          }
-        }
-      },
-      "ApiResponseString": {
+      "ApiResponseApplicationResponse": {
         "type": "object",
         "properties": {
           "data": {
-            "type": "string"
+            "$ref": "#/components/schemas/ApplicationResponse"
           },
           "message": {
             "type": "string"
@@ -1090,13 +1355,440 @@
           }
         }
       },
-      "ApiResponseMapStringString": {
+      "ApplicationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "customerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "loanAmount": {
+            "type": "number"
+          },
+          "tenure": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "interestRate": {
+            "type": "number"
+          }
+        }
+      },
+      "ApiResponseListLocationSuggestion": {
         "type": "object",
         "properties": {
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationSuggestion"
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
+          }
+        }
+      },
+      "LocationSuggestion": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string"
+          },
+          "formattedAddress": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lon": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "ApiResponseDigiLockerKycResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DigiLockerKycResponse"
+          },
+          "message": {
+            "type": "string"
+          },
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
+          }
+        }
+      },
+      "DigiLockerFile": {
+        "type": "object",
+        "properties": {
+          "docLink": {
+            "type": "string"
+          },
+          "docType": {
+            "type": "string"
+          }
+        }
+      },
+      "DigiLockerKycResponse": {
+        "type": "object",
+        "properties": {
+          "kycStatus": {
+            "type": "string"
+          },
+          "maskedAadhaar": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string"
+          },
+          "careOf": {
+            "type": "string"
+          },
+          "photo": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/KycAddress"
+          },
+          "digilockerFiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DigiLockerFile"
+            }
+          }
+        }
+      },
+      "KycAddress": {
+        "type": "object",
+        "properties": {
+          "house": {
+            "type": "string"
+          },
+          "street": {
+            "type": "string"
+          },
+          "landmark": {
+            "type": "string"
+          },
+          "loc": {
+            "type": "string"
+          },
+          "po": {
+            "type": "string"
+          },
+          "dist": {
+            "type": "string"
+          },
+          "subdist": {
+            "type": "string"
+          },
+          "vtc": {
+            "type": "string"
+          },
+          "pc": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseDigiLockerListDocsResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DigiLockerListDocsResponse"
+          },
+          "message": {
+            "type": "string"
+          },
+          "httpStatus": {
+            "type": "string",
+            "enum": [
+              "100 CONTINUE",
+              "101 SWITCHING_PROTOCOLS",
+              "102 PROCESSING",
+              "103 EARLY_HINTS",
+              "103 CHECKPOINT",
+              "200 OK",
+              "201 CREATED",
+              "202 ACCEPTED",
+              "203 NON_AUTHORITATIVE_INFORMATION",
+              "204 NO_CONTENT",
+              "205 RESET_CONTENT",
+              "206 PARTIAL_CONTENT",
+              "207 MULTI_STATUS",
+              "208 ALREADY_REPORTED",
+              "226 IM_USED",
+              "300 MULTIPLE_CHOICES",
+              "301 MOVED_PERMANENTLY",
+              "302 FOUND",
+              "302 MOVED_TEMPORARILY",
+              "303 SEE_OTHER",
+              "304 NOT_MODIFIED",
+              "305 USE_PROXY",
+              "307 TEMPORARY_REDIRECT",
+              "308 PERMANENT_REDIRECT",
+              "400 BAD_REQUEST",
+              "401 UNAUTHORIZED",
+              "402 PAYMENT_REQUIRED",
+              "403 FORBIDDEN",
+              "404 NOT_FOUND",
+              "405 METHOD_NOT_ALLOWED",
+              "406 NOT_ACCEPTABLE",
+              "407 PROXY_AUTHENTICATION_REQUIRED",
+              "408 REQUEST_TIMEOUT",
+              "409 CONFLICT",
+              "410 GONE",
+              "411 LENGTH_REQUIRED",
+              "412 PRECONDITION_FAILED",
+              "413 PAYLOAD_TOO_LARGE",
+              "413 REQUEST_ENTITY_TOO_LARGE",
+              "414 URI_TOO_LONG",
+              "414 REQUEST_URI_TOO_LONG",
+              "415 UNSUPPORTED_MEDIA_TYPE",
+              "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+              "417 EXPECTATION_FAILED",
+              "418 I_AM_A_TEAPOT",
+              "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+              "420 METHOD_FAILURE",
+              "421 DESTINATION_LOCKED",
+              "422 UNPROCESSABLE_ENTITY",
+              "423 LOCKED",
+              "424 FAILED_DEPENDENCY",
+              "425 TOO_EARLY",
+              "426 UPGRADE_REQUIRED",
+              "428 PRECONDITION_REQUIRED",
+              "429 TOO_MANY_REQUESTS",
+              "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+              "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+              "500 INTERNAL_SERVER_ERROR",
+              "501 NOT_IMPLEMENTED",
+              "502 BAD_GATEWAY",
+              "503 SERVICE_UNAVAILABLE",
+              "504 GATEWAY_TIMEOUT",
+              "505 HTTP_VERSION_NOT_SUPPORTED",
+              "506 VARIANT_ALSO_NEGOTIATES",
+              "507 INSUFFICIENT_STORAGE",
+              "508 LOOP_DETECTED",
+              "509 BANDWIDTH_LIMIT_EXCEEDED",
+              "510 NOT_EXTENDED",
+              "511 NETWORK_AUTHENTICATION_REQUIRED"
+            ]
+          }
+        }
+      },
+      "DigiLockerDoc": {
+        "type": "object",
+        "properties": {
+          "docLink": {
+            "type": "string"
+          },
+          "docType": {
+            "type": "string"
+          },
+          "docExtension": {
+            "type": "string"
+          }
+        }
+      },
+      "DigiLockerListDocsResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "model": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DigiLockerDoc"
+            }
+          },
+          "msg": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseListApplicationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationResponse"
             }
           },
           "message": {

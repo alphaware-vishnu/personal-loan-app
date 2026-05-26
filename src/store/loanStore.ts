@@ -158,7 +158,7 @@ export const useLoanStore = create<LoanApplicationState>((set) => ({
     customerInfo: {
       applicantName: data.applicantName || '',
       mobileNumber: data.mobileNumber || '',
-      panNumber: data.voterId || '', // Map backend voterId to panNumber
+      panNumber: data.panNumber || '',
       customerBanks: data.customerBanks || [],
     }
   }),

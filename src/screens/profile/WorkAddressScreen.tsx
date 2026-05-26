@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -15,6 +15,7 @@ import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
 import { getCustomerProfile, updateCustomerProfile, mapLocalToApiOfficeAddress } from '../../services/customerService';
 import { useAuthStore } from '../../store/authStore';
+import { LoadingState } from '../../components/feedback/LoadingState';
 
 interface WorkAddressScreenProps {
   onNext: () => void;
@@ -53,7 +54,7 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
               area: data.officeAddress.area || '',
               city: data.officeAddress.city || '',
               stateName: data.officeAddress.state || '',
-              pinCode: data.officeAddress.postcode || '',
+              pinCode: data.officeAddress.pincode || data.officeAddress.postcode || '',
               countryName: data.officeAddress.country || 'India',
             };
             setAddress(localWorkAddress);
@@ -94,7 +95,7 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
     try {
       const apiOfficeAddress = mapLocalToApiOfficeAddress(address, companyName);
       await updateCustomerProfile({
-        id: customerId,
+        // id: customerId,
         officeAddress: apiOfficeAddress,
       });
 
@@ -116,9 +117,7 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
     return (
       <ScreenWrapper>
         <SafeHeader title={COPY.address.workTitle} onBack={onBack} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState message="Loading work address..." fullScreen={false} />
       </ScreenWrapper>
     );
   }

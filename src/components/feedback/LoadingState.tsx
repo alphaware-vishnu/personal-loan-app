@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useColors } from '../../theme';
 import { AppText } from '../ui/AppText';

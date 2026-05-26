@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -14,6 +14,7 @@ import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { getCustomerProfile, updateCustomerProfile, mapApiToLocalEmploymentType, mapLocalToApiEmploymentType } from '../../services/customerService';
 import { useAuthStore } from '../../store/authStore';
+import { LoadingState } from '../../components/feedback/LoadingState';
 
 interface EmploymentTypeScreenProps {
   onNext: () => void;
@@ -68,7 +69,7 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
       // Map local to api
       const apiType = mapLocalToApiEmploymentType(selected);
       await updateCustomerProfile({
-        id: customerId,
+        // id: customerId,
         employmentType: apiType,
       });
 
@@ -86,9 +87,7 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
     return (
       <ScreenWrapper>
         <SafeHeader title="Work Details" onBack={onBack} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState message="Loading work details..." fullScreen={false} />
       </ScreenWrapper>
     );
   }

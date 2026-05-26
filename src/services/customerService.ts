@@ -52,12 +52,12 @@ export const mapApiToLocalAddress = (apiAddr: any): Address => {
     };
   }
   return {
-    flatNo: apiAddr.flat || '',
+    flatNo: apiAddr.house || apiAddr.flat || '',
     buildingName: apiAddr.building || '',
     area: apiAddr.area || '',
     city: apiAddr.city || '',
     stateName: apiAddr.state || '',
-    pinCode: apiAddr.postcode || '',
+    pinCode: apiAddr.pincode || apiAddr.postcode || '',
     countryName: apiAddr.country || 'India',
   };
 };
@@ -65,13 +65,12 @@ export const mapApiToLocalAddress = (apiAddr: any): Address => {
 export const mapLocalToApiHomeAddress = (localAddr: Address | undefined) => {
   if (!localAddr) return undefined;
   return {
-    flat: localAddr.flatNo || '',
+    house: localAddr.flatNo || '',
     building: localAddr.buildingName || '',
     area: localAddr.area || '',
     city: localAddr.city || '',
     state: localAddr.stateName || '',
-    country: localAddr.countryName || 'India',
-    postcode: localAddr.pinCode || '',
+    pincode: localAddr.pinCode || '',
   };
 };
 
@@ -83,8 +82,7 @@ export const mapLocalToApiOfficeAddress = (localAddr: Address | undefined, compa
     area: localAddr?.area || '',
     city: localAddr?.city || '',
     state: localAddr?.stateName || '',
-    country: localAddr?.countryName || 'India',
-    postcode: localAddr?.pinCode || '',
+    pincode: localAddr?.pinCode || '',
   };
 };
 

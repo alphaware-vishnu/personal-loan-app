@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
@@ -15,6 +15,7 @@ import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { getCustomerProfile, updateCustomerProfile, mapApiToLocalAddress, mapLocalToApiHomeAddress } from '../../services/customerService';
 import { useAuthStore } from '../../store/authStore';
+import { LoadingState } from '../../components/feedback/LoadingState';
 
 interface PersonalAddressScreenProps {
   onNext: () => void;
@@ -94,7 +95,7 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
     try {
       const apiHomeAddress = mapLocalToApiHomeAddress(address);
       await updateCustomerProfile({
-        id: customerId,
+        // id: customerId,
         homeAddress: apiHomeAddress,
       });
 
@@ -117,9 +118,7 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
     return (
       <ScreenWrapper>
         <SafeHeader title="Personal Address" onBack={onBack} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState message="Loading personal address..." fullScreen={false} />
       </ScreenWrapper>
     );
   }

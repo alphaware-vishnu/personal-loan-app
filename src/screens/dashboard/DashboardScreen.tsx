@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
   Modal,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useLoanStore } from '../../store/loanStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { getTrackableSteps } from '../../constants/onboardingSteps';
+import { MeshBackground } from '@/components';
 
 import { api, getProductDocuments, getCustomerApplications } from '../../services/api';
 import { trackEvent } from '../../utils/analytics';
@@ -145,13 +145,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const showActiveLoans = hasActiveApplications || isOnboardingComplete;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <DashboardHeader onViewProfile={onViewProfile} onSignOut={handleSignOut} />
+    <MeshBackground style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top']}>
+        <DashboardHeader onViewProfile={onViewProfile} onSignOut={handleSignOut} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          style={{ backgroundColor: 'transparent' }}
+        >
         {/* Onboarding Progress Card OR Active Loan Card Carousel */}
         {showActiveLoans ? (
           <ActiveLoanCard
@@ -286,7 +288,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         onClose={() => setModalVisible(false)}
         onSelect={handleSelectScheme}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </MeshBackground>
   );
 };
 

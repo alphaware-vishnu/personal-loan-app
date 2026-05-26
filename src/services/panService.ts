@@ -21,15 +21,14 @@ export const validatePan = async (panNumber: string): Promise<PanValidationResul
       params: { pan: panNumber },
     });
 
-    const success = response.data?.success;
     const responseData = response.data?.data;
     const dataNode = responseData?.data;
 
-    if (!success || !dataNode) {
+    if (!responseData || !dataNode) {
       throw new Error(response.data?.message || 'PAN validation failed.');
     }
 
-    const isPanValid = dataNode.status === 'VALID' || dataNode.status === 'ACTIVE';
+    const isPanValid = dataNode.status?.toUpperCase() === 'VALID' || dataNode.status?.toUpperCase() === 'ACTIVE';
 
     return {
       isValid: isPanValid,

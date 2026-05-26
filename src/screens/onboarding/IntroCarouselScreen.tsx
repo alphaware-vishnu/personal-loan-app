@@ -8,6 +8,7 @@ import { useColors, useTheme } from '../../theme';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { OnboardingSlide } from '../../components/OnboardingSlide';
+import { MeshBackground } from '@/components';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,7 +53,7 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
   const handleNext = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
+    } catch (e) { }
 
     if (currentIndex < SLIDES_DATA.length - 1) {
       carouselRef.current?.scrollTo({ index: currentIndex + 1, animated: true });
@@ -65,17 +66,18 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
   const handleSkip = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
+    } catch (e) { }
     onStart();
   };
 
   const isLastSlide = currentIndex === SLIDES_DATA.length - 1;
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top', 'bottom']}
-    >
+    <MeshBackground style={styles.container}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top', 'bottom']}
+      >
       {/* Header — Skip */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -128,9 +130,10 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
       </View>
 
       {/* Carousel */}
-      <View style={styles.carouselContainer}>
+      <View style={[styles.carouselContainer, { backgroundColor: 'transparent' }]}>
         <Carousel
           ref={carouselRef}
+          style={{ backgroundColor: 'transparent' }}
           width={width}
           height={height * 0.58}
           data={SLIDES_DATA}
@@ -141,7 +144,7 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
               highlightWord={item.highlightWord}
               description={item.description}
               icon={item.icon}
-              bgColor={colors.background}
+              bgColor="transparent"
               textColor={colors.text}
               descColor={colors.textSecondary}
               primaryColor={colors.primary}
@@ -171,8 +174,8 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
                     backgroundColor: isActive || isPast
                       ? colors.primary
                       : isDark
-                      ? 'rgba(255,255,255,0.15)'
-                      : colors.borderLight,
+                        ? 'rgba(255,255,255,0.15)'
+                        : colors.borderLight,
                   },
                 ]}
               />
@@ -187,7 +190,8 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
           style={styles.button}
         />
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </MeshBackground>
   );
 };
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useColors, useTheme } from '../../theme';
 import { AppText } from './AppText';
@@ -165,7 +166,12 @@ export const FileUploadCard: React.FC<FileUploadCardProps> = ({
           )}
 
           {isUploading && (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <LottieView
+              source={require('../../../assets/loader.json')}
+              autoPlay
+              loop
+              style={{ width: 24, height: 24 }}
+            />
           )}
 
           {isSuccess && (

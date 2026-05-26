@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  ActivityIndicator,
   Dimensions,
   Modal,
   TextInput,
@@ -923,7 +922,12 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   ]}
                 >
                   {repaymentMutation.isPending ? (
-                    <ActivityIndicator color="white" />
+                    <LottieView
+                      source={require("../../assets/loader.json")}
+                      autoPlay
+                      loop
+                      style={{ width: 28, height: 28 }}
+                    />
                   ) : (
                     <>
                       <Ionicons name="shield-checkmark" size={18} color="white" />
@@ -1255,7 +1259,12 @@ const DocumentsTab = ({ app }: any) => {
                           disabled={isDownloading}
                         >
                           {isDownloading ? (
-                            <ActivityIndicator size="small" color="#059669" />
+                            <LottieView
+                              source={require("../../assets/loader.json")}
+                              autoPlay
+                              loop
+                              style={{ width: 24, height: 24 }}
+                            />
                           ) : (
                             <>
                               <Ionicons name="eye" size={14} color="#059669" />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, ScrollView, KeyboardAvoidingView,
-  Platform, StyleSheet, ActivityIndicator,
+  Platform, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -20,6 +20,7 @@ import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { getCustomerProfile, updateCustomerProfile } from '../../services/customerService';
 import { useAuthStore } from '../../store/authStore';
+import { LoadingState } from '../../components/feedback/LoadingState';
 
 interface PanVerificationScreenProps {
   onNext: () => void;
@@ -49,8 +50,8 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
         if (profile && profile.success && profile.data) {
           const data = profile.data;
           if (data.borrowerName) {
-            // voterId is backend field for PAN (represented as voterId in backend, panNumber locally)
-            const mappedPan = data.voterId || formData.panNumber || '';
+            // panNumber is backend field for PAN (represented as panNumber locally and backend)
+            const mappedPan = data.panNumber || formData.panNumber || '';
             updateFormData({
               panNumber: mappedPan,
               applicantName: data.borrowerName,
@@ -108,11 +109,11 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
 
         const customerId = useAuthStore.getState().authData?.customerId || 99999;
         await updateCustomerProfile({
-          id: customerId,
+          // id: customerId,
           borrowerName: result.name,
           dob: result.dateOfBirth,
           gender: result.gender,
-          voterId: result.panNumber,
+          panNumber: result.panNumber,
         });
       } else {
         setIsVerified(false);
@@ -140,11 +141,11 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
     setError(null);
     try {
       await updateCustomerProfile({
-        id: customerId,
+        // id: customerId,
         borrowerName: panData?.name || formData.applicantName || '',
         dob: panData?.dateOfBirth || formData.dateOfBirth || '',
         gender: panData?.gender || formData.gender || 'MALE',
-        voterId: panData?.panNumber || formData.panNumber || '',
+        panNumber: panData?.panNumber || formData.panNumber || '',
       });
       completeStep('pan_verification');
       onNext();
@@ -159,9 +160,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
     return (
       <ScreenWrapper>
         <SafeHeader title="Identity Verification" onBack={onBack} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState message="Loading profile details..." fullScreen={false} />
       </ScreenWrapper>
     );
   }

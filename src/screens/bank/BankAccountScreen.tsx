@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { MotiView, AnimatePresence } from 'moti';
@@ -14,6 +13,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useFormik } from 'formik';
 import { useMutation } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
+import LottieView from 'lottie-react-native';
 
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -24,6 +24,7 @@ import { AppCard } from '../../components/ui/AppCard';
 import { FileUploadCard, FileUploadStatus } from '../../components/ui/FileUploadCard';
 import { DocumentPickerSheet } from '../../components/DocumentPickerSheet';
 import { StepIndicator } from '../../components/ui/StepIndicator';
+import { LoadingState } from '../../components/feedback/LoadingState';
 
 import { useColors, useTheme } from '../../theme';
 import { useLoanStore } from '../../store/loanStore';
@@ -294,9 +295,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
         <View style={styles.headerWrapper}>
           <SafeHeader title="Disbursal Bank Details" onBack={onBack} />
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState message="Loading bank details..." fullScreen={false} />
       </ScreenWrapper>
     );
   }
@@ -381,7 +380,12 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               maxLength={11}
               rightIcon={
                 isLooingUpIfsc ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <LottieView
+                    source={require('../../../assets/loader.json')}
+                    autoPlay
+                    loop
+                    style={{ width: 24, height: 24 }}
+                  />
                 ) : bankName ? (
                   <Ionicons name="checkmark-circle" size={20} color={colors.success} />
                 ) : null

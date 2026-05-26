@@ -2,11 +2,11 @@ import React from 'react';
 import {
   TouchableOpacity,
   Text,
-  ActivityIndicator,
   TouchableOpacityProps,
   View,
   StyleSheet,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColors, useTheme } from '../../theme';
 import { AppText } from './AppText';
@@ -200,7 +200,12 @@ export const AppButton: React.FC<AppButtonProps> = ({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} size="small" />
+        <LottieView
+          source={require('../../../assets/loader.json')}
+          autoPlay
+          loop
+          style={{ width: 36, height: 36 }}
+        />
       ) : (
         <View style={styles.content}>
           {icon && iconPosition === 'left' && (

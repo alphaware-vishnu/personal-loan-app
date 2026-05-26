@@ -34,10 +34,80 @@ export interface LocationSuggestion {
 export const getAutocompleteSuggestions = async (text: string): Promise<LocationSuggestion[]> => {
   if (!text || text.trim().length < 3) return [];
   try {
-    const response = await api.get<LocationSuggestion[]>('/location/autocomplete', {
-      params: { text },
+    const response = await api.get<any>('/location/autocomplete', {
+      params: { query: text },
     });
-    return response.data || [];
+    
+    console.log('[Location Service] Response raw data:', JSON.stringify(response.data));
+    console.log('[Location Service] response.data type:', typeof response.data);
+    console.log('[Location Service] response.data keys:', response.data ? Object.keys(response.data) : 'null');
+    
+    let responseData = response.data;
+    if (typeof responseData === 'string') {
+      try {
+        responseData = JSON.parse(responseData);
+        console.log('[Location Service] Parsed response string successfully');
+      } catch (e) {
+        console.error('[Location Service] Failed to parse response data as JSON:', e);
+      }
+    }
+    
+    let suggestionsArray: any[] = [];
+    if (responseData) {
+      if (Array.isArray(responseData)) {
+        suggestionsArray = responseData;
+      } else if (Array.isArray(responseData.data)) {
+        suggestionsArray = responseData.data;
+      } else if (responseData.data && Array.isArray(responseData.data.suggestions)) {
+        suggestionsArray = responseData.data.suggestions;
+      } else if (Array.isArray(responseData.suggestions)) {
+        suggestionsArray = responseData.suggestions;
+      } else if (responseData.data && Array.isArray(responseData.data.predictions)) {
+        suggestionsArray = responseData.data.predictions;
+      } else if (Array.isArray(responseData.predictions)) {
+        suggestionsArray = responseData.predictions;
+      }
+    }
+    
+    console.log('[Location Service] suggestionsArray length:', suggestionsArray.length);
+    if (suggestionsArray.length > 0) {
+      console.log('[Location Service] first item:', JSON.stringify(suggestionsArray[0]));
+    }
+    
+    return suggestionsArray.map((item: any, index: number) => {
+      if (typeof item === 'string') {
+        return {
+          placeId: String(index),
+          formatted: item,
+          addressLine1: item,
+          addressLine2: '',
+          city: '',
+          state: '',
+          country: 'India',
+          postcode: '',
+          latitude: undefined,
+          longitude: undefined,
+        };
+      }
+
+      const formatted = item.formattedAddress || item.formatted || item.description || item.place_name || item.display_name || '';
+      const parts = formatted.split(',').map((p: string) => p.trim()).filter(Boolean);
+      const addressLine1 = parts[0] || '';
+      const addressLine2 = parts.length > 2 ? parts[1] : (parts.length > 1 ? parts[0] : '');
+
+      return {
+        placeId: item.placeId || item.place_id || String(index),
+        formatted,
+        addressLine1,
+        addressLine2,
+        city: item.city || '',
+        state: item.state || '',
+        country: item.country || 'India',
+        postcode: item.postcode || item.pincode || '',
+        latitude: item.lat !== undefined ? item.lat : (item.latitude !== undefined ? item.latitude : undefined),
+        longitude: item.lon !== undefined ? item.lon : (item.longitude !== undefined ? item.longitude : undefined),
+      };
+    });
   } catch (error: any) {
     console.error('[Location Service] Autocomplete failed:', error);
     return [];

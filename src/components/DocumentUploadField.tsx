@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DocumentPickerSheet } from './DocumentPickerSheet';
 import { DocumentViewer } from './DocumentViewer';
@@ -107,7 +108,12 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
         <View className={`w-12 h-12 rounded-xl items-center justify-center overflow-hidden ${currentDoc ? "bg-green-50" : "bg-slate-200"
           }`}>
           {isUploading ? (
-            <ActivityIndicator color="#64748b" />
+            <LottieView
+              source={require('../../assets/loader.json')}
+              autoPlay
+              loop
+              style={{ width: 32, height: 32 }}
+            />
           ) : currentDoc ? (
             <Image source={{ uri: currentDoc.uri }} className="w-full h-full" />
           ) : (

@@ -3,19 +3,19 @@
  * Auto-fills address from location, user only enters flat/house number.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   ScrollView,
   Keyboard,
   Modal,
   SafeAreaView,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { useTheme } from '../../theme';
@@ -64,9 +64,11 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<LocationSuggestion | null>(null);
+  const isManuallyCleared = useRef(false);
 
   // Initialize selectedSuggestion card if value is already populated from server on mount
   useEffect(() => {
+    if (isManuallyCleared.current) return;
     if (value && value.city && value.pinCode && !selectedSuggestion) {
       const formattedAddress = [
         value.buildingName,
@@ -94,10 +96,7 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (
-        debouncedSearchQuery.trim().length < 3 ||
-        (selectedSuggestion && debouncedSearchQuery === selectedSuggestion.formatted)
-      ) {
+      if (debouncedSearchQuery.trim().length < 3) {
         setSuggestions([]);
         return;
       }
@@ -105,6 +104,7 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
       setIsSearching(true);
       try {
         const results = await getAutocompleteSuggestions(debouncedSearchQuery);
+        console.log('[Autocomplete UI] Got results:', results.length, results);
         setSuggestions(results);
       } catch (err) {
         console.error('[Autocomplete UI] Failed to get suggestions:', err);
@@ -113,9 +113,10 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
       }
     };
     fetchSuggestions();
-  }, [debouncedSearchQuery, selectedSuggestion]);
+  }, [debouncedSearchQuery]);
 
   const handleSelectSuggestion = (suggestion: LocationSuggestion) => {
+    isManuallyCleared.current = false;
     setSelectedSuggestion(suggestion);
     setSearchQuery(suggestion.formatted);
     setSuggestions([]);
@@ -138,6 +139,7 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
     setSearchQuery('');
     setSuggestions([]);
     setSelectedSuggestion(null);
+    isManuallyCleared.current = true;
   };
 
   const handleChangeLocation = () => {
@@ -283,7 +285,12 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
               />
               <View style={styles.searchRightIcons}>
                 {isSearching ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <LottieView
+                    source={require('../../../assets/loader.json')}
+                    autoPlay
+                    loop
+                    style={{ width: 24, height: 24 }}
+                  />
                 ) : searchQuery.length > 0 ? (
                   <TouchableOpacity onPress={handleClearSearch} activeOpacity={0.7}>
                     <Ionicons name="close-circle" size={20} color={theme.colors.textMuted} />
@@ -304,7 +311,12 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
           >
             <View style={[styles.gpsIconCircle, { backgroundColor: theme.colors.primaryLight }]}>
               {isLoading ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <LottieView
+                  source={require('../../../assets/loader.json')}
+                  autoPlay
+                  loop
+                  style={{ width: 24, height: 24 }}
+                />
               ) : (
                 <Ionicons name="locate" size={20} color={theme.colors.primary} />
               )}

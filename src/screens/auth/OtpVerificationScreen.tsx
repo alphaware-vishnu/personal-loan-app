@@ -22,6 +22,7 @@ import { useOnboardingStore } from '../../store/onboardingStore';
 import Toast from 'react-native-toast-message';
 import { AuthData } from '../../types/auth.type';
 import { env } from '../../config/env';
+import { MeshBackground } from '@/components';
 
 interface OtpVerificationScreenProps {
   mobile: string;
@@ -62,61 +63,42 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     mutationFn: (data: { mobile: string; otp: string; skipOtp: boolean }) =>
       verifyOtp(data),
     onSuccess: async (response: any) => {
-      setIsSuccess(true);
-      setTimeout(() => {
-        const data = response?.data?.data;
-        if (data) {
-          const onboardingState = useOnboardingStore.getState();
-          const isFirstLogin = data.isFirstLogin ?? !onboardingState.hasCompletedProfile;
-          const authData: AuthData = {
-            ...data,
-            isFirstLogin,
-          };
-          setAuth(authData, mobile);
+      const data = response?.data?.data;
+      if (data && data.access_token) {
+        const onboardingState = useOnboardingStore.getState();
+        const isFirstLogin = data.isFirstLogin ?? !onboardingState.hasCompletedProfile;
+        const authData: AuthData = {
+          ...data,
+          isFirstLogin,
+        };
+        // Log in the user in the secure store
+        setAuth(authData, mobile);
+        
+        // Show success animation in button
+        setIsSuccess(true);
+
+        // Redirect after animation completes
+        setTimeout(() => {
           onVerify(!isFirstLogin);
-        } else {
-          // Fallback demo login
-          const isFirstLogin = !useOnboardingStore.getState().hasCompletedProfile;
-          const demoAuth: AuthData = {
-            customerId: 99999,
-            isFirstLogin,
-            access_token: 'demo-token',
-            refresh_token: 'demo-refresh-token',
-            token_type: 'Bearer',
-            expires_in: 3600,
-            refresh_expires_in: 3600,
-            session_state: '',
-            scope: '',
-          };
-          setAuth(demoAuth, mobile);
-          onVerify(!isFirstLogin);
-        }
-      }, 1500);
+        }, 1500);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Verification Failed',
+          text2: 'Server response is missing authentication token.',
+        });
+      }
     },
     onError: (error: any) => {
-      // In development/demo environments, allow bypass on invalid OTP
+      const errorMsg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Invalid OTP verification code. Please try again.';
       Toast.show({
-        type: 'info',
-        text1: 'Demo Mode Bypass',
-        text2: 'Invalid OTP api response. Proceeding in Demo mode.',
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: errorMsg,
       });
-      setIsSuccess(true);
-      setTimeout(() => {
-        const isFirstLogin = !useOnboardingStore.getState().hasCompletedProfile;
-        const demoAuth: AuthData = {
-          customerId: 99999,
-          isFirstLogin,
-          access_token: 'demo-token',
-          refresh_token: 'demo-refresh-token',
-          token_type: 'Bearer',
-          expires_in: 3600,
-          refresh_expires_in: 3600,
-          session_state: '',
-          scope: '',
-        };
-        setAuth(demoAuth, mobile);
-        onVerify(!isFirstLogin);
-      }, 1500);
     },
   });
 
@@ -145,6 +127,13 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     verifyOtpMutation.mutate({ mobile: `${mobile}`, otp, skipOtp: true });
   };
 
+  // Auto submit when full OTP is entered
+  useEffect(() => {
+    if (otp.length === OTP_LENGTH) {
+      handleSubmit();
+    }
+  }, [otp]);
+
   const handleResend = () => {
     if (!canResend) return;
     resendOtpMutation.mutate(`${mobile}`);
@@ -154,19 +143,21 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   const formatTime = (s: number) => `0:${s.toString().padStart(2, '0')}`;
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top', 'bottom']}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
+    <MeshBackground style={styles.container}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top', 'bottom']}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.flex, { backgroundColor: 'transparent' }]}
         >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            style={{ backgroundColor: 'transparent' }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Back Button */}
           <TouchableOpacity
             onPress={onBack}
@@ -332,6 +323,16 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
                     autoPlay
                     loop={false}
                     style={{ width: 40, height: 40 }}
+                    colorFilters={[
+                      {
+                        keypath: 'Shape Layer 2',
+                        color: colors.success,
+                      },
+                      {
+                        keypath: 'Shape Layer 1',
+                        color: colors.successLight,
+                      },
+                    ]}
                   />
                 )}
               </AppButton>
@@ -339,7 +340,8 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </MeshBackground>
   );
 };
 

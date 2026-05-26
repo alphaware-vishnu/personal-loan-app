@@ -6,7 +6,6 @@ import {
   Image,
   Dimensions,
   SafeAreaView,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType, FlashMode } from 'expo-camera';
@@ -15,6 +14,8 @@ import * as Haptics from 'expo-haptics';
 import { useColors, useTheme } from '../../theme';
 import { AppText } from './AppText';
 import { AppButton } from './AppButton';
+import LottieView from 'lottie-react-native';
+import { LoadingState } from '../feedback/LoadingState';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,7 +53,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     // Camera permissions are still loading
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingState message="Starting camera..." fullScreen={false} />
       </View>
     );
   }
@@ -268,7 +269,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
               style={styles.shutterBtnOuter}
             >
               <View style={styles.shutterBtnInner}>
-                {isTakingPhoto && <ActivityIndicator color={colors.primary} />}
+                {isTakingPhoto && (
+                  <LottieView
+                    source={require('../../../assets/loader.json')}
+                    autoPlay
+                    loop
+                    style={{ width: 28, height: 28 }}
+                  />
+                )}
               </View>
             </TouchableOpacity>
 

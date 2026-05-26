@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { MotiView } from 'moti';
 import { Feather } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';

@@ -45,16 +45,15 @@ export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) =>
       // 1. Create Customer (POST /customer) ONLY for NEW customers (those who had data: [] on login)
       if (!isExistingCustomer) {
         const customerPayload = {
-          id: finalCustomerId || undefined, 
+          id: finalCustomerId || undefined,
           applicantName: customerInfo.applicantName,
           mobileNumber: verifiedMobile || customerInfo.mobileNumber,
-          voterId: customerInfo.panNumber,
+          panNumber: customerInfo.panNumber,
           gender: "MALE",
           leadSource: 'HEYLON',
           leadStatus: "ACTIVE",
           applicationSource: "ALFIN",
           clientType: "INDIVIDUAL",
-          isVoterIdActive: true,
           customerBanks: customerInfo.customerBanks.map(bank => ({
             ...bank,
             accountType: "SAVINGS",

@@ -141,6 +141,7 @@ const styles = StyleSheet.create({
   },
   cellText: {
     textAlign: 'center',
+    fontWeight: '500',
   },
   hiddenInput: {
     ...StyleSheet.absoluteFillObject,

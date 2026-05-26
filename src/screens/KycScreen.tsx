@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image, ScrollView, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ToastAndroid } from "react-native";
+import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, ToastAndroid } from "react-native";
 import { MotiView } from "../components/Motion";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { Button } from "../components/Button";
@@ -99,8 +99,7 @@ export const KycScreen: React.FC<KycScreenProps> = ({ onNext, onBack }) => {
         age: 25,
         gender: "MALE",
         leadSource: "ALFIN",
-        voterId: values.panNumber,
-        isVoterIdActive: true
+        panNumber: values.panNumber
       };
 
       const calculationPayload = {

@@ -1,5 +1,6 @@
 import React from "react";
-import { TouchableOpacity, Text, ActivityIndicator, TouchableOpacityProps, View } from "react-native";
+import { TouchableOpacity, Text, TouchableOpacityProps, View } from "react-native";
+import LottieView from "lottie-react-native";
 
 export type ButtonVariant = "default" | "primary" | "secondary" | "success" | "destructive" | "outline" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -83,9 +84,11 @@ export const Button = ({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === "secondary" || variant === "outline" || variant === "ghost" ? "#0f172a" : "white"}
-          size="small"
+        <LottieView
+          source={require("../../assets/loader.json")}
+          autoPlay
+          loop
+          style={{ width: 36, height: 36 }}
         />
       ) : (
         <View className={`flex-row items-center justify-center w-full ${contentClassName}`}>
