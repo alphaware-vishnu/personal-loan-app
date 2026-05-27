@@ -135,7 +135,7 @@ export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, on
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <StepIndicator totalSteps={3} currentStep={0} showLabel stageName="Eligibility Check" />
+          <StepIndicator totalSteps={2} currentStep={0} showLabel stageName="Eligibility Check" />
 
           <MotiView
             from={{ opacity: 0, translateY: 10 }}

@@ -78,7 +78,7 @@ export const CreditScoreGauge: React.FC<CreditScoreGaugeProps> = ({
             height: radius,
             borderTopLeftRadius: radius,
             borderTopRightRadius: radius,
-            backgroundColor: trackColor,
+            backgroundColor: scoreColor,
           },
         ]}
       >
@@ -138,7 +138,7 @@ export const CreditScoreGauge: React.FC<CreditScoreGaugeProps> = ({
               height: radius,
               borderTopLeftRadius: radius,
               borderTopRightRadius: radius,
-              backgroundColor: scoreColor,
+              backgroundColor: trackColor,
             }}
           />
         </Animated.View>

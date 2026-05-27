@@ -10,6 +10,7 @@ import { MotiView } from 'moti';
 import { useColors, useTheme } from '../../../theme';
 import { useAuthStore } from '../../../store/authStore';
 import { useLoanStore } from '../../../store/loanStore';
+import { useOnboardingStore } from '../../../store/onboardingStore';
 import { AppText } from '../../../components/ui/AppText';
 import { CreditScoreGauge } from './CreditScoreGauge';
 
@@ -35,7 +36,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
 
   const { mobile } = useAuthStore();
   const { customerInfo } = useLoanStore();
-  const firstName = customerInfo?.applicantName?.split(' ')[0] || 'Guest';
+  const onboardingName = useOnboardingStore((state) => state.formData?.applicantName);
+  const applicantName = customerInfo?.applicantName || onboardingName || '';
+  const firstName = applicantName ? applicantName.split(' ')[0] : '';
   const isDark = mode === 'dark';
 
   // Mock credit score — will be replaced with real API data
@@ -119,7 +122,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
           {getGreeting()}
         </AppText>
         <AppText variant="h1" style={[styles.nameText, { color: colors.text }]}>
-          {firstName} 👋
+          {firstName ? `${firstName} 👋` : 'Welcome 👋'}
         </AppText>
       </MotiView>
 
@@ -208,7 +211,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
                 variant="labelLg"
                 style={[styles.drawerName, { color: colors.text }]}
               >
-                {customerInfo?.applicantName || 'Applicant'}
+                {customerInfo?.applicantName || onboardingName || 'Applicant'}
               </AppText>
               <AppText variant="caption" style={{ color: colors.textSecondary }}>
                 {mobile || 'No mobile listed'}

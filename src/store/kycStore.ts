@@ -1,6 +1,6 @@
 /**
  * KYC state store
- * Tracks PAN, Aadhaar, and selfie verification independently.
+ * Tracks PAN, Aadhaar/DigiLocker, and selfie verification independently.
  */
 
 import { create } from 'zustand';
@@ -12,9 +12,13 @@ interface KycStoreState {
   panStatus: KycStatus;
   panData: PanValidationResult | null;
 
-  // Aadhaar
+  // DigiLocker / Aadhaar
   aadhaarStatus: KycStatus;
   aadhaarTransactionId: string | null;
+  digiLockerUrl: string | null;
+  digiLockerKycUrl: string | null;
+  digiLockerUniqueId: string | null;
+  digiLockerTransactionId: string | null;
 
   // Selfie
   selfieStatus: KycStatus;
@@ -30,6 +34,12 @@ interface KycStoreState {
   setPanVerified: (data: PanValidationResult) => void;
   setPanStatus: (status: KycStatus) => void;
   setAadhaarStatus: (status: KycStatus, transactionId?: string) => void;
+  setDigiLockerData: (data: {
+    url?: string;
+    kycUrl?: string;
+    uniqueId?: string;
+    transactionId?: string;
+  }) => void;
   setSelfieStatus: (status: KycStatus, uri?: string) => void;
   setDocumentStatus: (status: KycStatus) => void;
   computeOverallStatus: () => void;
@@ -41,6 +51,10 @@ const initialState = {
   panData: null as PanValidationResult | null,
   aadhaarStatus: 'NOT_STARTED' as KycStatus,
   aadhaarTransactionId: null as string | null,
+  digiLockerUrl: null as string | null,
+  digiLockerKycUrl: null as string | null,
+  digiLockerUniqueId: null as string | null,
+  digiLockerTransactionId: null as string | null,
   selfieStatus: 'NOT_STARTED' as KycStatus,
   selfieUri: null as string | null,
   documentStatus: 'NOT_STARTED' as KycStatus,
@@ -60,6 +74,13 @@ export const useKycStore = create<KycStoreState>((set, get) => ({
   setAadhaarStatus: (status, transactionId) => set({
     aadhaarStatus: status,
     ...(transactionId ? { aadhaarTransactionId: transactionId } : {}),
+  }),
+
+  setDigiLockerData: (data) => set({
+    ...(data.url ? { digiLockerUrl: data.url } : {}),
+    ...(data.kycUrl ? { digiLockerKycUrl: data.kycUrl } : {}),
+    ...(data.uniqueId ? { digiLockerUniqueId: data.uniqueId } : {}),
+    ...(data.transactionId ? { digiLockerTransactionId: data.transactionId } : {}),
   }),
 
   setSelfieStatus: (status, uri) => set({

@@ -20,6 +20,63 @@ export interface VerificationState {
   expiresAt?: string;
 }
 
+// ─── DigiLocker Types ───────────────────────────────────────
+
+/** Request body for POST /digilocker/initiate */
+export interface DigiLockerInitRequest {
+  redirectionUrl?: string;
+  requiredDocs?: string;
+  expiry?: number;
+  failOnDocNotFound?: boolean;
+  webhookUrl?: string;
+}
+
+/** Response from POST /digilocker/initiate → data field */
+export interface DigiLockerUrlResponse {
+  uniqueId?: string;
+  transactionId?: string;
+  url?: string;
+  kycUrl?: string;
+}
+
+/** Address from DigiLocker KYC data */
+export interface DigiLockerAddress {
+  house?: string;
+  street?: string;
+  landmark?: string;
+  loc?: string;
+  po?: string;
+  dist?: string;
+  subdist?: string;
+  vtc?: string;
+  pc?: string;
+  state?: string;
+  country?: string;
+}
+
+/** File fetched from DigiLocker */
+export interface DigiLockerFile {
+  docLink?: string;
+  docType?: string;
+  docExtension?: string;
+}
+
+/** DigiLocker KYC model (from callback data) */
+export interface DigiLockerModel {
+  status?: string;
+  uniqueId?: string;
+  maskedAdharNumber?: string;
+  name?: string;
+  gender?: string;
+  dob?: string;
+  careOf?: string;
+  address?: DigiLockerAddress;
+  image?: string;
+  digilockerFiles?: DigiLockerFile[];
+}
+
+// ─── Legacy Aadhaar Types (kept for reference) ──────────────
+
 /** Aadhaar OTP flow */
 export interface AadhaarOtpRequest {
   aadhaarNumber: string;

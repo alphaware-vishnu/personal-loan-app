@@ -267,26 +267,8 @@ function AppContent() {
     if (flow === "bankStatementUpload") {
       return (
         <BankStatementUploadScreen
-          onNext={() => replace("eligibilityProcessing")}
-          onBack={pop}
-        />
-      );
-    }
-
-    if (flow === "eligibilityProcessing") {
-      return (
-        <EligibilityProcessingScreen
-          onComplete={() => replace("offer")}
-        />
-      );
-    }
-
-    if (flow === "offer") {
-      return (
-        <OfferScreen
           onNext={() => push("aadhaarVerification")}
           onBack={pop}
-          onSkip={() => replace("dashboard")}
         />
       );
     }
@@ -304,7 +286,25 @@ function AppContent() {
     if (flow === "selfieVerification") {
       return (
         <SelfieVerificationScreen
-          onNext={() => replace("bankDetails")}
+          onNext={() => replace("eligibilityProcessing")}
+          onBack={pop}
+          onSkip={() => replace("dashboard")}
+        />
+      );
+    }
+
+    if (flow === "eligibilityProcessing") {
+      return (
+        <EligibilityProcessingScreen
+          onComplete={() => replace("offer")}
+        />
+      );
+    }
+
+    if (flow === "offer") {
+      return (
+        <OfferScreen
+          onNext={() => push("bankDetails")}
           onBack={pop}
           onSkip={() => replace("dashboard")}
         />

@@ -29,33 +29,49 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
   const loanStore = useLoanStore();
-  const { eligibilityResult } = useOfferStore();
+  const { 
+    eligibilityResult, 
+    selectedAmount, 
+    selectedTenure, 
+    setSelectedAmount, 
+    setSelectedTenure 
+  } = useOfferStore();
 
   const minAmount = eligibilityResult?.minAmount ?? 10000;
   const maxAmount = eligibilityResult?.maxAmount ?? 150000;
   const interestRate = eligibilityResult?.interestRate ?? 14.5;
   const maxTenure = eligibilityResult?.maxTenure ?? 12;
 
-  const [amount, setAmount] = useState(75000);
-  const [tenure, setTenure] = useState(12); // months
+  const [amount, setAmount] = useState(() => {
+    return selectedAmount > 0 ? selectedAmount : 75000;
+  });
+  const [tenure, setTenure] = useState(() => {
+    return selectedTenure > 0 ? selectedTenure : 12;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync component state with eligibility result when loaded
   useEffect(() => {
     if (eligibilityResult) {
-      const defaultAmount = Math.min(Math.max(75000, minAmount), maxAmount);
-      setAmount(defaultAmount);
-      const defaultTenure = Math.min(12, maxTenure);
-      setTenure(defaultTenure);
+      const initialAmount = selectedAmount > 0 ? selectedAmount : Math.min(Math.max(75000, minAmount), maxAmount);
+      const initialTenure = selectedTenure > 0 ? selectedTenure : maxTenure;
+
+      setAmount(initialAmount);
+      setTenure(initialTenure);
+
+      // Save initial selections to the store
+      if (selectedAmount === 0) setSelectedAmount(initialAmount);
+      if (selectedTenure === 0) setSelectedTenure(initialTenure);
     }
   }, [eligibilityResult]);
 
-  // Filter tenures up to approved maxTenure
+  // Filter tenures up to approved maxTenure and ensure maxTenure is included
   const allTenures = [3, 6, 9, 12, 18, 24];
   const tenures = allTenures.filter((t) => t <= maxTenure);
-  if (tenures.length === 0) {
+  if (!tenures.includes(maxTenure) && maxTenure > 0) {
     tenures.push(maxTenure);
   }
+  tenures.sort((a, b) => a - b);
 
   // EMI formula: [P * r * (1 + r)^N] / [((1 + r)^N) - 1]
   const calculateEMI = (p: number, rAnnual: number, n: number) => {
@@ -178,7 +194,7 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
       <SafeHeader title="Personalized Offer" onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <StepIndicator totalSteps={3} currentStep={2} showLabel stageName="Eligibility Check" />
+        <StepIndicator totalSteps={1} currentStep={0} showLabel stageName="Personalized Offer" />
 
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
@@ -216,7 +232,10 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
             </AppText>
             <AmountSlider
               value={amount}
-              onValueChange={setAmount}
+              onValueChange={(val) => {
+                setAmount(val);
+                setSelectedAmount(val);
+              }}
               min={minAmount}
               max={maxAmount}
               step={5000}
@@ -234,7 +253,10 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
                 return (
                   <TouchableOpacity
                     key={t}
-                    onPress={() => setTenure(t)}
+                    onPress={() => {
+                      setTenure(t);
+                      setSelectedTenure(t);
+                    }}
                     style={[
                       styles.tenureCard,
                       {

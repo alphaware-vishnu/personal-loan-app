@@ -1,58 +1,61 @@
 /**
  * KYC API Services
- * Stubs for future SDK or partner eKYC integrations.
+ * DigiLocker integration via Digitap SDK and selfie verification.
  */
 
-export interface AadhaarOtpResponse {
-  referenceId: string;
-  message: string;
-  status: 'SUCCESS' | 'FAILED';
-}
+import { api } from '../api/client';
+import type {
+  DigiLockerInitRequest,
+  DigiLockerUrlResponse,
+} from '../types/kyc.type';
 
-export interface AadhaarVerifyResponse {
-  isValid: boolean;
-  name: string;
-  gender: string;
-  dob: string;
-  address: string;
-}
+// ─── DigiLocker APIs ────────────────────────────────────────
 
 /**
- * Initiate Aadhaar OTP verification.
+ * Initiate DigiLocker eKYC flow.
+ * POST /digilocker/initiate
+ *
+ * Backend behaviour:
+ *  - First call for a customer hits Digitap and returns a fresh URL.
+ *  - Subsequent calls return the existing saved link (idempotent).
+ *
+ * @returns { uniqueId, transactionId, url, kycUrl }
  */
-export const initiateAadhaarOtp = async (aadhaarNumber: string): Promise<AadhaarOtpResponse> => {
-  await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
-  
-  return {
-    referenceId: 'ref-' + Math.random().toString(36).substring(2, 9),
-    message: 'OTP sent to mobile linked with Aadhaar',
-    status: 'SUCCESS',
-  };
+export const initiateDigiLocker = async (
+  payload?: DigiLockerInitRequest,
+): Promise<DigiLockerUrlResponse> => {
+  const response = await api.post('/digilocker/initiate', payload ?? {});
+  return response.data?.data;
 };
 
 /**
- * Verify Aadhaar OTP code.
+ * Fetch the customer profile to check `digiLockerVerified` status.
+ * GET /customer/profile
+ * Used to poll after the user completes the DigiLocker WebView flow.
  */
-export const verifyAadhaarOtp = async (referenceId: string, otp: string): Promise<AadhaarVerifyResponse> => {
-  await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
-
+export const checkDigiLockerVerification = async (): Promise<{
+  digiLockerVerified: boolean;
+  digiLockerData?: any;
+}> => {
+  const response = await api.get('/customer/profile');
+  const profile = response.data?.data;
   return {
-    isValid: true,
-    name: 'Amit Kumar',
-    gender: 'MALE',
-    dob: '1990-08-22',
-    address: '123, Park Street, Flat 4B, Kolkata, West Bengal - 700016',
+    digiLockerVerified: !!profile?.digiLockerVerified,
+    digiLockerData: profile?.digiLockerData ?? null,
   };
 };
+
+// ─── Selfie Verification ────────────────────────────────────
 
 /**
  * Verify selfie liveliness and identity.
  */
-export const verifySelfieLiveliness = async (selfieUri: string): Promise<{ isLive: boolean; confidenceScore: number }> => {
+export const verifySelfieLiveliness = async (
+  selfieUri: string,
+): Promise<{ isLive: boolean; confidenceScore: number }> => {
   await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate API delay
   return {
     isLive: true,
     confidenceScore: 0.98,
   };
 };
-

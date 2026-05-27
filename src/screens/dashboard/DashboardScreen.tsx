@@ -20,6 +20,7 @@ import { getTrackableSteps } from '../../constants/onboardingSteps';
 import { MeshBackground } from '@/components';
 
 import { api, getProductDocuments, getCustomerApplications } from '../../services/api';
+import { getCustomerProfile } from '../../services/customerService';
 import { trackEvent } from '../../utils/analytics';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -55,12 +56,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setCustomerId,
     setCalculationResults,
     setDocumentRequirements,
+    setCustomerInfo,
   } = useLoanStore();
 
   const { authData, clearAuth } = useAuthStore();
   const { completedSteps } = useOnboardingStore();
 
   const customerId = authData?.customerId;
+
+  // Fetch customer profile
+  const { data: profile } = useQuery({
+    queryKey: ['customer-profile', customerId],
+    queryFn: () => getCustomerProfile(customerId!),
+    enabled: !!customerId,
+  });
+
+  React.useEffect(() => {
+    if (profile?.data?.borrowerName) {
+      setCustomerInfo({
+        applicantName: profile.data.borrowerName,
+        email: profile.data.email,
+        mobileNumber: profile.data.mobile,
+        panNumber: profile.data.panNumber,
+      });
+    }
+  }, [profile, setCustomerInfo]);
 
   // 1. Fetch applications
   const { data: applications, isLoading: isAppsLoading } = useQuery({

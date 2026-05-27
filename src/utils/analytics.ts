@@ -47,6 +47,11 @@ export type AnalyticsEvent =
   | 'selfie_verified'
   | 'kyc_completed'
   | 'kyc_failed'
+  // DigiLocker
+  | 'digilocker_initiated'
+  | 'digilocker_initiate_error'
+  | 'digilocker_returned_from_webview'
+  | 'digilocker_verified'
   // Documents
   | 'document_upload_started'
   | 'document_upload_completed'

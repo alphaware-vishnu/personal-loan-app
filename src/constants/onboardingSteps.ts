@@ -35,7 +35,7 @@ export interface OnboardingStep {
   /** Order in the flow (ascending) */
   order: number;
   /** Group this step belongs to */
-  group: 'pre_auth' | 'profile' | 'eligibility' | 'kyc' | 'bank_verification' | 'loan_agreement' | 'disbursal';
+  group: 'pre_auth' | 'profile' | 'eligibility' | 'kyc' | 'offer' | 'bank_verification' | 'loan_agreement' | 'disbursal';
   /** Icon name (Ionicons) */
   icon: string;
 }
@@ -59,11 +59,13 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   // Eligibility (Step 2)
   { id: 'income', title: 'Income Details', subtitle: 'Monthly income', screenKey: 'IncomeInput', isRequired: true, isEnabled: true, order: 7, group: 'eligibility', icon: 'cash-outline' },
   { id: 'bank_statement', title: 'Bank Statement', subtitle: 'Upload statements', screenKey: 'BankStatementUpload', isRequired: false, isEnabled: true, order: 8, group: 'eligibility', icon: 'document-text-outline' },
-  { id: 'eligibility', title: 'Eligibility Check', subtitle: 'Loan offer', screenKey: 'OfferScreen', isRequired: true, isEnabled: true, order: 9, group: 'eligibility', icon: 'gift-outline' },
 
   // KYC (Step 3)
-  { id: 'kyc_aadhaar', title: 'Aadhaar eKYC', subtitle: 'Identity check', screenKey: 'AadhaarVerification', isRequired: true, isEnabled: true, order: 10, group: 'kyc', icon: 'id-card-outline' },
-  { id: 'kyc_selfie', title: 'Selfie Verification', subtitle: 'Liveliness test', screenKey: 'SelfieVerification', isRequired: true, isEnabled: true, order: 11, group: 'kyc', icon: 'camera-outline' },
+  { id: 'kyc_aadhaar', title: 'Aadhaar eKYC', subtitle: 'Identity check', screenKey: 'AadhaarVerification', isRequired: true, isEnabled: true, order: 9, group: 'kyc', icon: 'id-card-outline' },
+  { id: 'kyc_selfie', title: 'Selfie Verification', subtitle: 'Liveliness test', screenKey: 'SelfieVerification', isRequired: true, isEnabled: true, order: 10, group: 'kyc', icon: 'camera-outline' },
+
+  // Offer (Step 4)
+  { id: 'eligibility', title: 'Eligibility Check', subtitle: 'Loan offer', screenKey: 'OfferScreen', isRequired: true, isEnabled: true, order: 11, group: 'offer', icon: 'gift-outline' },
 
   // Finalization (Steps 4-6)
   { id: 'bank_account', title: 'Bank Account', subtitle: 'Disbursal bank', screenKey: 'BankAccount', isRequired: true, isEnabled: true, order: 12, group: 'bank_verification', icon: 'wallet-outline' },
