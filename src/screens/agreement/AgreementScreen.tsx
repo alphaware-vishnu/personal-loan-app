@@ -1,23 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  PanResponder,
-  GestureResponderEvent,
-  Platform,
   Alert,
 } from 'react-native';
 import { MotiView } from 'moti';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColors, useTheme } from '../../theme';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppCard } from '../../components/ui/AppCard';
-import { AppInput } from '../../components/ui/AppInput';
 import { StepIndicator } from '../../components/ui/StepIndicator';
 
 import { useLoanStore } from '../../store/loanStore';
@@ -27,16 +23,18 @@ import { createCustomer } from '../../services/customerService';
 import { updateApplication, updateStepStatus } from '../../services/applicationService';
 import { trackEvent } from '../../utils/analytics';
 import { formatCurrency } from '../../utils/formatters';
+import {
+  createDigioInstance,
+  initiateESign,
+  refreshESignStatus,
+  startEsignFlow,
+  type DigioResult,
+} from '../../services/digioService';
 
 interface AgreementScreenProps {
   onNext: () => void;
   onBack: () => void;
   onSkip?: () => void;
-}
-
-interface Point {
-  x: number;
-  y: number;
 }
 
 export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack, onSkip }) => {
@@ -61,37 +59,24 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
   const [hasConsented, setHasConsented] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [signatureMode, setSignatureMode] = useState<'draw' | 'type'>('draw');
-  const [typedSignature, setTypedSignature] = useState('');
+  const [esignStatus, setEsignStatus] = useState<'idle' | 'creating' | 'signing' | 'success' | 'failed'>('idle');
 
-  // Signature drawing state
-  const [points, setPoints] = useState<Point[]>([]);
-  const isDrawingRef = useRef(false);
+  // Digio SDK instance ref — created once and reused
+  const digioRef = useRef(createDigioInstance());
 
-  // PanResponder to capture hand-drawn signature points
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        isDrawingRef.current = true;
-        const { locationX, locationY } = evt.nativeEvent;
-        setPoints([{ x: locationX, y: locationY }]);
-      },
-      onPanResponderMove: (evt) => {
-        if (!isDrawingRef.current) return;
-        const { locationX, locationY } = evt.nativeEvent;
-        setPoints((prev) => [...prev, { x: locationX, y: locationY }]);
-      },
-      onPanResponderRelease: () => {
-        isDrawingRef.current = false;
-      },
-    })
-  ).current;
+  // Listen to gateway events for progress tracking
+  useEffect(() => {
+    const listener = digioRef.current.addGatewayEventListener((event: any) => {
+      if (__DEV__) {
+        console.log('[AgreementScreen] Digio Gateway Event:', event);
+      }
+      trackEvent('digio_gateway_event', { event: JSON.stringify(event) });
+    });
 
-  const handleClearSignature = () => {
-    setPoints([]);
-  };
+    return () => {
+      listener.remove();
+    };
+  }, []);
 
   const handleDownload = () => {
     setIsDownloading(true);
@@ -103,21 +88,12 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
     }, 1500);
   };
 
-  const handleSubmit = async () => {
+  const handleEsign = async () => {
     if (!hasConsented) return;
 
-    // Check signature completion
-    if (signatureMode === 'draw' && points.length < 5) {
-      Alert.alert('Signature Required', 'Please draw your signature in the signing area.');
-      return;
-    }
-    if (signatureMode === 'type' && typedSignature.trim().length < 3) {
-      Alert.alert('Signature Required', 'Please type your full name to sign.');
-      return;
-    }
-
     setIsSubmitting(true);
-    trackEvent('agreement_viewed');
+    setEsignStatus('creating');
+    trackEvent('esign_initiated');
 
     try {
       let finalCustomerId = authData?.customerId || loanStoreState.customerId;
@@ -183,26 +159,75 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
 
       await updateApplication(applicationPayload);
 
-      // 3. Mark agreement completed in database
-      if (applicationId) {
-        await updateStepStatus(applicationId, { loanAgreementCompleted: true });
+      // 3. Create eSign request via backend → get docId
+      const esignData = await initiateESign(applicationId!);
+      const identifier = customerInfo.email || verifiedMobile || customerInfo.mobileNumber || '';
+
+      // 4. Launch Digio SDK gateway
+      setEsignStatus('signing');
+
+      const result: DigioResult = await startEsignFlow(
+        digioRef.current,
+        esignData.docId,
+        identifier,
+      );
+
+      if (result.success) {
+        setEsignStatus('success');
+
+        // 5. Mark agreement as completed and sync status
+        if (applicationId) {
+          try {
+            await refreshESignStatus(applicationId);
+          } catch (e) {
+            console.warn('Failed to refresh esign status:', e);
+          }
+          await updateStepStatus(applicationId, { loanAgreementCompleted: true });
+        }
+
+        completeStep('agreement');
+        trackEvent('esign_completed', { documentId: result.documentId });
+
+        // Brief delay to show success state before navigating
+        setTimeout(() => onNext(), 800);
+      } else {
+        setEsignStatus('failed');
+        trackEvent('esign_failed', { message: result.message });
+        Alert.alert(
+          'eSign Incomplete',
+          result.message || 'The eSign process was not completed. Please try again.',
+        );
       }
-
-      completeStep('agreement');
-      trackEvent('agreement_signed', { signature_mode: signatureMode });
-
-      onNext();
     } catch (error: any) {
-      console.error('Agreement submission failed:', error);
+      setEsignStatus('failed');
+      console.error('eSign flow failed:', error);
       trackEvent('api_error', { error: error.message });
       Alert.alert(
-        'Submission Failed',
-        error.response?.data?.message || error.message || 'There was an error signing your agreement. Please try again.'
+        'eSign Failed',
+        error.response?.data?.message || error.message || 'There was an error initiating eSign. Please try again.',
       );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  /** Get status-specific button configuration */
+  const getButtonConfig = () => {
+    switch (esignStatus) {
+      case 'creating':
+        return { title: 'Preparing eSign Request...', disabled: true };
+      case 'signing':
+        return { title: 'eSign in Progress...', disabled: true };
+      case 'success':
+        return { title: '✓ Agreement Signed Successfully', disabled: true };
+      case 'failed':
+        return { title: 'Retry eSign & eStamp', disabled: false };
+      default:
+        return { title: 'Proceed to eSign & eStamp', disabled: false };
+    }
+  };
+
+  const buttonConfig = getButtonConfig();
 
   return (
     <ScreenWrapper padded={false}>
@@ -228,7 +253,7 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
             Review & Sign Agreement
           </AppText>
           <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Please review the loan terms and digitally sign to finalize your application.
+            Please review the loan terms and digitally sign using Aadhaar eSign.
           </AppText>
 
           {/* Terms Overview Card */}
@@ -297,120 +322,63 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
             </ScrollView>
           </View>
 
-          {/* Signature Selection Tabs */}
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.tabButton,
-                { borderBottomColor: signatureMode === 'draw' ? colors.primary : 'transparent' },
-              ]}
-              onPress={() => setSignatureMode('draw')}
-            >
-              <AppText
-                variant="bodyMedium"
-                style={{
-                  fontWeight: signatureMode === 'draw' ? '700' : '500',
-                  color: signatureMode === 'draw' ? colors.primary : colors.textSecondary,
-                }}
-              >
-                Draw Signature
-              </AppText>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.tabButton,
-                { borderBottomColor: signatureMode === 'type' ? colors.primary : 'transparent' },
-              ]}
-              onPress={() => setSignatureMode('type')}
-            >
-              <AppText
-                variant="bodyMedium"
-                style={{
-                  fontWeight: signatureMode === 'type' ? '700' : '500',
-                  color: signatureMode === 'type' ? colors.primary : colors.textSecondary,
-                }}
-              >
-                Type Signature
-              </AppText>
-            </TouchableOpacity>
-          </View>
-
-          {/* Signature input area */}
-          {signatureMode === 'draw' ? (
-            <View>
-              <View style={[styles.canvasContainer, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                <View {...panResponder.panHandlers} style={StyleSheet.absoluteFill}>
-                  {/* Drawing rendering as trail of small dots */}
-                  {points.map((p, idx) => (
-                    <View
-                      key={idx}
-                      style={[
-                        styles.drawingPoint,
-                        {
-                          left: p.x - 2,
-                          top: p.y - 2,
-                          backgroundColor: colors.text,
-                        },
-                      ]}
-                    />
-                  ))}
-                  {points.length === 0 && (
-                    <View style={styles.canvasPlaceholder}>
-                      <Feather name="edit-3" size={24} color={colors.textMuted} />
-                      <AppText variant="caption" style={{ color: colors.textMuted, marginTop: 8 }}>
-                        Draw your signature here
-                      </AppText>
-                    </View>
-                  )}
-                </View>
-                {points.length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.clearButton, { backgroundColor: colors.surfaceElevated }]}
-                    onPress={handleClearSignature}
-                  >
-                    <Feather name="trash-2" size={14} color={colors.error} />
-                    <AppText variant="caption" style={{ color: colors.error, marginLeft: 4, fontWeight: '700' }}>
-                      Clear
-                    </AppText>
-                  </TouchableOpacity>
-                )}
+          {/* eStamp & eSign Information Card */}
+          <AppCard style={[styles.esignInfoCard, { borderColor: colors.primary + '30' }]}>
+            <View style={styles.esignInfoHeader}>
+              <View style={[styles.esignIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                <MaterialCommunityIcons name="shield-check" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.esignInfoTextContainer}>
+                <AppText variant="labelLg" style={{ fontWeight: '700', color: colors.text }}>
+                  Digital eSign & eStamp
+                </AppText>
+                <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 2 }}>
+                  Legally valid under IT Act, 2000
+                </AppText>
               </View>
             </View>
-          ) : (
+
+            <View style={styles.esignFeatureList}>
+              <View style={styles.esignFeatureItem}>
+                <Feather name="check-circle" size={14} color={colors.success} />
+                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                  Digital Stamp Duty via SHCIL (eStamp)
+                </AppText>
+              </View>
+              <View style={styles.esignFeatureItem}>
+                <Feather name="check-circle" size={14} color={colors.success} />
+                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                  Aadhaar OTP-based electronic signature
+                </AppText>
+              </View>
+              <View style={styles.esignFeatureItem}>
+                <Feather name="check-circle" size={14} color={colors.success} />
+                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                  Tamper-proof audit trail with timestamp & IP
+                </AppText>
+              </View>
+              <View style={styles.esignFeatureItem}>
+                <Feather name="check-circle" size={14} color={colors.success} />
+                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                  Signed document available for download
+                </AppText>
+              </View>
+            </View>
+          </AppCard>
+
+          {/* Success State */}
+          {esignStatus === 'success' && (
             <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={[styles.typeSignatureContainer, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', damping: 15 }}
             >
-              <AppInput
-                placeholder="Type your full name"
-                value={typedSignature}
-                onChangeText={setTypedSignature}
-                leftIcon={<Feather name="edit-3" size={18} color={colors.textSecondary} />}
-              />
-              {typedSignature.trim().length > 0 && (
-                <View style={styles.signaturePreviewBox}>
-                  <AppText variant="caption" style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                    Signature Preview:
-                  </AppText>
-                  <View style={[styles.previewCursiveBox, { backgroundColor: colors.backgroundSecondary }]}>
-                    <AppText
-                      style={[
-                        styles.cursiveText,
-                        {
-                          color: colors.primary,
-                          fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-                        },
-                      ]}
-                    >
-                      {typedSignature}
-                    </AppText>
-                  </View>
-                </View>
-              )}
+              <View style={[styles.successBanner, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+                <Feather name="check-circle" size={20} color={colors.success} />
+                <AppText variant="bodyMedium" style={{ color: colors.success, fontWeight: '700', marginLeft: 8 }}>
+                  Agreement signed successfully!
+                </AppText>
+              </View>
             </MotiView>
           )}
 
@@ -427,7 +395,7 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
               style={{ marginTop: 2 }}
             />
             <AppText variant="caption" style={[styles.consentText, { color: colors.textSecondary }]}>
-              I have read, understood and agree to all the terms, conditions, e-stamp details and policies outlined in this loan agreement.
+              I have read, understood and agree to all the terms, conditions, e-stamp details and policies outlined in this loan agreement. I authorize eSign via Aadhaar OTP.
             </AppText>
           </TouchableOpacity>
         </MotiView>
@@ -441,12 +409,17 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
         style={[styles.footer, { borderTopColor: colors.border, paddingHorizontal: theme.screenPadding }]}
       >
         <AppButton
-          title="Sign & Submit Application"
+          title={buttonConfig.title}
           variant="primary"
           size="lg"
-          disabled={!hasConsented || (signatureMode === 'draw' && points.length < 5) || (signatureMode === 'type' && typedSignature.trim().length < 3)}
+          disabled={(!hasConsented && esignStatus !== 'failed') || buttonConfig.disabled}
           loading={isSubmitting}
-          onPress={handleSubmit}
+          onPress={handleEsign}
+          icon={
+            esignStatus === 'success'
+              ? <Feather name="check" size={18} color="#fff" />
+              : <MaterialCommunityIcons name="shield-lock-outline" size={18} color="#fff" />
+          }
         />
         {onSkip && (
           <AppButton
@@ -519,73 +492,51 @@ const styles = StyleSheet.create({
   documentScroll: {
     flex: 1,
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+  // eSign Info Card
+  esignInfoCard: {
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderRadius: 14,
   },
-  tabButton: {
+  esignInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  esignIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  esignInfoTextContainer: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 2.5,
   },
-  canvasContainer: {
-    borderWidth: 1,
-    borderRadius: 12,
-    height: 150,
-    overflow: 'hidden',
-    position: 'relative',
-    marginBottom: 20,
+  esignFeatureList: {
+    gap: 10,
   },
-  drawingPoint: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    position: 'absolute',
-  },
-  canvasPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-  },
-  clearButton: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
+  esignFeatureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
   },
-  typeSignatureContainer: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+  esignFeatureText: {
+    marginLeft: 8,
+    fontSize: 12.5,
+    lineHeight: 16,
   },
-  signaturePreviewBox: {
-    marginTop: 12,
-  },
-  previewCursiveBox: {
-    borderRadius: 8,
-    padding: 16,
+  // Success banner
+  successBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
   },
-  cursiveText: {
-    fontSize: 26,
-    fontStyle: 'italic',
-    letterSpacing: 1,
-  },
+  // Consent
   consentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -35,7 +35,7 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
       setIsProfileLoading(true);
       try {
         const profile = await getCustomerProfile(customerId);
-        if (profile && profile.success && profile.data) {
+        if (profile && profile.data) {
           const mappedType = mapApiToLocalEmploymentType(profile.data.employmentType);
           if (mappedType) {
             setSelected(mappedType);
@@ -73,7 +73,13 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
         employmentType: apiType,
       });
 
-      updateFormData({ employmentType: selected });
+      const profile = await getCustomerProfile(customerId);
+      if (profile && profile.data) {
+        const mappedType = mapApiToLocalEmploymentType(profile.data.employmentType);
+        updateFormData({ employmentType: mappedType || selected });
+      } else {
+        updateFormData({ employmentType: selected });
+      }
       completeStep('employment');
       onNext();
     } catch (err) {

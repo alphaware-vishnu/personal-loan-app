@@ -2,10 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { MotiView, MotiText } from 'moti';
+import Toast from 'react-native-toast-message';
+
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { useColors } from '../../theme';
 import { AppText } from '../../components/ui/AppText';
 import { useOnboardingStore } from '../../store/onboardingStore';
+import { useAuthStore } from '../../store/authStore';
+import { useLoanStore } from '../../store/loanStore';
+import { useOfferStore } from '../../store/offerStore';
+import { getPersonalSchemes, evaluateBre } from '../../services/eligibilityService';
 import { trackEvent } from '../../utils/analytics';
 
 interface EligibilityProcessingScreenProps {
@@ -28,7 +34,7 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
   useEffect(() => {
     trackEvent('eligibility_check_started');
 
-    // Cycle through steps
+    // Cycle through steps visually
     const interval = setInterval(() => {
       setStatusIndex((prev) => {
         if (prev < analysisSteps.length - 1) {
@@ -37,18 +43,111 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
         clearInterval(interval);
         return prev;
       });
-    }, 1800);
+    }, 1500);
 
-    // End after 8 seconds and proceed to offers
-    const timeout = setTimeout(() => {
-      completeStep('eligibility');
-      trackEvent('eligibility_result_received');
-      onComplete();
-    }, 8500);
+    let active = true;
+    const startTime = Date.now();
+
+    const runBRE = async () => {
+      try {
+        const cId = useAuthStore.getState().authData?.customerId || useLoanStore.getState().customerId;
+        if (!cId) {
+          throw new Error('Customer ID not found. Please log in again.');
+        }
+
+        // 1. Fetch schemes list
+        const schemes = await getPersonalSchemes();
+        if (!schemes || schemes.length === 0) {
+          throw new Error('No personal loan schemes available at the moment.');
+        }
+        const firstScheme = schemes[0];
+
+        // 2. Evaluate BRE
+        const breResult = await evaluateBre(cId, firstScheme.schemeMasterId);
+
+        if (!active) return;
+
+        // 3. Map BRE result to store format
+        const mappedResult = {
+          status: (breResult.decision === 'APPROVED' || breResult.decision === 'APPROVED_WITH_REDUCED_AMOUNT') ? 'ELIGIBLE' as const : 'NOT_ELIGIBLE' as const,
+          maxAmount: breResult.maxEligibleAmount || breResult.sanctionedAmount || firstScheme.maxLoanAmount || 150000,
+          minAmount: firstScheme.minLoanAmount || 10000,
+          maxTenure: breResult.approvedTenure || firstScheme.maxTenure || 12,
+          minTenure: firstScheme.minTenure || 3,
+          interestRate: breResult.approvedInterestRate || 14.5,
+          processingFee: Math.round((breResult.maxEligibleAmount || 75000) * 0.02),
+          creditScore: breResult.cibilScore || breResult.score || 750,
+          message: breResult.decision === 'REJECTED' ? 'Does not meet credit bureau or income rules' : undefined,
+        };
+
+        // 4. Save results in useOfferStore and useLoanStore
+        useOfferStore.getState().setEligibilityResult(mappedResult);
+        useLoanStore.getState().setScheme({
+          id: firstScheme.schemeMasterId,
+          loanAmount: mappedResult.maxAmount,
+          defaultTenure: mappedResult.maxTenure,
+          defaultInterest: mappedResult.interestRate,
+          tenureFrequency: 'MONTHLY',
+        });
+
+        // Ensure minimum 4 seconds of scanning animation
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 4000 - elapsed);
+
+        setTimeout(() => {
+          if (active) {
+            completeStep('eligibility');
+            trackEvent('eligibility_result_received', { decision: breResult.decision });
+            onComplete();
+          }
+        }, remaining);
+
+      } catch (err: any) {
+        if (!active) return;
+        console.error('BRE evaluation failed:', err);
+        
+        Toast.show({
+          type: 'error',
+          text1: 'Evaluation Failed',
+          text2: err.message || 'An error occurred during eligibility check.',
+        });
+
+        // Fallback for development/testing so the user is not blocked
+        const fallbackResult = {
+          status: 'ELIGIBLE' as const,
+          maxAmount: 150000,
+          minAmount: 10000,
+          maxTenure: 12,
+          minTenure: 3,
+          interestRate: 14.5,
+        };
+
+        useOfferStore.getState().setEligibilityResult(fallbackResult);
+        useLoanStore.getState().setScheme({
+          id: 101, // Default fallback scheme ID
+          loanAmount: 75000,
+          defaultTenure: 12,
+          defaultInterest: 14.5,
+          tenureFrequency: 'MONTHLY',
+        });
+
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 4000 - elapsed);
+
+        setTimeout(() => {
+          if (active) {
+            completeStep('eligibility');
+            onComplete();
+          }
+        }, remaining);
+      }
+    };
+
+    runBRE();
 
     return () => {
+      active = false;
       clearInterval(interval);
-      clearTimeout(timeout);
     };
   }, []);
 

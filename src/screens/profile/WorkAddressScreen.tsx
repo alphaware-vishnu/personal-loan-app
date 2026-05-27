@@ -46,7 +46,7 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
       setIsProfileLoading(true);
       try {
         const profile = await getCustomerProfile(customerId);
-        if (profile && profile.success && profile.data) {
+        if (profile && profile.data) {
           const data = profile.data;
           if (data.officeAddress) {
             const localWorkAddress: Address = {
@@ -99,10 +99,34 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
         officeAddress: apiOfficeAddress,
       });
 
-      updateFormData({
-        workAddress: address,
-        companyName,
-      });
+      const profile = await getCustomerProfile(customerId);
+      if (profile && profile.data) {
+        const data = profile.data;
+        if (data.officeAddress) {
+          const localWorkAddress: Address = {
+            flatNo: data.officeAddress.building || '',
+            area: data.officeAddress.area || '',
+            city: data.officeAddress.city || '',
+            stateName: data.officeAddress.state || '',
+            pinCode: data.officeAddress.pincode || data.officeAddress.postcode || '',
+            countryName: data.officeAddress.country || 'India',
+          };
+          updateFormData({
+            workAddress: localWorkAddress,
+            companyName: data.officeAddress.officeName || '',
+          });
+        } else {
+          updateFormData({
+            workAddress: address,
+            companyName,
+          });
+        }
+      } else {
+        updateFormData({
+          workAddress: address,
+          companyName,
+        });
+      }
       completeStep('work_address');
       trackEvent('address_submitted', { type: 'work' });
       onNext();

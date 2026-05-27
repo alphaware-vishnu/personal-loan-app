@@ -130,14 +130,30 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
 
       try {
         await updateCustomerProfile({
-          id: customerId,
+          // id: customerId,
           bank: {
-            holderName: values.accountName,
-            accountNo: values.accountNumber,
+            accountHolderName: values.accountName,
+            accountNumber: values.accountNumber,
             ifscCode: values.ifscCode,
             autoDebitType: selectedAutoPay.toUpperCase(),
           },
         });
+
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.data) {
+          const data = profile.data;
+          if (data.bank) {
+            addCustomerBank({
+              accountHolderName: data.bank.holderName || values.accountName,
+              accountNo: data.bank.accountNo || values.accountNumber,
+              bank: bankName || 'Verified Bank',
+              branch: branchName || 'Verified Branch',
+              ifsc: data.bank.ifscCode || values.ifscCode,
+              accountType: 'SAVINGS',
+              isDefault: true,
+            });
+          }
+        }
 
         if (applicationId) {
           statusMutation.mutate({
@@ -164,7 +180,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
       setIsProfileLoading(true);
       try {
         const profile = await getCustomerProfile(customerId);
-        if (profile && profile.success && profile.data) {
+        if (profile && profile.data) {
           const data = profile.data;
           if (data.bank) {
             formik.setValues({

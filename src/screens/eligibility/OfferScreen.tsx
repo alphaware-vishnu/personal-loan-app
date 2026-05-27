@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MotiView } from 'moti';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
 import { StepIndicator } from '../../components/ui/StepIndicator';
@@ -9,6 +11,9 @@ import { AmountSlider } from '../../components/ui/AmountSlider';
 import { useColors, useTheme } from '../../theme';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useLoanStore } from '../../store/loanStore';
+import { useOfferStore } from '../../store/offerStore';
+import { useAuthStore } from '../../store/authStore';
+import { createApplication } from '../../services/applicationService';
 import { trackEvent } from '../../utils/analytics';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
@@ -24,15 +29,33 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
   const loanStore = useLoanStore();
+  const { eligibilityResult } = useOfferStore();
 
-  const minAmount = 10000;
-  const maxAmount = 150000;
-  const interestRate = 14.5; // Annual interest rate percentage
+  const minAmount = eligibilityResult?.minAmount ?? 10000;
+  const maxAmount = eligibilityResult?.maxAmount ?? 150000;
+  const interestRate = eligibilityResult?.interestRate ?? 14.5;
+  const maxTenure = eligibilityResult?.maxTenure ?? 12;
 
   const [amount, setAmount] = useState(75000);
   const [tenure, setTenure] = useState(12); // months
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const tenures = [3, 6, 9, 12, 18, 24];
+  // Sync component state with eligibility result when loaded
+  useEffect(() => {
+    if (eligibilityResult) {
+      const defaultAmount = Math.min(Math.max(75000, minAmount), maxAmount);
+      setAmount(defaultAmount);
+      const defaultTenure = Math.min(12, maxTenure);
+      setTenure(defaultTenure);
+    }
+  }, [eligibilityResult]);
+
+  // Filter tenures up to approved maxTenure
+  const allTenures = [3, 6, 9, 12, 18, 24];
+  const tenures = allTenures.filter((t) => t <= maxTenure);
+  if (tenures.length === 0) {
+    tenures.push(maxTenure);
+  }
 
   // EMI formula: [P * r * (1 + r)^N] / [((1 + r)^N) - 1]
   const calculateEMI = (p: number, rAnnual: number, n: number) => {
@@ -45,20 +68,110 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
   const processingFee = Math.round(amount * 0.02); // 2% processing fee
   const disbursalAmount = amount - processingFee;
 
-  const handleAccept = () => {
-    loanStore.setScheme({
-      id: 101,
-      loanAmount: amount,
-      defaultTenure: tenure,
-      defaultInterest: interestRate,
-      tenureFrequency: 'MONTHLY',
-    });
-    loanStore.setCalculationResults(emi, disbursalAmount);
+  const handleAccept = async () => {
+    setIsSubmitting(true);
+    try {
+      const customerId = useAuthStore.getState().authData?.customerId || loanStore.customerId;
+      const schemeMasterId = loanStore.schemeMasterId || 101;
 
-    completeStep('eligibility');
-    trackEvent('offer_accepted', { amount, tenure, emi });
-    onNext();
+      if (!customerId) {
+        throw new Error('Customer ID not found. Please log in again.');
+      }
+
+      // Create loan application on the backend
+      const response = await createApplication({
+        customerId: Number(customerId),
+        schemeMasterId: Number(schemeMasterId),
+        requestedAmount: amount,
+        requestedTenure: tenure,
+      });
+
+      const appData = response.data?.data || response.data;
+      const appId = appData?.id || appData?.applicationId;
+      const prodId = appData?.productId || 1;
+
+      if (!appId) {
+        throw new Error('Failed to retrieve application ID from server.');
+      }
+
+      // Update state in loanStore
+      loanStore.setScheme({
+        id: schemeMasterId,
+        loanAmount: amount,
+        defaultTenure: tenure,
+        defaultInterest: interestRate,
+        tenureFrequency: 'MONTHLY',
+      });
+      loanStore.setCalculationResults(emi, disbursalAmount);
+      loanStore.setApplicationData(appId, prodId);
+
+      completeStep('eligibility');
+      trackEvent('offer_accepted', { amount, tenure, emi, applicationId: appId });
+      onNext();
+    } catch (err: any) {
+      console.error('Failed to accept offer / create application:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Submission Failed',
+        text2: err.response?.data?.message || err.message || 'Unable to register application. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (!eligibilityResult) {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Personalized Offer" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <AppText variant="bodyMd" style={{ marginTop: 16, color: colors.textSecondary }}>
+            Loading your customized offer...
+          </AppText>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  if (eligibilityResult.status === 'NOT_ELIGIBLE') {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Eligibility Status" onBack={onBack} />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={styles.rejectionCard}
+          >
+            <View style={[styles.rejectionIconCircle, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="close-circle" size={48} color="#EF4444" />
+            </View>
+            <AppText variant="h2" style={[styles.title, { marginTop: 16 }]} align="center">
+              Eligibility Status
+            </AppText>
+            <AppText variant="bodyMd" style={{ color: colors.textSecondary, marginTop: 12, lineHeight: 22 }} align="center">
+              {eligibilityResult.message || "Thank you for applying. Unfortunately, your credit profile doesn't meet our criteria for a loan approval at this time."}
+            </AppText>
+            
+            <View style={[styles.rejectionDetails, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+              <AppText variant="caption" style={{ color: colors.textSecondary }} align="center">
+                You can re-apply after 90 days. Feel free to explore other services or contact customer support for further details.
+              </AppText>
+            </View>
+
+            <AppButton
+              title="Back to Dashboard"
+              onPress={() => onSkip?.() || onBack()}
+              variant="outline"
+              size="lg"
+              style={{ width: '100%', marginTop: 24 }}
+            />
+          </MotiView>
+        </ScrollView>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -193,9 +306,10 @@ export const OfferScreen: React.FC<OfferScreenProps> = ({ onNext, onBack, onSkip
           onPress={handleAccept}
           variant="primary"
           size="lg"
+          loading={isSubmitting}
           style={styles.button}
         />
-        {onSkip && (
+        {!isSubmitting && onSkip && (
           <AppButton
             title="Skip, I'll do later"
             variant="ghost"
@@ -285,5 +399,25 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
+  },
+  rejectionCard: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 16,
+  },
+  rejectionIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  rejectionDetails: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: 24,
   },
 });

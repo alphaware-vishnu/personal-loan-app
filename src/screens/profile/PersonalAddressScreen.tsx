@@ -48,7 +48,7 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
       setIsProfileLoading(true);
       try {
         const profile = await getCustomerProfile(customerId);
-        if (profile && profile.success && profile.data) {
+        if (profile && profile.data) {
           const data = profile.data;
           if (data.homeAddress) {
             const localHomeAddress = mapApiToLocalAddress(data.homeAddress);
@@ -99,10 +99,27 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
         homeAddress: apiHomeAddress,
       });
 
-      updateFormData({
-        personalAddress: address,
-        sameAsWorkAddress: sameAsWork,
-      });
+      const profile = await getCustomerProfile(customerId);
+      if (profile && profile.data) {
+        const data = profile.data;
+        if (data.homeAddress) {
+          const localHomeAddress = mapApiToLocalAddress(data.homeAddress);
+          updateFormData({
+            personalAddress: localHomeAddress,
+            sameAsWorkAddress: sameAsWork,
+          });
+        } else {
+          updateFormData({
+            personalAddress: address,
+            sameAsWorkAddress: sameAsWork,
+          });
+        }
+      } else {
+        updateFormData({
+          personalAddress: address,
+          sameAsWorkAddress: sameAsWork,
+        });
+      }
       completeStep('personal_address');
       setProfileCompleted(true);
       trackEvent('address_submitted', { type: 'personal' });

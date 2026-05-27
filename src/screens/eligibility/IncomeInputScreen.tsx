@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
@@ -11,6 +11,10 @@ import { trackEvent } from '../../utils/analytics';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
+import { getCustomerProfile, updateCustomerProfile } from '../../services/customerService';
+import { useAuthStore } from '../../store/authStore';
+import { LoadingState } from '../../components/feedback/LoadingState';
+import Toast from 'react-native-toast-message';
 
 interface IncomeInputScreenProps {
   onNext: () => void;
@@ -25,6 +29,33 @@ export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, on
 
   const [income, setIncome] = useState(formData.monthlyIncome ? String(formData.monthlyIncome) : '');
   const [error, setError] = useState('');
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const customerId = useAuthStore.getState().authData?.customerId || 99999;
+      setIsProfileLoading(true);
+      try {
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.data) {
+          const data = profile.data;
+          if (data.monthlyIncome) {
+            setIncome(String(data.monthlyIncome));
+            updateFormData({
+              monthlyIncome: data.monthlyIncome,
+              annualIncome: data.monthlyIncome * 12,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Income Input Screen] Failed to load profile:', err);
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const formatCurrency = (val: string) => {
     const num = parseInt(val.replace(/\D/g, ''), 10);
@@ -44,21 +75,56 @@ export const IncomeInputScreen: React.FC<IncomeInputScreenProps> = ({ onNext, on
 
   const isComplete = income.trim().length > 3 && !error && parseInt(income, 10) >= 10000;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!isComplete) return;
     const numericIncome = parseInt(income, 10);
+    const customerId = useAuthStore.getState().authData?.customerId || 99999;
     
-    updateFormData({
-      monthlyIncome: numericIncome,
-      annualIncome: numericIncome * 12,
-    });
-    
-    completeStep('income');
-    trackEvent('income_submitted', { monthlyIncome: numericIncome });
-    onNext();
+    setIsSaving(true);
+    try {
+      await updateCustomerProfile({
+        monthlyIncome: numericIncome,
+      });
+
+      const profile = await getCustomerProfile(customerId);
+      if (profile && profile.data) {
+        const data = profile.data;
+        updateFormData({
+          monthlyIncome: data.monthlyIncome || numericIncome,
+          annualIncome: (data.monthlyIncome || numericIncome) * 12,
+        });
+      } else {
+        updateFormData({
+          monthlyIncome: numericIncome,
+          annualIncome: numericIncome * 12,
+        });
+      }
+      
+      completeStep('income');
+      trackEvent('income_submitted', { monthlyIncome: numericIncome });
+      onNext();
+    } catch (err: any) {
+      console.error('[Income Input Screen] Failed to save profile:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Save Failed',
+        text2: err.message || 'Failed to save income details.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const isSalaried = formData.employmentType === 'salaried';
+
+  if (isProfileLoading) {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Income Details" onBack={onBack} />
+        <LoadingState message="Loading income details..." fullScreen={false} />
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>

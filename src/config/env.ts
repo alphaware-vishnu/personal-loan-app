@@ -8,6 +8,7 @@ export type Environment = 'development' | 'staging' | 'production';
 interface EnvConfig {
   environment: Environment;
   apiBaseUrl: string;
+  userManagement: string;
   tenantId: string;
   enableDebugTools: boolean;
   enableNetworkLogger: boolean;
@@ -21,12 +22,18 @@ interface EnvConfig {
   apiRetryDelayMs: number;
   /** Razorpay Key ID for payment checkout */
   razorpayKeyId: string;
+  /** Digio SDK Configuration */
+  digioEnvironment: 'SANDBOX' | 'PRODUCTION';
+  digioLogoUrl: string;
+  digioThemePrimaryColor: string;
+  digioThemeSecondaryColor: string;
 }
 
 const configs: Record<Environment, EnvConfig> = {
   development: {
     environment: 'development',
     apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/',
+    userManagement: 'http://192.168.0.155:8081/api/user-management/',
     tenantId: 'product-dev',
     enableDebugTools: true,
     enableNetworkLogger: true,
@@ -39,10 +46,15 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1000,
     razorpayKeyId: 'rzp_test_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay test key
+    digioEnvironment: 'SANDBOX',
+    digioLogoUrl: 'https://your-company-logo.png', // Replace with your company logo URL
+    digioThemePrimaryColor: '#AB0F0C',
+    digioThemeSecondaryColor: '#AB0F0C',
   },
   staging: {
     environment: 'staging',
     apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/    ',
+    userManagement: 'http://192.168.0.155:8081/api/user-management/',
     tenantId: 'product-staging',
     enableDebugTools: true,
     enableNetworkLogger: false,
@@ -55,11 +67,16 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1000,
     razorpayKeyId: 'rzp_test_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay test key
+    digioEnvironment: 'SANDBOX',
+    digioLogoUrl: 'https://your-company-logo.png',
+    digioThemePrimaryColor: '#AB0F0C',
+    digioThemeSecondaryColor: '#AB0F0C',
   },
   production: {
     environment: 'production',
     // apiBaseUrl: 'https://apipersonalproduct.alphawarenext.com/api/lms',
     apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/',
+    userManagement: 'http://192.168.0.155:8081/api/user-management/',
     tenantId: 'product-prod',
     enableDebugTools: false,
     enableNetworkLogger: false,
@@ -72,6 +89,10 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1500,
     razorpayKeyId: 'rzp_live_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay live key
+    digioEnvironment: 'PRODUCTION',
+    digioLogoUrl: 'https://your-company-logo.png',
+    digioThemePrimaryColor: '#AB0F0C',
+    digioThemeSecondaryColor: '#AB0F0C',
   },
 };
 

@@ -14,6 +14,49 @@ export interface EligibilityResult {
   reason?: string;
 }
 
+export interface BreResultResponse {
+  decision: 'APPROVED' | 'APPROVED_WITH_REDUCED_AMOUNT' | 'REJECTED';
+  score?: number;
+  cibilScore?: number;
+  maxEligibleAmount: number;
+  sanctionedAmount?: number;
+  approvedTenure: number;
+  approvedInterestRate: number;
+  emiAmount?: number;
+}
+
+export interface PersonalSchemeOption {
+  schemeMasterId: number;
+  schemeCode: string;
+  name: string;
+  description: string;
+  minLoanAmount: number;
+  maxLoanAmount: number;
+  minTenure: number;
+  maxTenure: number;
+  defaultTenure: number;
+  employmentType: string;
+}
+
+/**
+ * Fetch list of personal schemes from /scheme/personal
+ */
+export const getPersonalSchemes = async (): Promise<PersonalSchemeOption[]> => {
+  const response = await api.get('/scheme/personal');
+  return response.data?.data || response.data;
+};
+
+/**
+ * Evaluate BRE for a customer and scheme from /bre/evaluate
+ */
+export const evaluateBre = async (
+  customerId: number,
+  schemeMasterId: number
+): Promise<BreResultResponse> => {
+  const response = await api.post('/bre/evaluate', { customerId, schemeMasterId });
+  return response.data?.data || response.data;
+};
+
 /**
  * Trigger backend credit score and eligibility evaluation.
  */

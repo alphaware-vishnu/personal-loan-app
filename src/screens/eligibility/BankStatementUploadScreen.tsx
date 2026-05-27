@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, View, TouchableOpacity, Linking } from 'react-native';
 import { MotiView } from 'moti';
 import { Feather } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
@@ -11,6 +11,12 @@ import { trackEvent } from '../../utils/analytics';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
 import { ProgressBar } from '../../components/ui/ProgressBar';
+import { AppInput } from '../../components/ui/AppInput';
+import * as DocumentPicker from 'expo-document-picker';
+import { uploadDocumentToUms, getDocumentDownloadFromUms } from '../../services/documentService';
+import { uploadStatementDetails } from '../../services/customerService';
+import Toast from 'react-native-toast-message';
+import { env } from '../../config/env';
 
 interface BankStatementUploadScreenProps {
   onNext: () => void;
@@ -27,33 +33,175 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [uploadedId, setUploadedId] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
 
-  const simulateDocPick = () => {
-    // Generate a mock PDF statement name
-    setFileName('bank_statement_last_3_months.pdf');
-    setFileSize('1.4 MB');
-    setUploadProgress(0);
-    setUploadComplete(false);
-    setIsUploading(true);
-
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          setUploadComplete(true);
-          return 100;
-        }
-        return prev + 10;
+  const handleDocumentPick = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
       });
-    }, 150);
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      setFileName(file.name);
+      setFileSize(file.size ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown size');
+      setUploadProgress(0);
+      setUploadComplete(false);
+      setIsUploading(true);
+
+      const formData = new FormData();
+      // @ts-ignore
+      formData.append('files', {
+        uri: file.uri,
+        name: file.name,
+        type: 'application/pdf',
+      });
+
+      // Simulated initial progress to make UI responsive
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 15;
+        });
+      }, 100);
+
+      const response = await uploadDocumentToUms(formData);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      const fileId = response.data?.data?.[0] || response.data?.fileUuid || 'temp-aws-id';
+      
+      let fileUrl = '';
+      try {
+        if (fileId && fileId !== 'temp-aws-id') {
+          const downloadResponse = await getDocumentDownloadFromUms(Number(fileId));
+          const docInfo = downloadResponse.data?.data?.[0];
+          if (docInfo) {
+            fileUrl = docInfo.filePath || docInfo.url || '';
+          }
+        }
+      } catch (err) {
+        console.error('[Bank Statement Upload] Error getting download path from UMS:', err);
+      }
+
+      if (!fileUrl) {
+        fileUrl = response.data?.url || response.data?.filePath || (response.data?.data?.[0] ? `${env.userManagement}/document/download?ids=${fileId}` : '');
+      }
+      
+      setUploadedId(String(fileId));
+      setUploadedUrl(String(fileUrl));
+      setUploadComplete(true);
+      setIsUploading(false);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Upload Successful',
+        text2: 'Bank statement uploaded successfully.',
+      });
+
+    } catch (err: any) {
+      console.error('[Bank Statement Upload] Error picking/uploading document:', err);
+      setIsUploading(false);
+      setFileName(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Failed',
+        text2: err.message || 'Could not upload bank statement. Please try again.',
+      });
+    }
   };
 
-  const handleContinue = () => {
-    completeStep('bank_statement');
-    trackEvent('document_upload_completed', { skip: !uploadComplete });
-    onNext();
+  const handleCancelFile = () => {
+    setFileName(null);
+    setFileSize(null);
+    setUploadProgress(0);
+    setUploadComplete(false);
+    setUploadedId(null);
+    setUploadedUrl(null);
+    setPassword('');
+  };
+
+  const handleViewFile = async () => {
+    if (!uploadedUrl) {
+      Toast.show({
+        type: 'error',
+        text1: 'No File URL',
+        text2: 'Statement URL is not available.',
+      });
+      return;
+    }
+
+    try {
+      let targetUrl = uploadedUrl;
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        const baseUrl = env.userManagement.replace(/\/$/, '');
+        if (targetUrl.startsWith('/')) {
+          if (targetUrl.startsWith('/api/user-management')) {
+            targetUrl = env.userManagement.replace('/api/user-management/', '') + targetUrl.substring(1);
+          } else {
+            targetUrl = baseUrl + targetUrl;
+          }
+        } else {
+          targetUrl = baseUrl + '/' + targetUrl;
+        }
+      }
+
+      const canOpen = await Linking.canOpenURL(targetUrl);
+      if (canOpen) {
+        await Linking.openURL(targetUrl);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Cannot Open URL',
+          text2: 'System cannot open this URL: ' + targetUrl,
+        });
+      }
+    } catch (err: any) {
+      console.error('[Bank Statement Upload] Error opening statement URL:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'View Failed',
+        text2: err.message || 'Could not open statement.',
+      });
+    }
+  };
+
+  const handleContinue = async () => {
+    if (!uploadComplete) {
+      completeStep('bank_statement');
+      trackEvent('document_upload_completed', { skip: true });
+      onNext();
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await uploadStatementDetails({
+        accountStatementId: uploadedId || undefined,
+        accountStatementUrl: uploadedUrl || undefined,
+        password: password || "",
+      });
+
+      completeStep('bank_statement');
+      trackEvent('document_upload_completed', { skip: false });
+      onNext();
+    } catch (err: any) {
+      console.error('[Bank Statement Upload] API error:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Analysis Failed',
+        text2: err.message || 'Could not analyze bank statement. Please try again.',
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -80,7 +228,7 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
           {/* Upload Area */}
           {!fileName && (
             <TouchableOpacity
-              onPress={simulateDocPick}
+              onPress={handleDocumentPick}
               style={[styles.uploadBox, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
               activeOpacity={0.7}
             >
@@ -112,10 +260,29 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
                   )}
                 </View>
                 {uploadComplete && (
-                  <Feather name="check-circle" size={20} color={colors.success} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity 
+                      onPress={handleViewFile}
+                      style={{ marginRight: 14 }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Feather name="eye" size={20} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={handleCancelFile}
+                      style={{ marginRight: 14 }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Feather name="trash-2" size={20} color={colors.error} />
+                    </TouchableOpacity>
+                    <Feather name="check-circle" size={20} color={colors.success} />
+                  </View>
                 )}
                 {!uploadComplete && !isUploading && (
-                  <TouchableOpacity onPress={() => setFileName(null)}>
+                  <TouchableOpacity 
+                    onPress={handleCancelFile}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
                     <Feather name="trash-2" size={20} color={colors.error} />
                   </TouchableOpacity>
                 )}
@@ -133,6 +300,24 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
                   </View>
                   <ProgressBar progress={uploadProgress / 100} />
                 </View>
+              )}
+
+              {uploadComplete && (
+                <MotiView
+                  from={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 75 }}
+                  transition={{ type: 'timing', duration: 300 }}
+                  style={{ marginTop: 16 }}
+                >
+                  <AppInput
+                    label="PDF Password (if encrypted)"
+                    placeholder="Enter statement password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                </MotiView>
               )}
             </View>
           )}
@@ -159,6 +344,7 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
           variant={uploadComplete ? "primary" : "secondary"}
           size="lg"
           style={styles.button}
+          loading={isUploading && uploadComplete}
         />
       </MotiView>
     </ScreenWrapper>

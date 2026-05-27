@@ -12,4 +12,5 @@ export * from './documentService';
 export * from './kycService';
 export * from './eligibilityService';
 export * from './bankService';
+export * from './digioService';
 export * from './queryClient';

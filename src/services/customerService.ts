@@ -115,3 +115,35 @@ export const mapLocalToApiEmploymentType = (localType: string | undefined): stri
       return 'SELF_EMPLOYED';
   }
 };
+
+// ─── Statement Upload Types & Services ───
+
+export interface StatementUploadRequest {
+  accountStatementId?: string;
+  accountStatementUrl?: string;
+  password?: string;
+}
+
+export interface StatementUploadResponse {
+  analyticsRequestId?: string;
+  status?: string;
+  message?: string;
+}
+
+/**
+ * Upload selected bank statement details (ID, URL, and password) to the backend.
+ * POST /customer/statement-upload
+ */
+export const uploadStatementDetails = async (payload: StatementUploadRequest): Promise<StatementUploadResponse> => {
+  const response = await api.post(`/customer/statement-upload`, payload);
+  return response.data?.data;
+};
+
+/**
+ * Fetch bank statement details for the customer.
+ * GET /customer/statement-details
+ */
+export const getStatementDetails = async () => {
+  const response = await api.get(`/customer/statement-details`);
+  return response.data?.data;
+};

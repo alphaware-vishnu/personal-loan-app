@@ -19,6 +19,12 @@ import { AppButton } from '../../components/ui/AppButton';
 import { verifyOtp, sendOtp } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
+import { useLoanStore } from '../../store/loanStore';
+import { useKycStore } from '../../store/kycStore';
+import { useOfferStore } from '../../store/offerStore';
+import { usePaymentStore } from '../../store/paymentStore';
+import { usePermissionStore } from '../../store/permissionStore';
+import { useUploadStore } from '../../store/uploadStore';
 import Toast from 'react-native-toast-message';
 import { AuthData } from '../../types/auth.type';
 import { env } from '../../config/env';
@@ -65,6 +71,18 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     onSuccess: async (response: any) => {
       const data = response?.data?.data;
       if (data && data.access_token) {
+        // Reset all user-specific stores if logging in with a different mobile number
+        const currentMobile = useAuthStore.getState().mobile;
+        if (currentMobile !== mobile) {
+          useLoanStore.getState().reset();
+          useOnboardingStore.getState().reset();
+          useKycStore.getState().reset();
+          useOfferStore.getState().reset();
+          usePaymentStore.getState().reset();
+          usePermissionStore.getState().reset();
+          useUploadStore.getState().reset();
+        }
+
         const onboardingState = useOnboardingStore.getState();
         const isFirstLogin = data.isFirstLogin ?? !onboardingState.hasCompletedProfile;
         const authData: AuthData = {

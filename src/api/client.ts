@@ -1,10 +1,10 @@
 /**
- * Core API Client
- * Configures Axios instance, headers, request/response interceptors, 
- * global error handling, and retry policy.
+ * Core API Clients
+ * Configures Axios instances, headers, request/response interceptors, 
+ * global error handling, and retry policy for standard and user management APIs.
  */
 
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios, { InternalAxiosRequestConfig, AxiosInstance } from 'axios';
 import { env } from '../config/env';
 import { useAuthStore } from '../store/authStore';
 
@@ -26,78 +26,94 @@ export const api = axios.create({
   },
 });
 
-// Request Interceptor
-api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // Inject auth token if skipAuth is not explicitly true
-    if (!config.skipAuth) {
-      const token = useAuthStore.getState().token;
-      if (token) {
-        config.headers.set('Authorization', `Bearer ${token}`);
-      } else if (env.enableDebugTools) {
-        console.warn(`[API Request] No auth token found for secure endpoint: ${config.url}`);
-      }
-    }
-
-    if (env.enableNetworkLogger && env.enableDebugTools) {
-      console.log(`[API Request] [${config.method?.toUpperCase()}] ${config.url}`);
-    }
-    return config;
+export const userManagementApi = axios.create({
+  baseURL: env.userManagement,
+  timeout: 15000, // 15 seconds request timeout
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Tenant-Id': env.tenantId,
   },
-  (error) => {
-    return Promise.reject(error);
+});
+
+// Shared Request Interceptor Handler
+const requestHandler = (config: InternalAxiosRequestConfig) => {
+  // Inject auth token if skipAuth is not explicitly true
+  if (!config.skipAuth) {
+    const token = useAuthStore.getState().token;
+    if (token) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else if (env.enableDebugTools) {
+      console.warn(`[API Request] No auth token found for secure endpoint: ${config.url}`);
+    }
   }
-);
 
-// Response Interceptor for handling auth expiration, logging, and retry logic
-api.interceptors.response.use(
-  (response) => {
-    if (env.enableNetworkLogger && env.enableDebugTools) {
-      console.log(`[API Response] Success [${response.status}] for: ${response.config.url}`);
-    }
-    return response;
-  },
-  async (error) => {
-    const { response, config } = error;
+  if (env.enableNetworkLogger && env.enableDebugTools) {
+    console.log(`[API Request] [${config.method?.toUpperCase()}] ${config.url}`);
+  }
+  return config;
+};
 
-    if (env.enableNetworkLogger && env.enableDebugTools) {
-      console.error(
-        `[API Response] Error [${config?.method?.toUpperCase()}] ${config?.url}. ` +
-        `Status: ${response?.status || 'network error'}. Message: ${response?.data?.message || error.message}`
-      );
-    }
+const requestErrorHandler = (error: any) => {
+  return Promise.reject(error);
+};
 
-    // Auto-retry policy: retry on network errors or 5xx server errors
-    const isNetworkError = !response;
-    const isServerError = response && response.status >= 500;
-    const canRetry = config && !config.skipRetry && (isNetworkError || isServerError);
+// Shared Response Success Handler
+const responseSuccessHandler = (response: any) => {
+  if (env.enableNetworkLogger && env.enableDebugTools) {
+    console.log(`[API Response] Success [${response.status}] for: ${response.config.url}`);
+  }
+  return response;
+};
 
-    if (canRetry) {
-      config.__retryCount = config.__retryCount || 0;
+// Shared Response Error Handler (handles retries and auth expiration)
+const responseErrorHandler = (clientInstance: AxiosInstance) => async (error: any) => {
+  const { response, config } = error;
 
-      if (config.__retryCount < env.apiRetryAttempts) {
-        config.__retryCount += 1;
-        const delay = env.apiRetryDelayMs * Math.pow(2, config.__retryCount - 1); // Exponential backoff
+  if (env.enableNetworkLogger && env.enableDebugTools) {
+    console.error(
+      `[API Response] Error [${config?.method?.toUpperCase()}] ${config?.url}. ` +
+      `Status: ${response?.status || 'network error'}. Message: ${response?.data?.message || error.message}`
+    );
+  }
 
-        if (env.enableDebugTools) {
-          console.log(`[API Retry] Retrying request [${config.__retryCount}/${env.apiRetryAttempts}] in ${delay}ms: ${config.url}`);
-        }
+  // Auto-retry policy: retry on network errors or 5xx server errors
+  const isNetworkError = !response;
+  const isServerError = response && response.status >= 500;
+  const canRetry = config && !config.skipRetry && (isNetworkError || isServerError);
 
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        return api(config);
-      }
-    }
+  if (canRetry) {
+    config.__retryCount = config.__retryCount || 0;
 
-    // Global session expiration handler (401 Unauthorized)
-    if (response && response.status === 401 && !config.skipAuth) {
+    if (config.__retryCount < env.apiRetryAttempts) {
+      config.__retryCount += 1;
+      const delay = env.apiRetryDelayMs * Math.pow(2, config.__retryCount - 1); // Exponential backoff
+
       if (env.enableDebugTools) {
-        console.warn('[API Auth] 401 Unauthorized detected. Clearing session.');
+        console.log(`[API Retry] Retrying request [${config.__retryCount}/${env.apiRetryAttempts}] in ${delay}ms: ${config.url}`);
       }
-      
-      const { clearAuth } = useAuthStore.getState();
-      clearAuth();
-    }
 
-    return Promise.reject(error);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return clientInstance(config);
+    }
   }
-);
+
+  // Global session expiration handler (401 Unauthorized)
+  if (response && response.status === 401 && !config.skipAuth) {
+    if (env.enableDebugTools) {
+      console.warn('[API Auth] 401 Unauthorized detected. Clearing session.');
+    }
+    
+    const { clearAuth } = useAuthStore.getState();
+    clearAuth();
+  }
+
+  return Promise.reject(error);
+};
+
+// Apply interceptors to 'api' client
+api.interceptors.request.use(requestHandler, requestErrorHandler);
+api.interceptors.response.use(responseSuccessHandler, responseErrorHandler(api));
+
+// Apply interceptors to 'userManagementApi' client
+userManagementApi.interceptors.request.use(requestHandler, requestErrorHandler);
+userManagementApi.interceptors.response.use(responseSuccessHandler, responseErrorHandler(userManagementApi));

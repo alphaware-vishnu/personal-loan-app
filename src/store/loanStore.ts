@@ -36,6 +36,7 @@ export interface CustomerBank {
 
 export interface CustomerInfo {
   applicantName: string;
+  email?: string;
   mobileNumber: string;
   panNumber: string;
   customerBanks: CustomerBank[];
@@ -84,6 +85,7 @@ export interface LoanApplicationState {
 const initialCustomerInfo: CustomerInfo = {
   applicantName: '',
   mobileNumber: '',
+  
   panNumber: '',
   customerBanks: [],
 };

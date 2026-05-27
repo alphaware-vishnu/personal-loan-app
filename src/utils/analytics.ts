@@ -61,6 +61,11 @@ export type AnalyticsEvent =
   | 'agreement_viewed'
   | 'agreement_downloaded'
   | 'agreement_signed'
+  // Digio eSign & eStamp
+  | 'esign_initiated'
+  | 'esign_completed'
+  | 'esign_failed'
+  | 'digio_gateway_event'
   // Disbursal
   | 'disbursal_initiated'
   | 'disbursal_completed'

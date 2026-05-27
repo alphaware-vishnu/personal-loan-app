@@ -47,7 +47,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
       setIsProfileLoading(true);
       try {
         const profile = await getCustomerProfile(customerId);
-        if (profile && profile.success && profile.data) {
+        if (profile && profile.data) {
           const data = profile.data;
           if (data.borrowerName) {
             // panNumber is backend field for PAN (represented as panNumber locally and backend)
@@ -115,6 +115,16 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
           gender: result.gender,
           panNumber: result.panNumber,
         });
+
+        const profile = await getCustomerProfile(customerId);
+        if (profile && profile.data) {
+          updateFormData({
+            panNumber: profile.data.panNumber || result.panNumber,
+            applicantName: profile.data.borrowerName || result.name,
+            dateOfBirth: profile.data.dob || result.dateOfBirth,
+            gender: profile.data.gender || result.gender,
+          });
+        }
       } else {
         setIsVerified(false);
         setPanData(null);
@@ -147,6 +157,16 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
         gender: panData?.gender || formData.gender || 'MALE',
         panNumber: panData?.panNumber || formData.panNumber || '',
       });
+
+      const profile = await getCustomerProfile(customerId);
+      if (profile && profile.data) {
+        updateFormData({
+          panNumber: profile.data.panNumber || panData?.panNumber || formData.panNumber || '',
+          applicantName: profile.data.borrowerName || panData?.name || formData.applicantName || '',
+          dateOfBirth: profile.data.dob || panData?.dateOfBirth || formData.dateOfBirth || '',
+          gender: profile.data.gender || panData?.gender || formData.gender || 'MALE',
+        });
+      }
       completeStep('pan_verification');
       onNext();
     } catch (err: any) {
