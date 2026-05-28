@@ -27,3 +27,42 @@ export const getLoanAccountById = (id: number) => {
 export const createRepayment = (data: RepaymentPayload) => {
   return api.post(`/account/repayment`, data);
 };
+
+/**
+ * Initiate AutoPay for an application.
+ * POST /repayment/{applicationId}/autopay/initiate
+ */
+export const initiateAutopay = async (applicationId: number) => {
+  const response = await api.post(`/repayment/${applicationId}/autopay/initiate`);
+  return response.data; // ApiResponsePlMandateInitiateResponse
+};
+
+/**
+ * Fetch repayment due details for an application.
+ * GET /repayment/{applicationId}/due
+ */
+export const getRepaymentDue = async (applicationId: number) => {
+  const response = await api.get(`/repayment/${applicationId}/due`);
+  return response.data; // ApiResponsePlRepaymentDueResponse
+};
+
+/**
+ * Initiate manual repayment via Razorpay order creation.
+ * POST /repayment/{applicationId}/pay
+ */
+export const initiateManualPayment = async (applicationId: number, amount: number) => {
+  const response = await api.post(`/repayment/${applicationId}/pay`, { amount });
+  return response.data; // ApiResponsePlManualPaymentInitiateResponse
+};
+
+/**
+ * Verify manual repayment signature on the backend.
+ * POST /repayment/{applicationId}/pay/verify
+ */
+export const verifyManualPayment = async (
+  applicationId: number,
+  data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }
+) => {
+  const response = await api.post(`/repayment/${applicationId}/pay/verify`, data);
+  return response.data; // ApiResponseVoid
+};

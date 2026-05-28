@@ -63,7 +63,7 @@ export interface LoanApplicationState {
   // Dynamic Doc Requirements
   documentRequirements: DocumentRequirement[];
   // Mapping of documentTypeId -> { uri, awsId }
-  uploadedDocs: Record<number, { uri: string; awsId: string; documentNumber?: string; fileName?: string }>;
+  uploadedDocs: Record<number, { uri: string; awsId: string; documentNumber?: string; fileName?: string } | undefined>;
 
   isExistingCustomer: boolean;
 
@@ -71,7 +71,7 @@ export interface LoanApplicationState {
   setScheme: (scheme: any) => void;
   setCalculationResults: (emi: number, disbursalAmount: number) => void;
   setDocumentRequirements: (requirements: DocumentRequirement[]) => void;
-  updateUploadedDoc: (typeId: number, data: { uri: string; awsId: string; documentNumber?: string; fileName?: string }) => void;
+  updateUploadedDoc: (typeId: number, data: { uri: string; awsId: string; documentNumber?: string; fileName?: string } | undefined) => void;
   clearUploadedDocs: () => void;
   addDocument: (doc: ApplicationDocument) => void;
   setCustomerInfo: (info: Partial<CustomerInfo>) => void;

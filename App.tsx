@@ -415,6 +415,7 @@ function AppContent() {
             setSelectedAutoRepay(false);
             pop();
           }}
+          onResumeStep={(screenKey: any) => push(screenKey)}
         />
       );
     }

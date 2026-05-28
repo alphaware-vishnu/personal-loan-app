@@ -20,13 +20,14 @@ import { MotiView } from "../components/Motion";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { getApplicationDetails, getDocumentDownloadPath, getLoanAccountById, createRepayment } from "../services/api";
+import { getApplicationDetails, getDocumentDownloadPath, getLoanAccountById, createRepayment, initiateAutopay, initiateESign } from "../services/api";
 import { Layout } from "react-native-reanimated";
 import { formatLabel } from "../utils";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { DocumentViewer } from "../components/DocumentViewer";
 import Toast from "react-native-toast-message";
+import * as WebBrowser from "expo-web-browser";
 
 const { width } = Dimensions.get("window");
 
@@ -36,12 +37,14 @@ interface ApplicationDetailsScreenProps {
   applicationId: number;
   autoOpenRepay?: boolean;
   onBack: () => void;
+  onResumeStep?: (screenKey: string) => void;
 }
 
 export const ApplicationDetailsScreen = ({
   applicationId,
   autoOpenRepay,
   onBack,
+  onResumeStep,
 }: ApplicationDetailsScreenProps) => {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [initialTabSet, setInitialTabSet] = useState(false);
@@ -91,6 +94,27 @@ export const ApplicationDetailsScreen = ({
       month: "short",
       year: "numeric",
     });
+  };
+
+  const getResumeScreen = (appData: any): string => {
+    const reRulesEngineCompleted = appData.applicationStepStatus?.rulesEngineCompleted ?? appData.rulesEngineCompleted;
+    const reBankVerificationCompleted = appData.applicationStepStatus?.bankVerificationCompleted ?? appData.bankVerificationCompleted;
+    const reLoanAgreementCompleted = appData.applicationStepStatus?.loanAgreementCompleted ?? appData.loanAgreementCompleted;
+
+    if (!reRulesEngineCompleted) {
+      return 'eligibilityProcessing';
+    } else if (!reBankVerificationCompleted) {
+      return 'bankDetails';
+    } else if (!reLoanAgreementCompleted) {
+      const status = appData.applicationStatus;
+      if (status === 'SANCTION_GENERATED' || status === 'SANCTION_SIGN_INITIATED' || status === 'SANCTION_SIGNED') {
+        return 'agreement';
+      } else {
+        return 'sanctionLetter';
+      }
+    } else {
+      return 'disbursal';
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -266,19 +290,87 @@ export const ApplicationDetailsScreen = ({
             transition={{ type: "timing", duration: 400 }}
           >
             {activeTab === "loan" && (
-              <LoanAccountTab 
-                app={app} 
-                formatCurrency={formatCurrency} 
-                formatDate={formatDate} 
-                autoOpenRepay={autoOpenRepay} 
+              <LoanAccountTab
+                app={app}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                autoOpenRepay={autoOpenRepay}
               />
             )}
-            {activeTab === "overview" && <OverviewTab app={app} formatCurrency={formatCurrency} formatDate={formatDate} />}
+            {activeTab === "overview" && <OverviewTab app={app} formatCurrency={formatCurrency} formatDate={formatDate} onResumeStep={onResumeStep ? () => onResumeStep(getResumeScreen(app)) : undefined} />}
             {activeTab === "documents" && <DocumentsTab app={app} />}
             {activeTab === "bank" && <BankChargesTab app={app} formatCurrency={formatCurrency} />}
           </MotiView>
-          <View className="h-8" />
+          <View className="h-28" />
         </ScrollView>
+
+        {/* Sticky Action Button for Non-Disbursed apps with pending steps */}
+        {(() => {
+          const isNotDisbursed = app.applicationStatus !== 'DISBURSED' && app.applicationStatus !== 'CANCELLED' && app.applicationStatus !== 'REJECTED';
+          const reRulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
+          const reBankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
+          const reLoanAgreementCompleted = app.applicationStepStatus?.loanAgreementCompleted ?? app.loanAgreementCompleted;
+          const hasPendingStep = isNotDisbursed && reRulesEngineCompleted && (!reBankVerificationCompleted || !reLoanAgreementCompleted);
+
+          if (!hasPendingStep || !onResumeStep) return null;
+
+          let btnLabel = '';
+          let btnIcon: any = 'arrow-forward';
+          if (!reBankVerificationCompleted) {
+            btnLabel = 'Complete Bank Verification';
+            btnIcon = 'card-outline';
+          } else if (!reLoanAgreementCompleted) {
+            btnLabel = 'Sign Loan Agreement';
+            btnIcon = 'document-text-outline';
+          }
+
+          return (
+            <MotiView
+              from={{ opacity: 0, translateY: 30 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 500, delay: 300 }}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                paddingHorizontal: 20,
+                paddingBottom: 24,
+                paddingTop: 12,
+                backgroundColor: 'rgba(248,250,252,0.95)',
+                borderTopWidth: 1,
+                borderTopColor: 'rgba(226,232,240,0.8)',
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => onResumeStep(getResumeScreen(app))}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#E85D5D',
+                  borderRadius: 18,
+                  paddingVertical: 16,
+                  shadowColor: '#E85D5D',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.35,
+                  shadowRadius: 16,
+                  elevation: 8,
+                }}
+              >
+                <Ionicons name={btnIcon} size={18} color="white" />
+                <Text style={{ color: 'white', fontWeight: '900', fontSize: 14, marginLeft: 8, letterSpacing: 0.2 }}>
+                  {btnLabel}
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.7)" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
+              <Text style={{ textAlign: 'center', color: '#94a3b8', fontSize: 10, fontWeight: '700', marginTop: 10, letterSpacing: 0.5 }}>
+                You can always continue this later from your dashboard
+              </Text>
+            </MotiView>
+          );
+        })()}
       </View>
     </SafeAreaView>
   );
@@ -330,20 +422,20 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 
   const launchUpiPayment = async (upiApp: any = null) => {
     if (!selectedEmi) return;
-    
+
     const vpa = "alphaware@axisbank";
     const name = "Alphaware LMS";
     const amount = Number(selectedEmi.emi).toFixed(2);
-    
+
     const upiUrl = `upi://pay?pa=${vpa}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR`;
     const params = `?pa=${vpa}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR`;
-    
+
     try {
       if (upiApp) {
         let intentUrl = upiApp.scheme + params;
-        
+
         console.log(`Launching UPI App [${upiApp.name}]: ${intentUrl}`);
-        
+
         if (upiApp.id === 'phonepe') {
           // Special multi-attempt for PhonePe
           try {
@@ -368,7 +460,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
         console.log(`Launching System Chooser: ${upiUrl}`);
         await Linking.openURL(upiUrl);
       }
-      
+
       setTimeout(() => {
         setIsFailed(true);
       }, 2000);
@@ -447,7 +539,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 
   const handleRepay = () => {
     if (!selectedEmi) return;
-    
+
     if (repaymentForm.paymentMode === 'UPI') {
       launchUpiPayment(selectedUpiApp);
       return;
@@ -622,8 +714,8 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
             const isPending = emi.paymentStatus === "UNPAID";
 
             return (
-              <Pressable 
-                key={emi.id || idx} 
+              <Pressable
+                key={emi.id || idx}
                 onPress={() => {
                   if (!isPaid) {
                     openRepaymentModal(emi);
@@ -713,14 +805,14 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                 />
                 <Text className="text-slate-900 text-xl font-black mt-6">Payment Failed</Text>
                 <Text className="text-slate-500 text-sm mt-2 text-center px-8 mb-8">We couldn't process your payment. Please check your network or try a different method.</Text>
-                
+
                 <Pressable
                   onPress={() => setIsFailed(false)}
                   className="bg-purple-600 px-10 py-4 rounded-2xl shadow-lg shadow-purple-500/30"
                 >
                   <Text className="text-white font-black text-sm">Try Again</Text>
                 </Pressable>
-                
+
                 <Pressable
                   onPress={closeRepaymentModal}
                   className="mt-4 px-6 py-2"
@@ -737,8 +829,8 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                     </View>
                     <Text className="text-xl font-black text-slate-900 tracking-tight">Repay EMI</Text>
                   </View>
-                  <Pressable 
-                    onPress={closeRepaymentModal} 
+                  <Pressable
+                    onPress={closeRepaymentModal}
                     className="w-8 h-8 bg-slate-100 rounded-full items-center justify-center active:opacity-70"
                   >
                     <Ionicons name="close" size={16} color="#64748b" />
@@ -774,11 +866,10 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                           setRepaymentForm((current) => ({ ...current, paymentMode: mode }));
                           if (mode !== 'UPI') setSelectedUpiApp(null);
                         }}
-                        className={`px-4 py-2.5 rounded-xl border mr-2 mb-2 ${
-                          repaymentForm.paymentMode === mode 
-                            ? "bg-purple-600 border-purple-600" 
+                        className={`px-4 py-2.5 rounded-xl border mr-2 mb-2 ${repaymentForm.paymentMode === mode
+                            ? "bg-purple-600 border-purple-600"
                             : "bg-white border-slate-200"
-                        } active:scale-95`}
+                          } active:scale-95`}
                         style={({ pressed }) => [
                           repaymentForm.paymentMode === mode && {
                             shadowColor: "#7c3aed",
@@ -790,9 +881,8 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                           pressed && { opacity: 0.8 }
                         ]}
                       >
-                        <Text className={`font-bold text-[11px] tracking-wide ${
-                          repaymentForm.paymentMode === mode ? "text-white" : "text-slate-600"
-                        }`}>{mode}</Text>
+                        <Text className={`font-bold text-[11px] tracking-wide ${repaymentForm.paymentMode === mode ? "text-white" : "text-slate-600"
+                          }`}>{mode}</Text>
                       </Pressable>
                     ))}
                   </View>
@@ -814,11 +904,11 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                           </Pressable>
                         )}
                       </View>
-                      
+
                       <View className="flex-row">
                         {availableUpiApps.length > 0 ? (
-                          <ScrollView 
-                            horizontal={!showAllUpiApps} 
+                          <ScrollView
+                            horizontal={!showAllUpiApps}
                             showsHorizontalScrollIndicator={false}
                             className={showAllUpiApps ? "flex-row flex-wrap" : ""}
                           >
@@ -832,21 +922,19 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                                   }}
                                   className="mr-4 mb-4 items-center"
                                 >
-                                  <View 
-                                    className={`w-14 h-14 rounded-2xl items-center justify-center border-2 ${
-                                      selectedUpiApp?.id === upiApp.id ? 'border-purple-600 bg-white' : 'border-transparent bg-white'
-                                    } shadow-sm shadow-slate-200`}
+                                  <View
+                                    className={`w-14 h-14 rounded-2xl items-center justify-center border-2 ${selectedUpiApp?.id === upiApp.id ? 'border-purple-600 bg-white' : 'border-transparent bg-white'
+                                      } shadow-sm shadow-slate-200`}
                                   >
                                     <View style={{ backgroundColor: upiApp.color }} className="w-10 h-10 rounded-xl items-center justify-center">
                                       <Ionicons name={upiApp.icon as any} size={20} color="white" />
                                     </View>
                                   </View>
-                                  <Text className={`text-[10px] mt-2 font-bold ${
-                                    selectedUpiApp?.id === upiApp.id ? 'text-purple-600' : 'text-slate-500'
-                                  }`}>{upiApp.name}</Text>
+                                  <Text className={`text-[10px] mt-2 font-bold ${selectedUpiApp?.id === upiApp.id ? 'text-purple-600' : 'text-slate-500'
+                                    }`}>{upiApp.name}</Text>
                                 </Pressable>
                               ))}
-                              
+
                               <Pressable
                                 onPress={() => {
                                   setSelectedUpiApp(null);
@@ -854,18 +942,16 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                                 }}
                                 className="mr-2 mb-4 items-center"
                               >
-                                <View 
-                                  className={`w-14 h-14 rounded-2xl items-center justify-center border-2 ${
-                                    !selectedUpiApp ? 'border-purple-600 bg-white' : 'border-transparent bg-white'
-                                  } shadow-sm shadow-slate-200`}
+                                <View
+                                  className={`w-14 h-14 rounded-2xl items-center justify-center border-2 ${!selectedUpiApp ? 'border-purple-600 bg-white' : 'border-transparent bg-white'
+                                    } shadow-sm shadow-slate-200`}
                                 >
                                   <View className="w-10 h-10 rounded-xl bg-slate-100 items-center justify-center">
                                     <Ionicons name="apps-outline" size={20} color="#64748b" />
                                   </View>
                                 </View>
-                                <Text className={`text-[10px] mt-2 font-bold ${
-                                  !selectedUpiApp ? 'text-purple-600' : 'text-slate-500'
-                                }`}>Others</Text>
+                                <Text className={`text-[10px] mt-2 font-bold ${!selectedUpiApp ? 'text-purple-600' : 'text-slate-500'
+                                  }`}>Others</Text>
                               </Pressable>
                             </View>
                           </ScrollView>
@@ -907,9 +993,8 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                 <Pressable
                   onPress={handleRepay}
                   disabled={repaymentMutation.isPending}
-                  className={`bg-purple-600 py-4 rounded-2xl flex-row justify-center items-center mb-4 ${
-                    repaymentMutation.isPending ? "opacity-50" : "active:opacity-90"
-                  }`}
+                  className={`bg-purple-600 py-4 rounded-2xl flex-row justify-center items-center mb-4 ${repaymentMutation.isPending ? "opacity-50" : "active:opacity-90"
+                    }`}
                   style={({ pressed }) => [
                     !repaymentMutation.isPending && {
                       shadowColor: "#7c3aed",
@@ -947,7 +1032,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   <Ionicons name="lock-closed" size={10} color="#94a3b8" />
                   <Text className="text-slate-400 text-[10px] font-bold ml-1">Secure 256-bit encrypted transaction</Text>
                 </View>
-                </>
+              </>
             )}
           </View>
         </View>
@@ -959,16 +1044,90 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 /* ─────────────────────────────────────────────
  * OVERVIEW TAB
  * ───────────────────────────────────────────── */
-const OverviewTab = ({ app, formatCurrency, formatDate }: any) => {
+const OverviewTab = ({ app, formatCurrency, formatDate, onResumeStep }: any) => {
+  const queryClient = useQueryClient();
   const rulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
   const bankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
   const loanAgreementCompleted = app.applicationStepStatus?.loanAgreementCompleted ?? app.loanAgreementCompleted;
   const disbursalCompleted = app.applicationStatus === 'DISBURSED';
+  const isCancelledOrRejected = app.applicationStatus === 'CANCELLED' || app.applicationStatus === 'REJECTED';
+  const isAutoPayEnabled = app.isAutoPayEnabled ?? false;
+  const isAgreementSign = app.isAgreementSign ?? false;
+  const showPendingOverviewActions = !isCancelledOrRejected && (!isAutoPayEnabled || !isAgreementSign);
 
   const rulesEngineActive = !rulesEngineCompleted;
   const bankVerificationActive = rulesEngineCompleted && !bankVerificationCompleted;
   const loanAgreementActive = bankVerificationCompleted && !loanAgreementCompleted;
   const disbursalActive = loanAgreementCompleted && !disbursalCompleted;
+
+  // Determine if there's an action required banner to show
+  const showActionBanner = !isCancelledOrRejected && !disbursalCompleted && rulesEngineCompleted && (!bankVerificationCompleted || !loanAgreementCompleted) && !!onResumeStep;
+  const pendingActionLabel = !bankVerificationCompleted
+    ? 'Bank Verification'
+    : 'Agreement Signing';
+  const pendingActionIcon: any = !bankVerificationCompleted ? 'card-outline' : 'document-text-outline';
+
+  const openGatewayUrl = async (url?: string | null) => {
+    if (!url) return false;
+
+    await WebBrowser.openBrowserAsync(url);
+    return true;
+  };
+
+  const autoPayMutation = useMutation({
+    mutationFn: () => initiateAutopay(app.id),
+    onSuccess: async (response: any) => {
+      const mandate = response?.data || response;
+      const authUrl = mandate?.authUrl || mandate?.authorizationUrl || mandate?.authorization_url || mandate?.short_url || mandate?.url || mandate?.redirectUrl || mandate?.redirect_url;
+
+      if (authUrl) {
+        await openGatewayUrl(authUrl);
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: authUrl ? 'AutoPay Started' : 'AutoPay Initiated',
+        text2: authUrl ? 'Complete the mandate authorization to enable auto debit.' : 'AutoPay request has been initiated.',
+        position: 'bottom',
+      });
+      queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'AutoPay Failed',
+        text2: error.response?.data?.message || error.message || 'Unable to initiate AutoPay. Please try again.',
+        position: 'bottom',
+      });
+    },
+  });
+
+  const eSignMutation = useMutation({
+    mutationFn: () => initiateESign(app.id),
+    onSuccess: async (response: any) => {
+      const signingLink = response?.signingLink || response?.signing_link || response?.url || response?.esignUrl || response?.redirectUrl || response?.redirect_url;
+
+      if (signingLink) {
+        await openGatewayUrl(signingLink);
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: signingLink ? 'eSign Started' : 'eSign Initiated',
+        text2: signingLink ? 'Complete the sanction letter eSign in the secure window.' : 'eSign request has been initiated.',
+        position: 'bottom',
+      });
+      queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'eSign Failed',
+        text2: error.response?.data?.message || error.message || 'Unable to initiate eSign. Please try again.',
+        position: 'bottom',
+      });
+    },
+  });
 
   return (
     <View>
@@ -1021,6 +1180,195 @@ const OverviewTab = ({ app, formatCurrency, formatDate }: any) => {
         </NotchedCard>
       </MotiView>
 
+      {/* Pending Overview Actions */}
+      {showPendingOverviewActions && (
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 500, delay: 120 }}
+          style={{ marginBottom: 24 }}
+        >
+          <Text style={styles.sectionTitle} className="mb-4">Pending Actions</Text>
+          <View className="bg-white rounded-[28px] p-4 border border-slate-100 shadow-sm shadow-slate-200/50">
+            {!isAutoPayEnabled && (
+              <TouchableOpacity
+                onPress={() => autoPayMutation.mutate()}
+                disabled={autoPayMutation.isPending}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 16,
+                  borderRadius: 22,
+                  backgroundColor: '#f0fdf4',
+                  borderWidth: 1,
+                  borderColor: '#bbf7d0',
+                  marginBottom: !isAgreementSign ? 12 : 0,
+                  opacity: autoPayMutation.isPending ? 0.7 : 1,
+                }}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 16, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                  <Ionicons name="card-outline" size={22} color="white" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#14532d', fontSize: 14, fontWeight: '900', letterSpacing: 0.1 }}>Set Up AutoPay</Text>
+                  <Text style={{ color: '#166534', fontSize: 11, fontWeight: '600', marginTop: 3, lineHeight: 16 }}>
+                    Enable automatic EMI debit for this loan.
+                  </Text>
+                </View>
+                {autoPayMutation.isPending ? (
+                  <LottieView
+                    source={require("../../assets/loader.json")}
+                    autoPlay
+                    loop
+                    style={{ width: 28, height: 28 }}
+                  />
+                ) : (
+                  <Ionicons name="arrow-forward" size={18} color="#15803d" />
+                )}
+              </TouchableOpacity>
+            )}
+
+            {!isAgreementSign && (
+              <TouchableOpacity
+                onPress={() => eSignMutation.mutate()}
+                disabled={eSignMutation.isPending}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 16,
+                  borderRadius: 22,
+                  backgroundColor: '#eff6ff',
+                  borderWidth: 1,
+                  borderColor: '#bfdbfe',
+                  opacity: eSignMutation.isPending ? 0.7 : 1,
+                }}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 16, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                  <Ionicons name="document-text-outline" size={22} color="white" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#1e3a8a', fontSize: 14, fontWeight: '900', letterSpacing: 0.1 }}>eSign Sanction Letter</Text>
+                  <Text style={{ color: '#1d4ed8', fontSize: 11, fontWeight: '600', marginTop: 3, lineHeight: 16 }}>
+                    Review and digitally sign the sanction letter.
+                  </Text>
+                </View>
+                {eSignMutation.isPending ? (
+                  <LottieView
+                    source={require("../../assets/loader.json")}
+                    autoPlay
+                    loop
+                    style={{ width: 28, height: 28 }}
+                  />
+                ) : (
+                  <Ionicons name="arrow-forward" size={18} color="#2563eb" />
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </MotiView>
+      )}
+
+      {/* Action Required Banner */}
+      {showActionBanner && (
+        <MotiView
+          from={{ opacity: 0, translateY: -10, scale: 0.97 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          transition={{ type: 'timing', duration: 500, delay: 150 }}
+          style={{ marginBottom: 24 }}
+        >
+          <LinearGradient
+            colors={['#fff7ed', '#ffedd5']}
+            style={{
+              borderRadius: 24,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: '#fed7aa',
+              shadowColor: '#f97316',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 12,
+              elevation: 3,
+            }}
+          >
+            {/* Header Row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+              <View style={{ width: 36, height: 36, backgroundColor: '#f97316', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Ionicons name="alert-circle" size={20} color="white" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#9a3412', fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' }}>Action Required</Text>
+                <Text style={{ color: '#c2410c', fontSize: 11, fontWeight: '600', marginTop: 1 }}>
+                  Complete <Text style={{ fontWeight: '900' }}>{pendingActionLabel}</Text> to get your loan disbursed
+                </Text>
+              </View>
+            </View>
+
+            {/* Step Checklist */}
+            <View style={{ backgroundColor: 'white', borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#ffedd5' }}>
+              {[
+                { label: 'Application Submitted', done: true },
+                { label: 'Credit Check (BRE)', done: rulesEngineCompleted },
+                { label: 'Bank Verification', done: !!bankVerificationCompleted },
+                { label: 'Agreement Signing', done: !!loanAgreementCompleted },
+              ].map((item, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+                  <View style={{
+                    width: 20, height: 20, borderRadius: 10, marginRight: 10,
+                    backgroundColor: item.done ? '#dcfce7' : '#fef3c7',
+                    alignItems: 'center', justifyContent: 'center',
+                    borderWidth: 1.5,
+                    borderColor: item.done ? '#86efac' : '#fcd34d',
+                  }}>
+                    <Ionicons
+                      name={item.done ? 'checkmark' : 'time-outline'}
+                      size={11}
+                      color={item.done ? '#16a34a' : '#d97706'}
+                    />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: item.done ? '600' : '800', color: item.done ? '#6b7280' : '#92400e' }}>
+                    {item.label}
+                  </Text>
+                  {!item.done && (
+                    <View style={{ marginLeft: 8, backgroundColor: '#fde68a', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#92400e', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pending</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* CTA Button */}
+            <TouchableOpacity
+              onPress={onResumeStep}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#ea580c',
+                borderRadius: 14,
+                paddingVertical: 13,
+                shadowColor: '#ea580c',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <Ionicons name={pendingActionIcon} size={16} color="white" />
+              <Text style={{ color: 'white', fontWeight: '900', fontSize: 13, marginLeft: 8 }}>Complete {pendingActionLabel}</Text>
+              <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.7)" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+
+            <Text style={{ textAlign: 'center', color: '#c2410c', fontSize: 10, fontWeight: '600', marginTop: 10, opacity: 0.7 }}>
+              💡 You can also complete this later from your dashboard
+            </Text>
+          </LinearGradient>
+        </MotiView>
+      )}
+
       {/* Application Timeline */}
       <MotiView
         from={{ opacity: 0, translateY: 20 }}
@@ -1047,12 +1395,16 @@ const OverviewTab = ({ app, formatCurrency, formatDate }: any) => {
             subtitle="Validating disbursal account"
             isCompleted={bankVerificationCompleted}
             isActive={bankVerificationActive}
+            onAction={bankVerificationActive && onResumeStep ? onResumeStep : undefined}
+            actionLabel="Set Up Bank →"
           />
           <StepItem
             title="Loan Agreement"
             subtitle="Digital signing & final review"
             isCompleted={loanAgreementCompleted}
             isActive={loanAgreementActive}
+            onAction={loanAgreementActive && onResumeStep ? onResumeStep : undefined}
+            actionLabel="Sign Agreement →"
           />
           <StepItem
             title="Loan Disbursal"
@@ -1064,40 +1416,40 @@ const OverviewTab = ({ app, formatCurrency, formatDate }: any) => {
         </View>
       </MotiView>
 
-    {/* Information Grid */}
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 600, delay: 400 }}
-    >
-      <Text style={styles.sectionTitle} className="mb-4">Loan Particulars</Text>
-      <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
-        <DetailRow label="Loan Product" value={app.productName || "Personal Finance"} />
-        <DetailRow label="Selected Scheme" value={app.schemeName || "Standard Plan"} />
-        <DetailRow label="Interest Model" value={app.interestType || "Reducing Balance"} />
-        <DetailRow label="EMI Frequency" value={app.repaymentFrequency || "Monthly"} />
-        <DetailRow label="Acquisition" value={app.applicationSource || "Direct"} />
-        <DetailRow label="Applied Date" value={formatDate(app.createdOn)} isLast />
-      </View>
-    </MotiView>
-
-    {/* Professional Remark */}
-    {app.remark && (
+      {/* Information Grid */}
       <MotiView
-        from={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "timing", duration: 600, delay: 600 }}
-        className="bg-indigo-50/50 rounded-[24px] p-6 border border-indigo-100 mb-10"
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: "timing", duration: 600, delay: 400 }}
       >
-        <View className="flex-row items-center mb-3">
-          <View className="w-8 h-8 bg-indigo-100 rounded-xl items-center justify-center mr-3">
-            <Feather name="message-square" size={16} color="#4F46E5" />
-          </View>
-          <Text className="text-indigo-950 font-black text-xs uppercase tracking-widest">Lender Remarks</Text>
+        <Text style={styles.sectionTitle} className="mb-4">Loan Particulars</Text>
+        <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
+          <DetailRow label="Loan Product" value={app.productName || "Personal Finance"} />
+          <DetailRow label="Selected Scheme" value={app.schemeName || "Standard Plan"} />
+          <DetailRow label="Interest Model" value={app.interestType || "Reducing Balance"} />
+          <DetailRow label="EMI Frequency" value={app.repaymentFrequency || "Monthly"} />
+          <DetailRow label="Acquisition" value={app.applicationSource || "Direct"} />
+          <DetailRow label="Applied Date" value={formatDate(app.createdOn)} isLast />
         </View>
-        <Text className="text-indigo-900/70 text-sm font-medium leading-6">{app.remark}</Text>
       </MotiView>
-    )}
+
+      {/* Professional Remark */}
+      {app.remark && (
+        <MotiView
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "timing", duration: 600, delay: 600 }}
+          className="bg-indigo-50/50 rounded-[24px] p-6 border border-indigo-100 mb-10"
+        >
+          <View className="flex-row items-center mb-3">
+            <View className="w-8 h-8 bg-indigo-100 rounded-xl items-center justify-center mr-3">
+              <Feather name="message-square" size={16} color="#4F46E5" />
+            </View>
+            <Text className="text-indigo-950 font-black text-xs uppercase tracking-widest">Lender Remarks</Text>
+          </View>
+          <Text className="text-indigo-900/70 text-sm font-medium leading-6">{app.remark}</Text>
+        </MotiView>
+      )}
     </View>
   );
 };
@@ -1346,10 +1698,10 @@ const BankChargesTab = ({ app, formatCurrency }: any) => {
               </TouchableOpacity>
             </View>
             <Text className="text-white text-2xl font-black tracking-[4px] mb-10">
-              {bank.accountNo 
-                ? isAccountVisible 
-                  ? bank.accountNo.match(/.{1,4}/g)?.join(' ') 
-                  : `•••• •••• •••• ${bank.accountNo.slice(-4)}` 
+              {bank.accountNo
+                ? isAccountVisible
+                  ? bank.accountNo.match(/.{1,4}/g)?.join(' ')
+                  : `•••• •••• •••• ${bank.accountNo.slice(-4)}`
                 : "•••• •••• •••• ••••"}
             </Text>
 
@@ -1508,7 +1860,7 @@ const PulsingDot = () => {
   );
 };
 
-const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast }: any) => {
+const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast, onAction, actionLabel }: any) => {
   const { theme } = useTheme();
   const isDark = theme.mode === 'dark';
 
@@ -1543,17 +1895,17 @@ const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast }: a
         style={
           isActive
             ? {
-                backgroundColor: isDark ? 'rgba(124, 58, 237, 0.1)' : 'rgba(243, 232, 255, 0.5)',
-                borderColor: isDark ? 'rgba(168, 85, 247, 0.4)' : '#e9d5ff',
-                borderWidth: 1,
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: !isLast ? 16 : 0,
-              }
+              backgroundColor: isDark ? 'rgba(124, 58, 237, 0.1)' : 'rgba(243, 232, 255, 0.5)',
+              borderColor: isDark ? 'rgba(168, 85, 247, 0.4)' : '#e9d5ff',
+              borderWidth: 1,
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: !isLast ? 16 : 0,
+            }
             : {
-                marginBottom: !isLast ? 32 : 8,
-                paddingTop: 8,
-              }
+              marginBottom: !isLast ? 32 : 8,
+              paddingTop: 8,
+            }
         }
         className="flex-1"
       >
@@ -1566,19 +1918,43 @@ const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast }: a
           </View>
         )}
         <Text
-          className={`font-black text-sm tracking-tight ${
-            isCompleted ? "text-slate-900" : isActive ? "text-purple-950" : "text-slate-400"
-          }`}
+          className={`font-black text-sm tracking-tight ${isCompleted ? "text-slate-900" : isActive ? "text-purple-950" : "text-slate-400"
+            }`}
         >
           {title}
         </Text>
         <Text
-          className={`text-[11px] font-bold mt-1 leading-4 ${
-            isActive ? "text-purple-900/60" : "text-slate-400"
-          }`}
+          className={`text-[11px] font-bold mt-1 leading-4 ${isActive ? "text-purple-900/60" : "text-slate-400"
+            }`}
         >
           {subtitle}
         </Text>
+
+        {isActive && onAction && (
+          <TouchableOpacity
+            onPress={onAction}
+            activeOpacity={0.8}
+            style={{
+              marginTop: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#7c3aed',
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 10,
+              alignSelf: 'flex-start',
+              shadowColor: '#7c3aed',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.25,
+              shadowRadius: 6,
+              elevation: 3,
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 }}>
+              {actionLabel || 'Continue'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

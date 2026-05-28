@@ -273,12 +273,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               applications={applications}
               isLoading={isAppsLoading}
               onViewDetails={(appId) => {
-                const app = applications?.find((a: any) => a.id === appId);
-                if (app && app.applicationStatus !== 'DISBURSED') {
-                  onResumeOnboarding(getResumeScreen(app));
-                } else {
-                  onViewDetails(appId);
-                }
+                // Always show application details screen — resume logic is inside it
+                onViewDetails(appId);
               }}
               onApplyNow={handleApplyNow}
             />
@@ -347,11 +343,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     key={app.id || idx}
                     style={[styles.loanAppItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
                     onPress={() => {
-                      if (app.applicationStatus !== 'DISBURSED') {
-                        onResumeOnboarding(getResumeScreen(app));
-                      } else {
-                        onViewDetails(app.id);
-                      }
+                      // Always show application details — resume/action logic is inside the details screen
+                      onViewDetails(app.id);
                     }}
                   >
                     <View style={styles.appRow}>
