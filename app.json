@@ -2,6 +2,7 @@
   "expo": {
     "name": "personal-loan-app",
     "slug": "personal-loan-app",
+    "scheme": "loanapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,7 +20,9 @@
         "NSCameraUsageDescription": "Required for KYC and document verification.",
         "NSLocationWhenInUseUsageDescription": "Help us verify your address for faster processing.",
         "NSPhotoLibraryUsageDescription": "Required to upload document images from your gallery.",
-        "LSApplicationQueriesSchemes": ["digio"]
+        "LSApplicationQueriesSchemes": [
+          "digio"
+        ]
       }
     },
     "android": {
@@ -33,6 +36,16 @@
           "action": "VIEW",
           "data": {
             "scheme": "upi"
+          }
+        },
+        {
+          "action": "VIEW",
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ],
+          "data": {
+            "scheme": "loanapp"
           }
         }
       ],
@@ -57,10 +70,13 @@
             "targetSdkVersion": 35,
             "minSdkVersion": 24,
             "enableDataBinding": true,
-            "extraMavenRepos": ["https://jitpack.io"]
+            "extraMavenRepos": [
+              "https://jitpack.io"
+            ]
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

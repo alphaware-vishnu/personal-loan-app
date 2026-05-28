@@ -11,6 +11,8 @@ import { useColors, useTheme } from '../../theme';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useKycStore } from '../../store/kycStore';
 import { verifySelfieLiveliness } from '../../services/kycService';
+import { uploadDocumentToUms } from '../../services/documentService';
+import { updateCustomerProfile } from '../../services/customerService';
 import { trackEvent } from '../../utils/analytics';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
@@ -51,6 +53,33 @@ export const SelfieVerificationScreen: React.FC<SelfieVerificationScreenProps> =
       const result = await verifySelfieLiveliness(uri);
       
       if (result.isLive) {
+        // Upload selfie image
+        const fileName = uri.split('/').pop() || 'selfie.jpg';
+        const formData = new FormData();
+        // @ts-ignore
+        formData.append('files', {
+          uri,
+          name: fileName,
+          type: 'image/jpeg',
+        });
+
+        console.log('[Selfie] Uploading selfie to UMS document service...');
+        const uploadRes = await uploadDocumentToUms(formData);
+        const selfieDocIdStr = uploadRes.data?.data?.[0] || uploadRes.data?.fileUuid;
+        
+        if (!selfieDocIdStr) {
+          throw new Error('Selfie upload succeeded but no document ID was returned.');
+        }
+
+        const selfieDocId = parseInt(selfieDocIdStr, 10);
+        console.log('[Selfie] Uploaded. Doc ID:', selfieDocId);
+
+        // Update customer profile with selfieDocId
+        await updateCustomerProfile({
+          selfieDocId,
+        });
+        console.log('[Selfie] Updated customer profile with selfieDocId:', selfieDocId);
+
         kycStore.setSelfieStatus('VERIFIED', uri);
         completeStep('kyc_selfie');
         kycStore.computeOverallStatus();
@@ -67,7 +96,8 @@ export const SelfieVerificationScreen: React.FC<SelfieVerificationScreenProps> =
         setIsVerifying(false);
       }
     } catch (err: any) {
-      setVerificationError(err.message || 'Liveliness verification failed. Please try again.');
+      console.error('[Selfie Capture Error]', err);
+      setVerificationError(err.message || 'Verification or upload failed. Please try again.');
       kycStore.setSelfieStatus('REJECTED');
       setIsVerifying(false);
     }

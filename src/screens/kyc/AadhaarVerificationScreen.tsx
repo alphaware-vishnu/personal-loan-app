@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet, View, TouchableOpacity, Linking, AppState, AppStateStatus } from 'react-native';
+import * as ExpoLinking from 'expo-linking';
 import LottieView from 'lottie-react-native';
 import { MotiView } from 'moti';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,9 +21,17 @@ interface AadhaarVerificationScreenProps {
   onNext: () => void;
   onBack: () => void;
   onSkip?: () => void;
+  deepLinkParams: { status: string; message?: string } | null;
+  clearDeepLinkParams: () => void;
 }
 
-export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps> = ({ onNext, onBack, onSkip }) => {
+export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps> = ({
+  onNext,
+  onBack,
+  onSkip,
+  deepLinkParams,
+  clearDeepLinkParams,
+}) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
@@ -57,6 +66,25 @@ export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps>
       subscription.remove();
     };
   }, [phase]);
+
+  // ─── Deep Link Parameter Handler ───
+  useEffect(() => {
+    if (deepLinkParams) {
+      const { status, message } = deepLinkParams;
+      clearDeepLinkParams();
+
+      console.log("[AadhaarVerificationScreen] Deep link event handled:", status, message);
+
+      if (status === 'success') {
+        setPhase('polling');
+        trackEvent('digilocker_returned_from_webview', { trigger: 'deeplink' });
+      } else if (status === 'error') {
+        setError(message || 'DigiLocker verification failed or was cancelled.');
+        setPhase('error');
+        trackEvent('digilocker_initiate_error', { error: message || 'Deep link error' });
+      }
+    }
+  }, [deepLinkParams, clearDeepLinkParams]);
 
   // ─── Polling Effect ───
   useEffect(() => {
@@ -112,7 +140,9 @@ export const AadhaarVerificationScreen: React.FC<AadhaarVerificationScreenProps>
     setPollCount(0);
 
     try {
-      const response = await initiateDigiLocker();
+      const redirectionUrl = ExpoLinking.createURL('kyc-callback');
+      console.log('[DigiLocker] Generated redirectionUrl:', redirectionUrl);
+      const response = await initiateDigiLocker({ redirectionUrl });
 
       const targetUrl = response.kycUrl || response.url;
       if (!targetUrl) {

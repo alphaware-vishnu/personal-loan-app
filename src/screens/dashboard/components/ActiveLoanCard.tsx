@@ -275,7 +275,7 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
                           {item.applicationStatus}
                         </AppText>
                       </View>
-                      
+
                       {stageName ? (
                         <View
                           style={[

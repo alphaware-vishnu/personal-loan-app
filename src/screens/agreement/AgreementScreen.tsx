@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { MotiView } from 'moti';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useColors, useTheme } from '../../theme';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -17,27 +18,32 @@ import { AppCard } from '../../components/ui/AppCard';
 import { StepIndicator } from '../../components/ui/StepIndicator';
 
 import { useLoanStore } from '../../store/loanStore';
-import { useAuthStore } from '../../store/authStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { createCustomer } from '../../services/customerService';
-import { updateApplication, updateStepStatus } from '../../services/applicationService';
 import { trackEvent } from '../../utils/analytics';
 import { formatCurrency } from '../../utils/formatters';
 import {
-  createDigioInstance,
   initiateESign,
   refreshESignStatus,
+  isDigioSdkSupported,
+  createDigioInstance,
   startEsignFlow,
-  type DigioResult,
 } from '../../services/digioService';
 
 interface AgreementScreenProps {
   onNext: () => void;
   onBack: () => void;
   onSkip?: () => void;
+  deepLinkParams: { status: string; message?: string } | null;
+  clearDeepLinkParams: () => void;
 }
 
-export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack, onSkip }) => {
+export const AgreementScreen: React.FC<AgreementScreenProps> = ({
+  onNext,
+  onBack,
+  onSkip,
+  deepLinkParams,
+  clearDeepLinkParams,
+}) => {
   const colors = useColors();
   const { theme } = useTheme();
   const { completeStep } = useOnboardingStore();
@@ -48,35 +54,105 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
     interest,
     tenure,
     emi,
-    customerInfo,
-    setCustomerId,
     applicationId,
-    isExistingCustomer,
   } = loanStoreState;
-
-  const { mobile: verifiedMobile, authData, setCustomerId: setAuthCustomerId } = useAuthStore();
 
   const [hasConsented, setHasConsented] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [esignStatus, setEsignStatus] = useState<'idle' | 'creating' | 'signing' | 'success' | 'failed'>('idle');
 
-  // Digio SDK instance ref — created once and reused
-  const digioRef = useRef(createDigioInstance());
+  const esignLinkRef = useRef<string | null>(null);
 
-  // Listen to gateway events for progress tracking
+  // Listen to deep links (return from browser eSign)
   useEffect(() => {
-    const listener = digioRef.current.addGatewayEventListener((event: any) => {
-      if (__DEV__) {
-        console.log('[AgreementScreen] Digio Gateway Event:', event);
-      }
-      trackEvent('digio_gateway_event', { event: JSON.stringify(event) });
-    });
+    if (deepLinkParams) {
+      const { status, message } = deepLinkParams;
+      clearDeepLinkParams();
 
-    return () => {
-      listener.remove();
-    };
-  }, []);
+      console.log("[AgreementScreen] ESign deep link event handled:", status, message);
+
+      // Automatically dismiss the in-app WebBrowser sheet when returning via deep link
+      try {
+        WebBrowser.dismissBrowser();
+      } catch (err) {
+        console.log('[AgreementScreen] Error dismissing web browser:', err);
+      }
+
+      if (status === 'success') {
+        handleCheckEsignStatus();
+      } else if (status === 'error') {
+        setEsignStatus('failed');
+        Alert.alert('eSign Failed', message || 'The eSign process failed or was cancelled.');
+      }
+    }
+  }, [deepLinkParams, clearDeepLinkParams]);
+
+  const handleCheckEsignStatus = async () => {
+    if (!applicationId) return;
+
+    setIsSubmitting(true);
+    try {
+      console.log('[Digitap eSign] Refreshing eSign status...');
+      const response = await refreshESignStatus(applicationId);
+      
+      setEsignStatus('success');
+
+      completeStep('agreement');
+      trackEvent('esign_completed', { documentId: response.model?.docId || '' });
+
+      setTimeout(() => {
+        setIsSubmitting(false);
+        onNext();
+      }, 1000);
+    } catch (error: any) {
+      console.error('[Digitap eSign] Status check failed:', error);
+      setIsSubmitting(false);
+
+      if (__DEV__) {
+        Alert.alert(
+          'Dev Sandbox: Status Check Failed',
+          `Status check failed: ${error.response?.data?.message || error.message || 'Incomplete status'}.\n\nWould you like to bypass verification and proceed?`,
+          [
+            {
+              text: 'Retry',
+              onPress: () => handleCheckEsignStatus()
+            },
+            {
+              text: 'Bypass / Force Complete',
+              onPress: () => {
+                console.log('[Digitap eSign] Force completing agreement...');
+                setEsignStatus('success');
+                completeStep('agreement');
+                trackEvent('esign_completed', { documentId: 'MOCK_DOC_ID_DEV' });
+                setTimeout(() => {
+                  onNext();
+                }, 1000);
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Verification Incomplete',
+          error.response?.data?.message || 'We could not verify your eSign completion yet. If you have signed, please wait a moment and try again.'
+        );
+      }
+    }
+  };
+
+  const handleReopenEsignLink = async () => {
+    if (esignLinkRef.current) {
+      console.log('[Digitap eSign] Re-opening signing link:', esignLinkRef.current);
+      await WebBrowser.openBrowserAsync(esignLinkRef.current);
+    } else {
+      await handleEsign();
+    }
+  };
 
   const handleDownload = () => {
     setIsDownloading(true);
@@ -90,122 +166,134 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
 
   const handleEsign = async () => {
     if (!hasConsented) return;
+    if (!applicationId) {
+      Alert.alert('Error', 'Application ID is missing.');
+      return;
+    }
 
     setIsSubmitting(true);
     setEsignStatus('creating');
     trackEvent('esign_initiated');
 
     try {
-      let finalCustomerId = authData?.customerId || loanStoreState.customerId;
+      // 1. Create eSign request via backend
+      const esignData = await initiateESign(applicationId);
+      console.log('[Digitap eSign] Initiate response data:', esignData);
 
-      // 1. Create Customer (PATCH /customer) ONLY for NEW customers
-      if (!isExistingCustomer) {
-        const customerPayload = {
-          id: finalCustomerId || undefined,
-          applicantName: customerInfo.applicantName,
-          mobileNumber: verifiedMobile || customerInfo.mobileNumber,
-          panNumber: customerInfo.panNumber,
-          gender: 'MALE',
-          leadSource: 'HEYLON',
-          leadStatus: 'ACTIVE',
-          applicationSource: 'ALFIN',
-          clientType: 'INDIVIDUAL',
-          customerBanks: customerInfo.customerBanks.map((bank) => ({
-            ...bank,
-            accountType: 'SAVINGS',
-            isDefault: true,
-          })),
-          address: {
-            city: 'Mumbai',
-            pinCode: '400001',
-            stateName: 'Maharashtra',
-            countryName: 'India',
-          },
-        };
-
-        const customerResponse = await createCustomer(customerPayload);
-        const newCustomerId = customerResponse.data?.data?.id || customerResponse.data?.id;
-        if (newCustomerId) {
-          finalCustomerId = newCustomerId;
-        }
+      const docId = esignData?.docId;
+      let signingLink = esignData?.signingLink;
+      if (esignData && !signingLink) {
+        // Fallback checks for alternative casing or schema names (e.g. signing_link, url, esignUrl)
+        signingLink = (esignData as any).signing_link || (esignData as any).url || (esignData as any).esignUrl || (esignData as any).redirectUrl || (esignData as any).redirect_url;
       }
 
-      if (!finalCustomerId) {
-        throw new Error('Failed to retrieve Customer ID for application link');
-      }
-
-      setCustomerId(Number(finalCustomerId));
-      setAuthCustomerId(Number(finalCustomerId));
-
-      // 2. Update Application with final details
-      const applicationPayload = {
-        id: applicationId,
-        requestedAmount: loanStoreState.requestedAmount,
-        disbursalAmount: loanStoreState.disbursalAmount,
-        emi: loanStoreState.emi,
-        tenure: loanStoreState.tenure,
-        interest: loanStoreState.interest,
-        schemeMasterId: loanStoreState.schemeMasterId,
-        repaymentFrequency: loanStoreState.repaymentFrequency,
-        customerId: finalCustomerId,
-        applicationSource: 'ALFIN',
-        applicationDocuments: loanStoreState.applicationDocuments.map((doc) => ({
-          categoryId: doc.categoryId,
-          documentTypeId: doc.documentTypeId,
-          awsDocumentIds: doc.awsDocumentIds,
-          documentNumber: doc.documentNumber,
-        })),
-      };
-
-      await updateApplication(applicationPayload);
-
-      // 3. Create eSign request via backend → get docId
-      const esignData = await initiateESign(applicationId!);
-      const identifier = customerInfo.email || verifiedMobile || customerInfo.mobileNumber || '';
-
-      // 4. Launch Digio SDK gateway
-      setEsignStatus('signing');
-
-      const result: DigioResult = await startEsignFlow(
-        digioRef.current,
-        esignData.docId,
-        identifier,
-      );
-
-      if (result.success) {
-        setEsignStatus('success');
-
-        // 5. Mark agreement as completed and sync status
-        if (applicationId) {
-          try {
-            await refreshESignStatus(applicationId);
-          } catch (e) {
-            console.warn('Failed to refresh esign status:', e);
+      // Check if native Digio SDK is supported in this build/environment and we have a valid docId
+      if (isDigioSdkSupported() && docId) {
+        console.log('[Digitap eSign] Native Digio SDK is supported. Launching native gateway...');
+        
+        // Identifier is signer's mobile number or email
+        const identifier = loanStoreState.customerInfo?.mobileNumber || loanStoreState.customerInfo?.email || '';
+        
+        try {
+          const digio = createDigioInstance();
+          setEsignStatus('signing');
+          
+          const result = await startEsignFlow(digio, docId, identifier);
+          console.log('[Digitap eSign] Native SDK flow result:', result);
+          
+          if (result.success) {
+            // eSign completed successfully via native SDK
+            await handleCheckEsignStatus();
+            return;
+          } else {
+            // eSign cancelled or failed in native SDK
+            setEsignStatus('failed');
+            Alert.alert('eSign Failed', result.message || 'The eSign process failed or was cancelled.');
+            return;
           }
-          await updateStepStatus(applicationId, { loanAgreementCompleted: true });
+        } catch (sdkError: any) {
+          console.error('[Digitap eSign] SDK invocation crashed:', sdkError);
+          // If SDK crashes or fails at native boundary, fallback to WebBrowser if signingLink is available
         }
-
-        completeStep('agreement');
-        trackEvent('esign_completed', { documentId: result.documentId });
-
-        // Brief delay to show success state before navigating
-        setTimeout(() => onNext(), 800);
-      } else {
-        setEsignStatus('failed');
-        trackEvent('esign_failed', { message: result.message });
-        Alert.alert(
-          'eSign Incomplete',
-          result.message || 'The eSign process was not completed. Please try again.',
-        );
       }
+
+      // Fallback: WebBrowser based flow
+      if (!signingLink) {
+        console.warn('[Digitap eSign] No signing link resolved from response and Native SDK is unavailable:', esignData);
+
+        if (__DEV__) {
+          Alert.alert(
+            'Dev Sandbox: eSign Initiation Failed',
+            'The backend did not return a valid signing link, and the native Digio SDK is unavailable (e.g. inside Expo Go). Would you like to mock the eSign process for testing?',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  setEsignStatus('failed');
+                }
+              },
+              {
+                text: 'Bypass / Mock Sign',
+                onPress: () => {
+                  console.log('[Digitap eSign] Sandbox bypass activated. Transitioning to success...');
+                  setEsignStatus('success');
+                  completeStep('agreement');
+                  trackEvent('esign_completed', { documentId: 'MOCK_DOC_ID_DEV' });
+                  setTimeout(() => {
+                    onNext();
+                  }, 1000);
+                }
+              }
+            ]
+          );
+          return;
+        } else {
+          throw new Error('No signing link returned from the eSign service, and native Digio SDK is unavailable.');
+        }
+      }
+
+      esignLinkRef.current = signingLink;
+
+      // 2. Open in in-app web browser
+      setEsignStatus('signing');
+      console.log('[Digitap eSign] Opening signing link in WebBrowser:', signingLink);
+      
+      await WebBrowser.openBrowserAsync(signingLink);
     } catch (error: any) {
       setEsignStatus('failed');
       console.error('eSign flow failed:', error);
       trackEvent('api_error', { error: error.message });
-      Alert.alert(
-        'eSign Failed',
-        error.response?.data?.message || error.message || 'There was an error initiating eSign. Please try again.',
-      );
+
+      if (__DEV__) {
+        Alert.alert(
+          'Dev Sandbox: eSign Error',
+          `eSign failed: ${error.response?.data?.message || error.message || 'Unknown error'}.\n\nWould you like to bypass this step for testing?`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            },
+            {
+              text: 'Bypass / Mock Sign',
+              onPress: () => {
+                console.log('[Digitap eSign] Sandbox bypass activated after error. Transitioning to success...');
+                setEsignStatus('success');
+                completeStep('agreement');
+                trackEvent('esign_completed', { documentId: 'MOCK_DOC_ID_DEV' });
+                setTimeout(() => {
+                  onNext();
+                }, 1000);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'eSign Failed',
+          error.response?.data?.message || error.message || 'There was an error initiating eSign. Please try again.',
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -221,9 +309,9 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
       case 'success':
         return { title: '✓ Agreement Signed Successfully', disabled: true };
       case 'failed':
-        return { title: 'Retry eSign & eStamp', disabled: false };
+        return { title: 'Retry eSign', disabled: false };
       default:
-        return { title: 'Proceed to eSign & eStamp', disabled: false };
+        return { title: 'Proceed to eSign', disabled: false };
     }
   };
 
@@ -249,188 +337,233 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({ onNext, onBack
           transition={{ type: 'timing', duration: 400 }}
           style={styles.content}
         >
-          <AppText variant="h2" style={styles.title}>
-            Review & Sign Agreement
-          </AppText>
-          <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Please review the loan terms and digitally sign using Aadhaar eSign.
-          </AppText>
-
-          {/* Terms Overview Card */}
-          <AppCard style={styles.termsCard}>
-            <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
-              <AppText variant="labelLg" style={{ fontWeight: '700' }}>
-                Key Loan Details
-              </AppText>
-              <Feather name="shield" size={16} color={colors.success} />
-            </View>
-
-            <View style={styles.termsRow}>
-              <View style={styles.termItem}>
-                <AppText variant="caption" style={{ color: colors.textSecondary }}>Loan Amount</AppText>
-                <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
-                  {formatCurrency(requestedAmount)}
-                </AppText>
-              </View>
-              <View style={styles.termItem}>
-                <AppText variant="caption" style={{ color: colors.textSecondary }}>Interest Rate</AppText>
-                <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
-                  {interest}% p.a.
-                </AppText>
-              </View>
-            </View>
-
-            <View style={[styles.termsRow, { marginTop: 16 }]}>
-              <View style={styles.termItem}>
-                <AppText variant="caption" style={{ color: colors.textSecondary }}>Tenure</AppText>
-                <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
-                  {tenure} Months
-                </AppText>
-              </View>
-              <View style={styles.termItem}>
-                <AppText variant="caption" style={{ color: colors.textSecondary }}>Monthly EMI</AppText>
-                <AppText variant="bodyMedium" style={{ fontWeight: '800', color: colors.primary }}>
-                  {formatCurrency(emi)}
-                </AppText>
-              </View>
-            </View>
-
-            <AppButton
-              title="Download Agreement PDF"
-              variant="outline"
-              size="sm"
-              icon={<Feather name="download" size={16} color={colors.primary} />}
-              onPress={handleDownload}
-              loading={isDownloading}
-              style={{ marginTop: 20 }}
-            />
-          </AppCard>
-
-          {/* Legal Text Summary */}
-          <AppText variant="label" style={[styles.sectionTitle, { color: colors.text }]}>
-            Agreement Summary
-          </AppText>
-          <View style={[styles.documentBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-            <ScrollView nestedScrollEnabled style={styles.documentScroll}>
-              <AppText variant="caption" style={{ color: colors.textSecondary, lineHeight: 18 }}>
-                This Loan Agreement ("Agreement") is made between the borrower ("Borrower") and the lending institution ("Lender").{'\n\n'}
-                1. DISBURSAL OF LOAN: The Lender agrees to disburse the loan amount stated above, subject to verification of details and successful bank account link setup.{'\n\n'}
-                2. REPAYMENT TERMS: The Borrower agrees to repay the loan amount along with applicable interest in EMI installments on or before the due dates. Failure to do so will attract late payment fees and impact credit scores.{'\n\n'}
-                3. PREPAYMENT: The Borrower may prepay the loan amount subject to foreclosure charges as detailed in the scheme guidelines.{'\n\n'}
-                4. AUTHORIZATION: The Borrower authorizes the Lender to fetch credit bureau details and initiate AutoPay mandates (UPI / eNACH) for EMI recovery.
-              </AppText>
-            </ScrollView>
-          </View>
-
-          {/* eStamp & eSign Information Card */}
-          <AppCard style={[styles.esignInfoCard, { borderColor: colors.primary + '30' }]}>
-            <View style={styles.esignInfoHeader}>
-              <View style={[styles.esignIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                <MaterialCommunityIcons name="shield-check" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.esignInfoTextContainer}>
-                <AppText variant="labelLg" style={{ fontWeight: '700', color: colors.text }}>
-                  Digital eSign & eStamp
-                </AppText>
-                <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 2 }}>
-                  Legally valid under IT Act, 2000
-                </AppText>
-              </View>
-            </View>
-
-            <View style={styles.esignFeatureList}>
-              <View style={styles.esignFeatureItem}>
-                <Feather name="check-circle" size={14} color={colors.success} />
-                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
-                  Digital Stamp Duty via SHCIL (eStamp)
-                </AppText>
-              </View>
-              <View style={styles.esignFeatureItem}>
-                <Feather name="check-circle" size={14} color={colors.success} />
-                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
-                  Aadhaar OTP-based electronic signature
-                </AppText>
-              </View>
-              <View style={styles.esignFeatureItem}>
-                <Feather name="check-circle" size={14} color={colors.success} />
-                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
-                  Tamper-proof audit trail with timestamp & IP
-                </AppText>
-              </View>
-              <View style={styles.esignFeatureItem}>
-                <Feather name="check-circle" size={14} color={colors.success} />
-                <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
-                  Signed document available for download
-                </AppText>
-              </View>
-            </View>
-          </AppCard>
-
-          {/* Success State */}
-          {esignStatus === 'success' && (
+          {esignStatus === 'signing' ? (
             <MotiView
-              from={{ opacity: 0, scale: 0.9 }}
+              from={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', damping: 15 }}
+              transition={{ type: 'timing', duration: 400 }}
+              style={{ alignItems: 'center', marginTop: 20 }}
             >
-              <View style={[styles.successBanner, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                <Feather name="check-circle" size={20} color={colors.success} />
-                <AppText variant="bodyMedium" style={{ color: colors.success, fontWeight: '700', marginLeft: 8 }}>
-                  Agreement signed successfully!
-                </AppText>
+              <View style={[styles.esignIconContainer, { backgroundColor: colors.primary + '15', width: 80, height: 80, borderRadius: 40, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="document-text" size={40} color={colors.primary} />
               </View>
-            </MotiView>
-          )}
 
-          {/* Consent Checkbox */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setHasConsented(!hasConsented)}
-            style={styles.consentRow}
-          >
-            <Ionicons
-              name={hasConsented ? 'checkbox' : 'square-outline'}
-              size={22}
-              color={hasConsented ? colors.primary : colors.textSecondary}
-              style={{ marginTop: 2 }}
-            />
-            <AppText variant="caption" style={[styles.consentText, { color: colors.textSecondary }]}>
-              I have read, understood and agree to all the terms, conditions, e-stamp details and policies outlined in this loan agreement. I authorize eSign via Aadhaar OTP.
-            </AppText>
-          </TouchableOpacity>
+              <AppText variant="h2" style={[styles.title, { textAlign: 'center' }]}>
+                Complete Aadhaar eSign
+              </AppText>
+              
+              <AppText variant="bodyMd" style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+                We have opened the secure eSign gateway in your browser. Please enter your Aadhaar number, verify via OTP, and then return to this app.
+              </AppText>
+
+              <View style={[styles.esignInfoCard, { width: '100%', backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Feather name="lock" size={16} color={colors.success} style={{ marginRight: 8 }} />
+                  <AppText variant="caption" style={{ color: colors.textSecondary, flex: 1 }}>
+                    Secured by Digitap eSign Gateway. Your electronic signature is legally binding.
+                  </AppText>
+                </View>
+              </View>
+
+              <AppButton
+                title="I've Completed Signing"
+                onPress={handleCheckEsignStatus}
+                variant="primary"
+                size="lg"
+                loading={isSubmitting}
+                style={{ width: '100%', marginTop: 24 }}
+              />
+
+              <AppButton
+                title="Re-open Signing Link"
+                onPress={handleReopenEsignLink}
+                variant="outline"
+                size="md"
+                style={{ width: '100%', marginTop: 12 }}
+              />
+            </MotiView>
+          ) : (
+            <>
+              <AppText variant="h2" style={styles.title}>
+                Review & Sign Agreement
+              </AppText>
+              <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
+                Please review the loan terms and digitally sign using Aadhaar eSign.
+              </AppText>
+
+              {/* Terms Overview Card */}
+              <AppCard style={styles.termsCard}>
+                <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
+                  <AppText variant="labelLg" style={{ fontWeight: '700' }}>
+                    Key Loan Details
+                  </AppText>
+                  <Feather name="shield" size={16} color={colors.success} />
+                </View>
+
+                <View style={styles.termsRow}>
+                  <View style={styles.termItem}>
+                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Loan Amount</AppText>
+                    <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                      {formatCurrency(requestedAmount)}
+                    </AppText>
+                  </View>
+                  <View style={styles.termItem}>
+                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Interest Rate</AppText>
+                    <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                      {interest}% p.a.
+                    </AppText>
+                  </View>
+                </View>
+
+                <View style={[styles.termsRow, { marginTop: 16 }]}>
+                  <View style={styles.termItem}>
+                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Tenure</AppText>
+                    <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                      {tenure} Months
+                    </AppText>
+                  </View>
+                  <View style={styles.termItem}>
+                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Monthly EMI</AppText>
+                    <AppText variant="bodyMedium" style={{ fontWeight: '800', color: colors.primary }}>
+                      {formatCurrency(emi)}
+                    </AppText>
+                  </View>
+                </View>
+
+                <AppButton
+                  title="Download Agreement PDF"
+                  variant="outline"
+                  size="sm"
+                  icon={<Feather name="download" size={16} color={colors.primary} />}
+                  onPress={handleDownload}
+                  loading={isDownloading}
+                  style={{ marginTop: 20 }}
+                />
+              </AppCard>
+
+              {/* Legal Text Summary */}
+              <AppText variant="label" style={[styles.sectionTitle, { color: colors.text }]}>
+                Agreement Summary
+              </AppText>
+              <View style={[styles.documentBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                <ScrollView nestedScrollEnabled style={styles.documentScroll}>
+                  <AppText variant="caption" style={{ color: colors.textSecondary, lineHeight: 18 }}>
+                    This Loan Agreement ("Agreement") is made between the borrower ("Borrower") and the lending institution ("Lender").{'\n\n'}
+                    1. DISBURSAL OF LOAN: The Lender agrees to disburse the loan amount stated above, subject to verification of details and successful bank account link setup.{'\n\n'}
+                    2. REPAYMENT TERMS: The Borrower agrees to repay the loan amount along with applicable interest in EMI installments on or before the due dates. Failure to do so will attract late payment fees and impact credit scores.{'\n\n'}
+                    3. PREPAYMENT: The Borrower may prepay the loan amount subject to foreclosure charges as detailed in the scheme guidelines.{'\n\n'}
+                    4. AUTHORIZATION: The Borrower authorizes the Lender to fetch credit bureau details and initiate AutoPay mandates (UPI / eNACH) for EMI recovery.
+                  </AppText>
+                </ScrollView>
+              </View>
+
+              {/* eSign Information Card */}
+              <AppCard style={[styles.esignInfoCard, { borderColor: colors.primary + '30' }]}>
+                <View style={styles.esignInfoHeader}>
+                  <View style={[styles.esignIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                    <MaterialCommunityIcons name="shield-check" size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.esignInfoTextContainer}>
+                    <AppText variant="labelLg" style={{ fontWeight: '700', color: colors.text }}>
+                      Aadhaar Digital eSign
+                    </AppText>
+                    <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 2 }}>
+                      Legally valid under IT Act, 2000
+                    </AppText>
+                  </View>
+                </View>
+
+                <View style={styles.esignFeatureList}>
+                  <View style={styles.esignFeatureItem}>
+                    <Feather name="check-circle" size={14} color={colors.success} />
+                    <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                      Aadhaar OTP-based electronic signature
+                    </AppText>
+                  </View>
+                  <View style={styles.esignFeatureItem}>
+                    <Feather name="check-circle" size={14} color={colors.success} />
+                    <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                      Tamper-proof audit trail with timestamp & IP
+                    </AppText>
+                  </View>
+                  <View style={styles.esignFeatureItem}>
+                    <Feather name="check-circle" size={14} color={colors.success} />
+                    <AppText variant="caption" style={[styles.esignFeatureText, { color: colors.text }]}>
+                      Signed document available for download
+                    </AppText>
+                  </View>
+                </View>
+              </AppCard>
+
+              {/* Success State */}
+              {esignStatus === 'success' && (
+                <MotiView
+                  from={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', damping: 15 }}
+                >
+                  <View style={[styles.successBanner, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+                    <Feather name="check-circle" size={20} color={colors.success} />
+                    <AppText variant="bodyMedium" style={{ color: colors.success, fontWeight: '700', marginLeft: 8 }}>
+                      Agreement signed successfully!
+                    </AppText>
+                  </View>
+                </MotiView>
+              )}
+
+              {/* Consent Checkbox */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setHasConsented(!hasConsented)}
+                style={styles.consentRow}
+              >
+                <Ionicons
+                  name={hasConsented ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={hasConsented ? colors.primary : colors.textSecondary}
+                  style={{ marginTop: 2 }}
+                />
+                <AppText variant="caption" style={[styles.consentText, { color: colors.textSecondary }]}>
+                  I have read, understood and agree to all the terms, conditions, and policies outlined in this loan agreement. I authorize eSign via Aadhaar OTP.
+                </AppText>
+              </TouchableOpacity>
+            </>
+          )}
         </MotiView>
       </ScrollView>
 
       {/* Footer CTA */}
-      <MotiView
-        from={{ opacity: 0, translateY: 15 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'timing', duration: 400, delay: 200 }}
-        style={[styles.footer, { borderTopColor: colors.border, paddingHorizontal: theme.screenPadding }]}
-      >
-        <AppButton
-          title={buttonConfig.title}
-          variant="primary"
-          size="lg"
-          disabled={(!hasConsented && esignStatus !== 'failed') || buttonConfig.disabled}
-          loading={isSubmitting}
-          onPress={handleEsign}
-          icon={
-            esignStatus === 'success'
-              ? <Feather name="check" size={18} color="#fff" />
-              : <MaterialCommunityIcons name="shield-lock-outline" size={18} color="#fff" />
-          }
-        />
-        {onSkip && (
+      {esignStatus !== 'signing' && (
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 200 }}
+          style={[styles.footer, { borderTopColor: colors.border, paddingHorizontal: theme.screenPadding }]}
+        >
           <AppButton
-            title="Skip, I'll do later"
-            variant="ghost"
-            size="md"
-            onPress={onSkip}
-            style={{ marginTop: 8 }}
+            title={buttonConfig.title}
+            variant="primary"
+            size="lg"
+            disabled={(!hasConsented && esignStatus !== 'failed') || buttonConfig.disabled}
+            loading={isSubmitting}
+            onPress={handleEsign}
+            icon={
+              esignStatus === 'success'
+                ? <Feather name="check" size={18} color="#fff" />
+                : <MaterialCommunityIcons name="shield-lock-outline" size={18} color="#fff" />
+            }
           />
-        )}
-      </MotiView>
+          {onSkip && (
+            <AppButton
+              title="Skip, I'll do later"
+              variant="ghost"
+              size="md"
+              onPress={onSkip}
+              style={{ marginTop: 8 }}
+            />
+          )}
+        </MotiView>
+      )}
     </ScreenWrapper>
   );
 };

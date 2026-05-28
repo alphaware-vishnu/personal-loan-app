@@ -1,259 +1,362 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Alert, Dimensions } from "react-native";
-import { MotiView } from "../components/Motion";
-import { Feather, Ionicons } from "@expo/vector-icons";
-import { Button } from "../components/Button";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
+import { MotiView } from 'moti';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useColors, useTheme } from '../theme';
+import { ScreenWrapper } from '../components/layout/ScreenWrapper';
+import { SafeHeader } from '../components/layout/SafeHeader';
+import { AppText } from '../components/ui/AppText';
+import { AppButton } from '../components/ui/AppButton';
+import { AppCard } from '../components/ui/AppCard';
+import { StepIndicator } from '../components/ui/StepIndicator';
+
+import { useLoanStore } from '../store/loanStore';
+import { generateSanctionLetter } from '../services/applicationService';
+import { trackEvent } from '../utils/analytics';
+import { formatCurrency } from '../utils/formatters';
 
 interface SanctionLetterScreenProps {
-  onFinish: () => void;
+  onNext: () => void;
+  onBack: () => void;
 }
 
-const { width } = Dimensions.get("window");
+export const SanctionLetterScreen: React.FC<SanctionLetterScreenProps> = ({
+  onNext,
+  onBack,
+}) => {
+  const colors = useColors();
+  const { theme } = useTheme();
 
-import { useAuthStore } from "../store/authStore";
-import { useLoanStore } from "@/store/loanStore";
-import { createApplication, createCustomer, updateApplication, updateStepStatus } from "@/services/api";
+  const loanStoreState = useLoanStore();
+  const {
+    requestedAmount,
+    interest,
+    tenure,
+    emi,
+    applicationId,
+  } = loanStoreState;
 
-export const SanctionLetterScreen = ({ onFinish }: SanctionLetterScreenProps) => {
   const [hasConsented, setHasConsented] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const loanStoreState = useLoanStore();
-  const { requestedAmount, interest, tenure, emi, reset, customerInfo, setCustomerId, applicationId } = loanStoreState;
-  const { mobile: verifiedMobile, authData, setCustomerId: setAuthCustomerId } = useAuthStore();
+  const [isGenerating, setIsGenerating] = useState(true);
+  const [sanctionDetails, setSanctionDetails] = useState<any>(null);
 
-  const handleDownload = () => {
-    setIsDownloading(true);
-    setTimeout(() => {
-      setIsDownloading(false);
-      Alert.alert("Success", "Sanction letter downloaded successfully as PDF.");
-    }, 1500);
-  };
+  useEffect(() => {
+    const initSanctionLetter = async () => {
+      if (!applicationId) {
+        setIsGenerating(false);
+        return;
+      }
 
-  const handleSubmit = async () => {
-    if (!hasConsented) return;
-
-    const isExistingCustomer = loanStoreState.isExistingCustomer;
-    console.log('[Sanction] Submission started. isExistingCustomer flag:', isExistingCustomer);
-
-    setIsSubmitting(true);
-    try {
-      let finalCustomerId = authData?.customerId || loanStoreState.customerId;
-
-      // 1. Create Customer (POST /customer) ONLY for NEW customers (those who had data: [] on login)
-      if (!isExistingCustomer) {
-        const customerPayload = {
-          id: finalCustomerId || undefined,
-          applicantName: customerInfo.applicantName,
-          mobileNumber: verifiedMobile || customerInfo.mobileNumber,
-          panNumber: customerInfo.panNumber,
-          gender: "MALE",
-          leadSource: 'HEYLON',
-          leadStatus: "ACTIVE",
-          applicationSource: "ALFIN",
-          clientType: "INDIVIDUAL",
-          customerBanks: customerInfo.customerBanks.map(bank => ({
-            ...bank,
-            accountType: "SAVINGS",
-            isDefault: true
-          })),
-          address: {
-            city: "Mumbai",
-            pinCode: "400001",
-            stateName: "Maharashtra",
-            countryName: "India"
-          }
-        };
-
-        console.log('[API] Creating NEW Customer (POST):', JSON.stringify(customerPayload, null, 2));
-        const customerResponse = await createCustomer(customerPayload);
+      try {
+        console.log('[SanctionLetter] Generating/fetching sanction letter for application:', applicationId);
+        const response = await generateSanctionLetter(applicationId);
         
-        // Update finalCustomerId from creation response
-        const newCustomerId = customerResponse.data?.data?.id || customerResponse.data?.id;
-        if (newCustomerId) {
-          finalCustomerId = newCustomerId;
+        if (response && response.data) {
+          console.log('[SanctionLetter] Received response:', response.data);
+          setSanctionDetails(response.data);
         }
-      } else {
-        console.log('[API] Existing customer profile confirmed. Skipping profile creation.');
+      } catch (error: any) {
+        console.error('[SanctionLetter] Generation failed:', error);
+        Alert.alert(
+          'Error',
+          error.response?.data?.message || 'Failed to generate your sanction letter. Please try again.'
+        );
+      } finally {
+        setIsGenerating(false);
       }
-      
-      if (!finalCustomerId) {
-        throw new Error("Failed to retrieve Customer ID for application link");
+    };
+
+    initSanctionLetter();
+  }, [applicationId]);
+
+  const handleDownload = async () => {
+    const fileUrl = sanctionDetails?.sanctionLetterFileUrl;
+    if (fileUrl) {
+      console.log('[SanctionLetter] Opening sanction letter URL:', fileUrl);
+      setIsDownloading(true);
+      trackEvent('sanction_letter_viewed');
+      try {
+        const canOpen = await Linking.canOpenURL(fileUrl);
+        if (canOpen) {
+          await Linking.openURL(fileUrl);
+          trackEvent('sanction_letter_downloaded');
+        } else {
+          Alert.alert('Error', 'Unable to open the sanction letter document.');
+        }
+      } catch (err) {
+        console.error('[SanctionLetter] Error opening document:', err);
+        Alert.alert('Error', 'An error occurred while opening the sanction letter.');
+      } finally {
+        setIsDownloading(false);
       }
-
-      console.log('[API] Customer Ready with ID:', finalCustomerId);
-      setCustomerId(Number(finalCustomerId));
-      setAuthCustomerId(Number(finalCustomerId)); // Persist to authStore for dashboard
-
-      // 2. Update Application with the final Customer ID and other details
-      const applicationPayload = {
-        id: applicationId,
-        requestedAmount: loanStoreState.requestedAmount,
-        disbursalAmount: loanStoreState.disbursalAmount,
-        emi: loanStoreState.emi,
-        tenure: loanStoreState.tenure,
-        interest: loanStoreState.interest,
-        schemeMasterId: loanStoreState.schemeMasterId,
-        repaymentFrequency: loanStoreState.repaymentFrequency,
-        customerId: finalCustomerId,
-        applicationSource: "ALFIN",
-        applicationDocuments: loanStoreState.applicationDocuments.map(doc => ({
-          categoryId: doc.categoryId,
-          documentTypeId: doc.documentTypeId,
-          awsDocumentIds: doc.awsDocumentIds,
-          documentNumber: doc.documentNumber
-        })),
-      };
-
-      console.log('[API] Updating Application (PATCH):', JSON.stringify(applicationPayload, null, 2));
-      await updateApplication(applicationPayload);
-
-      // 3. Mark agreement as completed
-      if (applicationId) {
-        await updateStepStatus(applicationId, { loanAgreementCompleted: true });
-        console.log('[Sanction] Step status updated: loanAgreementCompleted = true');
-      }
-
-      Alert.alert(
-        "Application Successful",
-        "Your profile has been created and your loan application has been submitted successfully.",
-        [
-          { 
-            text: "View Dashboard", 
-            onPress: () => {
-              reset();
-              onFinish();
-            } 
-          }
-        ]
-      );
-    } catch (error: any) {
-      console.error('Submission sequence failed:', error);
-      Alert.alert(
-        "Application Failed",
-        error.response?.data?.message || error.message || "There was an error processing your application. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      // Mock download logic if URL isn't returned yet
+      setIsDownloading(true);
+      trackEvent('sanction_letter_viewed');
+      setTimeout(() => {
+        setIsDownloading(false);
+        trackEvent('sanction_letter_downloaded');
+        Alert.alert('Success', 'Sanction letter downloaded successfully as PDF.');
+      }, 1500);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
+  const handleProceed = () => {
+    if (!hasConsented) return;
+    trackEvent('sanction_letter_accepted');
+    onNext();
   };
 
+  // Resolve values (fall back to requested/store values if API doesn't return them)
+  const sanctionedAmountVal = sanctionDetails?.sanctionedAmount ?? requestedAmount;
+  const approvedTenureVal = sanctionDetails?.approvedTenure ?? tenure;
+  const approvedInterestRateVal = sanctionDetails?.approvedInterestRate ?? interest;
+  const emiAmountVal = sanctionDetails?.emiAmount ?? emi;
+  const processingFeeVal = sanctionDetails?.processingFee ?? 0;
+
+  if (isGenerating) {
+    return (
+      <ScreenWrapper padded={false}>
+        <View style={styles.headerWrapper}>
+          <SafeHeader title="Sanction Letter" onBack={onBack} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <AppText variant="bodyMd" style={{ color: colors.textSecondary, marginTop: 12 }}>
+            Generating your sanction terms...
+          </AppText>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 px-6" edges={["top", "bottom"]}>
-      <MotiView
-        from={{ opacity: 0, translateY: 20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ duration: 600, type: "timing" }}
-        className="flex-1"
+    <ScreenWrapper padded={false}>
+      <View style={styles.headerWrapper}>
+        <SafeHeader title="Sanction Letter" onBack={onBack} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: theme.screenPadding }]}
       >
-        {/* Header */}
+        <View style={styles.stepIndicator}>
+          <StepIndicator totalSteps={1} currentStep={0} showLabel stageName="Sanction Approval" />
+        </View>
+
         <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 200 }}
-          className="items-center mb-8"
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400 }}
+          style={styles.content}
         >
-          <View className="w-16 h-16 bg-white rounded-2xl items-center justify-center shadow-sm border border-slate-100 mb-4">
-            <Feather name="file-text" size={32} color="#0f172a" />
-          </View>
-          <Text className="text-3xl font-black text-slate-900 tracking-tighter text-center">
-            Sanction Letter
-          </Text>
-          <Text className="text-slate-500 text-base mt-2 text-center font-medium">
-            Your loan application has been approved. Please review your terms.
-          </Text>
-        </MotiView>
+          <AppText variant="h2" style={styles.title}>
+            Review Sanction Terms
+          </AppText>
+          <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Your loan application has been approved! Please review the terms of your sanction letter.
+          </AppText>
 
-        <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-          {/* Document Preview Card */}
-          <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-6">
-            <View className="flex-row justify-between items-center border-b border-slate-100 pb-4 mb-4">
-              <Text className="text-slate-400 font-bold text-xs uppercase tracking-widest">Document Preview</Text>
-              <Feather name="shield" size={16} color="#10b981" />
+          {/* Terms Card */}
+          <AppCard style={styles.termsCard}>
+            <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
+              <AppText variant="labelLg" style={{ fontWeight: '700' }}>
+                Approved Loan Terms
+              </AppText>
+              <Feather name="check-circle" size={16} color={colors.success} />
             </View>
 
-            <View className="space-y-4 mb-6 gap-y-4">
-              <View className="flex-row justify-between items-center">
-                <Text className="text-slate-500 font-medium">Loan Amount</Text>
-                <Text className="text-slate-900 font-bold text-lg">{formatCurrency(requestedAmount)}</Text>
+            <View style={styles.termsRow}>
+              <View style={styles.termItem}>
+                <AppText variant="caption" style={{ color: colors.textSecondary }}>Sanctioned Amount</AppText>
+                <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                  {formatCurrency(sanctionedAmountVal)}
+                </AppText>
               </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-slate-500 font-medium">Interest Rate</Text>
-                <Text className="text-slate-900 font-bold text-lg">{interest}% p.a.</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-slate-500 font-medium">Tenure</Text>
-                <Text className="text-slate-900 font-bold text-lg">{tenure} Months</Text>
-              </View>
-              <View className="flex-row justify-between items-center pt-2">
-                <Text className="text-slate-500 font-medium">Est. EMI</Text>
-                <Text className="text-primary-600 font-black text-xl">{formatCurrency(emi)}</Text>
+              <View style={styles.termItem}>
+                <AppText variant="caption" style={{ color: colors.textSecondary }}>Interest Rate</AppText>
+                <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                  {approvedInterestRateVal}% p.a.
+                </AppText>
               </View>
             </View>
 
-            {/* Download Action using standard Button */}
-            <Button
+            <View style={[styles.termsRow, { marginTop: 16 }]}>
+              <View style={styles.termItem}>
+                <AppText variant="caption" style={{ color: colors.textSecondary }}>Tenure</AppText>
+                <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                  {approvedTenureVal} Months
+                </AppText>
+              </View>
+              <View style={styles.termItem}>
+                <AppText variant="caption" style={{ color: colors.textSecondary }}>Monthly EMI</AppText>
+                <AppText variant="bodyMedium" style={{ fontWeight: '800', color: colors.primary }}>
+                  {formatCurrency(emiAmountVal)}
+                </AppText>
+              </View>
+            </View>
+
+            {processingFeeVal > 0 && (
+              <View style={[styles.termsRow, { marginTop: 16 }]}>
+                <View style={styles.termItem}>
+                  <AppText variant="caption" style={{ color: colors.textSecondary }}>Processing Fee</AppText>
+                  <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text }}>
+                    {formatCurrency(processingFeeVal)}
+                  </AppText>
+                </View>
+              </View>
+            )}
+
+            <AppButton
               title="Download Sanction PDF"
-              variant="secondary"
-              icon={<Feather name="download-cloud" size={20} color="#0f172a" />}
-              iconPosition="left"
+              variant="outline"
+              size="sm"
+              icon={<Feather name="download" size={16} color={colors.primary} />}
               onPress={handleDownload}
               loading={isDownloading}
+              style={{ marginTop: 20 }}
             />
+          </AppCard>
+
+          {/* Legal Summary */}
+          <AppText variant="label" style={[styles.sectionTitle, { color: colors.text }]}>
+            Key Undertakings
+          </AppText>
+          <View style={[styles.documentBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+            <ScrollView nestedScrollEnabled style={styles.documentScroll}>
+              <AppText variant="caption" style={{ color: colors.textSecondary, lineHeight: 18 }}>
+                By accepting this sanction letter, the borrower understands and agrees to the following terms:{'\n\n'}
+                1. SANCTION LIMIT: The approved amount is subject to final bank linkage and execution of the digital eSign agreement.{'\n\n'}
+                2. PROCESSING FEE: The processing fee detailed above will be deducted from the disbursed amount at the time of payout.{'\n\n'}
+                3. INTEREST COMPUTATION: Interest is calculated on a reducing balance basis. The monthly installment (EMI) has been computed accordingly.{'\n\n'}
+                4. REPAYMENT MANDATE: Acceptance of these terms requires setting up an auto-debit repayment mandate prior to loan disbursal.
+              </AppText>
+            </ScrollView>
           </View>
 
-          <View className="bg-white rounded-3xl py-6 shadow-sm border border-slate-100 mb-10">
-            <Button
-              variant="ghost"
-              className="!p-0 !min-h-0 !h-auto !items-start !justify-start"
-              contentClassName="!items-start !justify-start"
-              onPress={() => setHasConsented(!hasConsented)}
-            >
-              <View className="flex-row items-start w-full ">
-                <View className="mt-1 mr-4">
-                  <Ionicons
-                    name={hasConsented ? "checkbox" : "square-outline"}
-                    size={24}
-                    color={hasConsented ? "#1d4ed8" : "#64748b"}
-                  />
-                </View>
-                <Text className="h-20 text-slate-700 font-medium leading-5 text-left pt-1">
-                  I have viewed and downloaded the sanction letter, and I agree to all the terms and conditions outlined within it.
-                </Text>
-              </View>
-            </Button>
-          </View>
-        </ScrollView>
-
-        {/* Bottom Action */}
-        <MotiView
-          animate={{ opacity: hasConsented ? 1 : 0.6 }}
-          transition={{ duration: 200 }}
-          className="pb-10 pt-4"
-        >
-          <Button
-            title="Finish Application"
-            variant="primary"
-            size="lg"
-            onPress={handleSubmit}
-            disabled={!hasConsented}
-            loading={isSubmitting}
-          />
+          {/* Consent Checkbox */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setHasConsented(!hasConsented)}
+            style={styles.consentRow}
+          >
+            <Ionicons
+              name={hasConsented ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={hasConsented ? colors.primary : colors.textSecondary}
+              style={{ marginTop: 2 }}
+            />
+            <AppText variant="caption" style={[styles.consentText, { color: colors.textSecondary }]}>
+              I have reviewed the sanctioned terms, download/read the sanction letter, and agree to proceed to the eSign stage.
+            </AppText>
+          </TouchableOpacity>
         </MotiView>
+      </ScrollView>
 
+      {/* Footer CTA */}
+      <MotiView
+        from={{ opacity: 0, translateY: 15 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 400, delay: 200 }}
+        style={[styles.footer, { borderTopColor: colors.border, paddingHorizontal: theme.screenPadding }]}
+      >
+        <AppButton
+          title="Accept & Proceed to eSign"
+          variant="primary"
+          size="lg"
+          disabled={!hasConsented}
+          onPress={handleProceed}
+          icon={<Feather name="arrow-right" size={18} color="#fff" />}
+        />
       </MotiView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
-
+const styles = StyleSheet.create({
+  headerWrapper: {
+    paddingHorizontal: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+  stepIndicator: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  content: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  subtitle: {
+    marginBottom: 20,
+  },
+  termsCard: {
+    padding: 16,
+    marginBottom: 20,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderColor: '#e2e8f0', // default border fallback
+    marginBottom: 16,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  termItem: {
+    width: '48%',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  documentBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    height: 120,
+    marginBottom: 24,
+  },
+  documentScroll: {
+    flex: 1,
+  },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  consentText: {
+    flex: 1,
+    marginLeft: 8,
+    lineHeight: 16,
+  },
+  footer: {
+    paddingVertical: 16,
+    borderTopWidth: 1,
+  },
+});

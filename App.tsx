@@ -2,7 +2,7 @@ import "./global.css";
 
 import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
-import { Text, View, ScrollView, BackHandler } from "react-native";
+import { Text, View, ScrollView, BackHandler, Linking } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import LottieView from "lottie-react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -117,6 +117,69 @@ function AppContent() {
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
   const [selectedAutoRepay, setSelectedAutoRepay] = useState<boolean>(false);
   const [showLogger, setShowLogger] = useState(false);
+  const [deepLinkParams, setDeepLinkParams] = useState<{ status: string; message?: string } | null>(null);
+
+  useEffect(() => {
+    const getQueryParams = (url: string) => {
+      const params: Record<string, string> = {};
+      const queryString = url.split('?')[1];
+      if (queryString) {
+        queryString.split('&').forEach((param) => {
+          const [key, value] = param.split('=');
+          if (key) {
+            params[decodeURIComponent(key)] = decodeURIComponent(value || '');
+          }
+        });
+      }
+      return params;
+    };
+
+    const handleUrl = (url: string | null) => {
+      if (!url) return;
+      console.log("[DeepLink] Received URL:", url);
+
+      const isKycCallback = url.includes("kyc-callback") || url.includes("kyc/success") || url.includes("kyc/error");
+      const isEsignCallback = url.includes("esign-callback") || url.includes("esign/success") || url.includes("esign/error");
+
+      if (isKycCallback || isEsignCallback) {
+        let status = "success";
+        if (url.includes("error") || url.includes("status=error") || url.includes("status=failure")) {
+          status = "error";
+        }
+        
+        const params = getQueryParams(url);
+        const message = params.message || (status === "error" ? "Process failed" : "Success");
+
+        setDeepLinkParams({
+          status,
+          message,
+        });
+
+        if (useAuthStore.getState().isLoggedIn) {
+          const targetScreen = isKycCallback ? "aadhaarVerification" : "agreement";
+          setHistory((prev) => {
+            if (prev.includes(targetScreen)) {
+              return [...prev.filter((screen) => screen !== targetScreen), targetScreen];
+            } else {
+              return [...prev, targetScreen];
+            }
+          });
+        }
+      }
+    };
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+
+    const subscription = Linking.addEventListener("url", (event) => {
+      handleUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const flow = history[history.length - 1];
@@ -279,6 +342,8 @@ function AppContent() {
           onNext={() => push("selfieVerification")}
           onBack={pop}
           onSkip={() => replace("dashboard")}
+          deepLinkParams={deepLinkParams}
+          clearDeepLinkParams={() => setDeepLinkParams(null)}
         />
       );
     }
@@ -396,9 +461,18 @@ function AppContent() {
     if (flow === "bankDetails") {
       return (
         <BankAccountScreen
-          onNext={() => replace("agreement")}
+          onNext={() => replace("sanctionLetter")}
           onBack={pop}
           onSkip={() => replace("dashboard")}
+        />
+      );
+    }
+
+    if (flow === "sanctionLetter") {
+      return (
+        <SanctionLetterScreen
+          onNext={() => replace("agreement")}
+          onBack={pop}
         />
       );
     }
@@ -409,6 +483,8 @@ function AppContent() {
           onNext={() => replace("disbursal")}
           onBack={pop}
           onSkip={() => replace("dashboard")}
+          deepLinkParams={deepLinkParams}
+          clearDeepLinkParams={() => setDeepLinkParams(null)}
         />
       );
     }
@@ -419,10 +495,6 @@ function AppContent() {
           onComplete={() => replace("dashboard")}
         />
       );
-    }
-
-    if (flow === "sanctionLetter") {
-      return <SanctionLetterScreen onFinish={() => replace("dashboard")} />;
     }
 
     if (flow === "application") {

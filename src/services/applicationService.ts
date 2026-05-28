@@ -51,3 +51,13 @@ export const updateStepStatus = (applicationId: number, status: StepStatusPayloa
 export const updateApplication = (data: any) => {
   return api.patch('/application', data);
 };
+
+/**
+ * Generate sanction letter for an application
+ * POST /application/{id}/sanction-letter
+ */
+export const generateSanctionLetter = async (applicationId: number) => {
+  const response = await api.post(`/application/${applicationId}/sanction-letter`);
+  return response.data;
+};
+

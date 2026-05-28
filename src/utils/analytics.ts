@@ -66,6 +66,10 @@ export type AnalyticsEvent =
   | 'agreement_viewed'
   | 'agreement_downloaded'
   | 'agreement_signed'
+  // Sanction Letter
+  | 'sanction_letter_viewed'
+  | 'sanction_letter_downloaded'
+  | 'sanction_letter_accepted'
   // Digio eSign & eStamp
   | 'esign_initiated'
   | 'esign_completed'

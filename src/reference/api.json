@@ -1029,9 +1029,6 @@
           },
           "failOnDocNotFound": {
             "type": "boolean"
-          },
-          "webhookUrl": {
-            "type": "string"
           }
         }
       },

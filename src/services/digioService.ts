@@ -8,9 +8,17 @@
  * - Gateway event handling
  */
 
+import { NativeModules } from 'react-native';
 import { Digio, DigioConfig, Environment, ServiceMode, GatewayEvent } from '@digiotech/react-native';
 import { api } from '../api/client';
 import { env } from '../config/env';
+
+/**
+ * Check if the native Digio SDK module is linked and available in the current runtime
+ */
+export const isDigioSdkSupported = (): boolean => {
+  return !!NativeModules.DigioReactNative;
+};
 
 // ─── Types ───────────────────────────────────────────────────
 

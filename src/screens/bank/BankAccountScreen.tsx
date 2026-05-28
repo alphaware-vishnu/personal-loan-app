@@ -31,7 +31,6 @@ import { useLoanStore } from '../../store/loanStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { bankDetailsSchema } from '../../validations/schemas';
 import { uploadDocument } from '../../services/documentService';
-import { updateStepStatus } from '../../services/applicationService';
 import { trackEvent } from '../../utils/analytics';
 import { useDebounce } from '../../hooks';
 import { getCustomerProfile, updateCustomerProfile } from '../../services/customerService';
@@ -91,22 +90,6 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
     setUploadStatuses(statuses);
   }, [passbookReq, houseReq, uploadedDocs]);
 
-  const statusMutation = useMutation({
-    mutationFn: (data: { id: number; status: any }) => updateStepStatus(data.id, data.status),
-    onSuccess: () => {
-      completeStep('bank_account');
-      trackEvent('bank_account_verified', { autopay_method: selectedAutoPay });
-      onNext();
-    },
-    onError: (error: any) => {
-      const errorMsg = error.response?.data?.message || 'Failed to update application status';
-      Toast.show({
-        type: 'error',
-        text1: 'Update Failed',
-        text2: errorMsg,
-      });
-    },
-  });
 
   const formik = useFormik({
     initialValues: {
@@ -155,15 +138,9 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           }
         }
 
-        if (applicationId) {
-          statusMutation.mutate({
-            id: applicationId,
-            status: { bankVerificationCompleted: true },
-          });
-        } else {
-          completeStep('bank_account');
-          onNext();
-        }
+        completeStep('bank_account');
+        trackEvent('bank_account_verified', { autopay_method: selectedAutoPay });
+        onNext();
       } catch (err: any) {
         Toast.show({
           type: 'error',
@@ -555,7 +532,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           size="lg"
           onPress={() => formik.handleSubmit()}
           disabled={!isFormValid}
-          loading={statusMutation.isPending}
+          loading={formik.isSubmitting}
         />
         {onSkip && (
           <AppButton
