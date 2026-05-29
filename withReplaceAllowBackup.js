@@ -1,38 +1,59 @@
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest } = require("@expo/config-plugins");
 
 module.exports = function withReplaceAllowBackup(config) {
-  return withAndroidManifest(config, async (config) => {
-    const androidManifest = config.modResults;
-    const manifest = androidManifest.manifest;
+  return withAndroidManifest(config, (config) => {
+    const manifest = config.modResults.manifest;
 
-    // 1. Ensure the tools namespace is present
-    if (!manifest.$['xmlns:tools']) {
-      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
-    }
+    // Ensure tools namespace exists
+    manifest.$ = manifest.$ || {};
+    manifest.$["xmlns:tools"] =
+      manifest.$["xmlns:tools"] || "http://schemas.android.com/tools";
 
-    // 2. Access the <application> tag
-    const application = manifest.application[0];
+    const application = manifest.application?.[0];
+
     if (application) {
-      // 3. Add or update tools:replace
-      const existingReplace = application.$['tools:replace'];
-      const requiredReplacements = ['android:allowBackup', 'android:theme'];
-      
+      // Existing allowBackup/theme logic
+      const existingReplace = application.$["tools:replace"];
+      const requiredReplacements = [
+        "android:allowBackup",
+        "android:theme",
+      ];
+
       if (existingReplace) {
         const replacements = existingReplace
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean);
+          .split(",")
+          .map((item) => item.trim());
 
-        requiredReplacements.forEach((replacement) => {
-          if (!replacements.includes(replacement)) {
-            replacements.push(replacement);
+        requiredReplacements.forEach((item) => {
+          if (!replacements.includes(item)) {
+            replacements.push(item);
           }
         });
 
-        application.$['tools:replace'] = replacements.join(',');
+        application.$["tools:replace"] = replacements.join(",");
       } else {
-        application.$['tools:replace'] = requiredReplacements.join(',');
+        application.$["tools:replace"] =
+          requiredReplacements.join(",");
       }
+
+      // ML Kit conflict fix
+      application["meta-data"] = application["meta-data"] || [];
+
+      // Remove existing entries if present
+      application["meta-data"] = application["meta-data"].filter(
+        (item) =>
+          item.$?.["android:name"] !==
+          "com.google.mlkit.vision.DEPENDENCIES"
+      );
+
+      application["meta-data"].push({
+        $: {
+          "android:name":
+            "com.google.mlkit.vision.DEPENDENCIES",
+          "android:value": "face,barcode_ui",
+          "tools:replace": "android:value",
+        },
+      });
     }
 
     return config;
