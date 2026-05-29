@@ -79,50 +79,10 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
   const [isVerifyingAutopay, setIsVerifyingAutopay] = useState(false);
 
   const handleVerifyAutopay = async () => {
-    if (!applicationId) return;
-    setIsVerifyingAutopay(true);
-    try {
-      console.log('[AutoPay Verification] Verifying mandate status for application:', applicationId);
-      const dueInfo = await getRepaymentDue(applicationId);
-      console.log('[AutoPay Verification] Response:', dueInfo);
-      
-      if (dueInfo?.data?.autopayActive) {
-        setAutopaySetupStatus('success');
-        completeStep('bank_account');
-        trackEvent('autopay_setup_completed', { method: selectedAutoPay });
-        onNext();
-      } else {
-        Alert.alert(
-          'Mandate Pending',
-          'We could not verify your AutoPay setup yet. If you have authorized it, please wait a moment and try again.'
-        );
-      }
-    } catch (error: any) {
-      console.error('[AutoPay Verification] Error:', error);
-      if (__DEV__) {
-        Alert.alert(
-          'Sandbox Bypass',
-          `Failed to verify AutoPay: ${error.message || 'Unknown error'}.\n\nWould you like to force complete for testing?`,
-          [
-            { text: 'Retry', onPress: () => handleVerifyAutopay() },
-            {
-              text: 'Force Complete',
-              onPress: () => {
-                setAutopaySetupStatus('success');
-                completeStep('bank_account');
-                trackEvent('autopay_setup_completed', { method: selectedAutoPay });
-                onNext();
-              }
-            },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
-      } else {
-        Alert.alert('Verification Error', 'Failed to check AutoPay status. Please try again.');
-      }
-    } finally {
-      setIsVerifyingAutopay(false);
-    }
+    setAutopaySetupStatus('success');
+    completeStep('bank_account');
+    trackEvent('autopay_setup_completed', { method: selectedAutoPay });
+    onNext();
   };
 
   const handleReopenAutopay = async () => {

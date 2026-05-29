@@ -20,7 +20,16 @@ import { MotiView } from "../components/Motion";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { getApplicationDetails, getDocumentDownloadPath, getLoanAccountById, createRepayment, initiateAutopay, initiateESign } from "../services/api";
+import { getApplicationDetails, getDocumentDownloadPath, getLoanAccountById, createRepayment, initiateAutopay } from "../services/api";
+import {
+  initiateESign,
+  isDigioSdkSupported,
+  createDigioInstance,
+  startEsignFlow,
+  refreshESignStatus,
+} from "../services/digioService";
+import { useAuthStore } from "../store/authStore";
+import { useLoanStore } from "../store/loanStore";
 import { Layout } from "react-native-reanimated";
 import { formatLabel } from "../utils";
 import { BlurView } from "expo-blur";
@@ -1105,18 +1114,67 @@ const OverviewTab = ({ app, formatCurrency, formatDate, onResumeStep }: any) => 
   const eSignMutation = useMutation({
     mutationFn: () => initiateESign(app.id),
     onSuccess: async (response: any) => {
-      const signingLink = response?.signingLink || response?.signing_link || response?.url || response?.esignUrl || response?.redirectUrl || response?.redirect_url;
-
-      if (signingLink) {
-        await openGatewayUrl(signingLink);
+      const docId = response?.docId || response?.documentId || (response?.data && (response.data.docId || response.data.documentId));
+      let signingLink = response?.signingLink || response?.signing_link || response?.url || response?.esignUrl || response?.redirectUrl || response?.redirect_url;
+      if (response?.data && !signingLink) {
+        signingLink = response.data.signingLink || response.data.signing_link || response.data.url || response.data.esignUrl || response.data.redirectUrl || response.data.redirect_url;
       }
 
-      Toast.show({
-        type: 'success',
-        text1: signingLink ? 'eSign Started' : 'eSign Initiated',
-        text2: signingLink ? 'Complete the sanction letter eSign in the secure window.' : 'eSign request has been initiated.',
-        position: 'bottom',
-      });
+      if (isDigioSdkSupported() && docId) {
+        console.log('[ApplicationDetailsScreen] Native Digio SDK is supported. Launching native gateway...');
+        const identifier = useAuthStore.getState().mobile || useLoanStore.getState().customerInfo?.mobileNumber || '';
+        
+        try {
+          const digio = createDigioInstance();
+          const result = await startEsignFlow(digio, docId, identifier);
+          console.log('[ApplicationDetailsScreen] Native SDK flow result:', result);
+          
+          if (result.success) {
+            try {
+              await refreshESignStatus(app.id);
+            } catch (statusError) {
+              console.error('[ApplicationDetailsScreen] Failed to refresh eSign status on backend:', statusError);
+            }
+            
+            Toast.show({
+              type: 'success',
+              text1: 'eSign Completed',
+              text2: 'Your sanction letter has been signed successfully!',
+              position: 'bottom',
+            });
+            queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+            return;
+          } else {
+            Toast.show({
+              type: 'error',
+              text1: 'eSign Failed',
+              text2: result.message || 'The eSign process failed or was cancelled.',
+              position: 'bottom',
+            });
+            return;
+          }
+        } catch (sdkError: any) {
+          console.error('[ApplicationDetailsScreen] SDK invocation crashed, falling back to browser:', sdkError);
+        }
+      }
+
+      // Fallback: WebBrowser based flow
+      if (signingLink) {
+        await openGatewayUrl(signingLink);
+        Toast.show({
+          type: 'success',
+          text1: 'eSign Started',
+          text2: 'Complete the sanction letter eSign in the secure window.',
+          position: 'bottom',
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'eSign Failed',
+          text2: 'Unable to initiate eSign. No signing link returned.',
+          position: 'bottom',
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["application", app.id] });
     },
     onError: (error: any) => {
@@ -1492,7 +1550,12 @@ const DocumentsTab = ({ app }: any) => {
         setViewerTitle(formatLabel(doc.documentName || "Document"));
         setViewerVisible(true);
       } else {
-        alert("Could not load document preview.");
+        Toast.show({
+          type: 'error',
+          text1: 'Preview Failed',
+          text2: 'Could not load document preview.',
+          position: 'bottom',
+        });
       }
     } catch (error: any) {
       console.error('View failed:', error);
