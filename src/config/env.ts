@@ -32,7 +32,7 @@ interface EnvConfig {
 const configs: Record<Environment, EnvConfig> = {
   development: {
     environment: 'development',
-    apiBaseUrl: 'https://unhearing-cogitable-cristiano.ngrok-free.dev/api/los-personal/',
+    apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     tenantId: 'product-dev',
     enableDebugTools: true,
@@ -53,7 +53,7 @@ const configs: Record<Environment, EnvConfig> = {
   },
   staging: {
     environment: 'staging',
-    apiBaseUrl: 'https://unhearing-cogitable-cristiano.ngrok-free.dev/api/los-personal/',
+    apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     tenantId: 'product-dev',
     enableDebugTools: true,
@@ -75,7 +75,7 @@ const configs: Record<Environment, EnvConfig> = {
   production: {
     environment: 'production',
     // apiBaseUrl: 'https://apipersonalproduct.alphawarenext.com/api/lms',
-    apiBaseUrl: 'https://unhearing-cogitable-cristiano.ngrok-free.dev/api/los-personal/',
+    apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     tenantId: 'product-dev',
     enableDebugTools: false,
