@@ -32,8 +32,8 @@ interface EnvConfig {
 const configs: Record<Environment, EnvConfig> = {
   development: {
     environment: 'development',
-    apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/',
-    userManagement: 'http://192.168.0.155:8081/api/user-management/',
+    apiBaseUrl: 'https://unhearing-cogitable-cristiano.ngrok-free.dev/api/los-personal/',
+    userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     tenantId: 'product-dev',
     enableDebugTools: true,
     enableNetworkLogger: true,
@@ -53,8 +53,8 @@ const configs: Record<Environment, EnvConfig> = {
   },
   staging: {
     environment: 'staging',
-    apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/    ',
-    userManagement: 'http://192.168.0.155:8081/api/user-management/',
+    apiBaseUrl: 'https://unhearing-cogitable-cristiano.ngrok-free.dev/api/los-personal/',
+    userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     tenantId: 'product-staging',
     enableDebugTools: true,
     enableNetworkLogger: false,
@@ -75,8 +75,8 @@ const configs: Record<Environment, EnvConfig> = {
   production: {
     environment: 'production',
     // apiBaseUrl: 'https://apipersonalproduct.alphawarenext.com/api/lms',
-    apiBaseUrl: 'http://192.168.0.155:9092/api/los-personal/',
-    userManagement: 'http://192.168.0.155:8081/api/user-management/',
+    apiBaseUrl: 'https://unhearing-cogitable-cristiano.ngrok-free.dev/api/los-personal/',
+    userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     tenantId: 'product-prod',
     enableDebugTools: false,
     enableNetworkLogger: false,
