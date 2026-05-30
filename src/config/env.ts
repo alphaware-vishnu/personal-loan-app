@@ -9,6 +9,7 @@ interface EnvConfig {
   environment: Environment;
   apiBaseUrl: string;
   userManagement: string;
+  lmsApi: string;
   tenantId: string;
   enableDebugTools: boolean;
   enableNetworkLogger: boolean;
@@ -34,6 +35,7 @@ const configs: Record<Environment, EnvConfig> = {
     environment: 'development',
     apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
+    lmsApi: 'https://6hfnsmjd-8085.inc1.devtunnels.ms/api/v1/loans/',
     tenantId: 'product-dev',
     enableDebugTools: true,
     enableNetworkLogger: true,
@@ -45,7 +47,7 @@ const configs: Record<Environment, EnvConfig> = {
     eligibilityPollMaxAttempts: 20,
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1000,
-    razorpayKeyId: 'rzp_test_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay test key
+    razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv',
     digioEnvironment: 'SANDBOX',
     digioLogoUrl: 'https://your-company-logo.png', // Replace with your company logo URL
     digioThemePrimaryColor: '#AB0F0C',
@@ -55,6 +57,7 @@ const configs: Record<Environment, EnvConfig> = {
     environment: 'staging',
     apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
+    lmsApi: 'https://6hfnsmjd-8085.inc1.devtunnels.ms/api/v1/loans/',
     tenantId: 'product-dev',
     enableDebugTools: true,
     enableNetworkLogger: false,
@@ -66,7 +69,7 @@ const configs: Record<Environment, EnvConfig> = {
     eligibilityPollMaxAttempts: 20,
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1000,
-    razorpayKeyId: 'rzp_test_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay test key
+    razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv',
     digioEnvironment: 'SANDBOX',
     digioLogoUrl: 'https://your-company-logo.png',
     digioThemePrimaryColor: '#AB0F0C',
@@ -77,6 +80,7 @@ const configs: Record<Environment, EnvConfig> = {
     // apiBaseUrl: 'https://apipersonalproduct.alphawarenext.com/api/lms',
     apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
+    lmsApi: 'https://6hfnsmjd-8085.inc1.devtunnels.ms/api/v1/loans/',
     tenantId: 'product-dev',
     enableDebugTools: false,
     enableNetworkLogger: false,
@@ -88,7 +92,7 @@ const configs: Record<Environment, EnvConfig> = {
     eligibilityPollMaxAttempts: 30,
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1500,
-    razorpayKeyId: 'rzp_live_XXXXXXXXXXXXXXXXXX', // Replace with your Razorpay live key
+    razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv', // Replace with your Razorpay live key
     digioEnvironment: 'PRODUCTION',
     digioLogoUrl: 'https://your-company-logo.png',
     digioThemePrimaryColor: '#AB0F0C',

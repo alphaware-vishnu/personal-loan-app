@@ -360,7 +360,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DigiLockerCallbackRequest"
+                "type": "string"
               }
             }
           },
@@ -1981,122 +1981,6 @@
           },
           "kycUrl": {
             "type": "string"
-          }
-        }
-      },
-      "Address": {
-        "type": "object",
-        "properties": {
-          "house": {
-            "type": "string"
-          },
-          "street": {
-            "type": "string"
-          },
-          "landmark": {
-            "type": "string"
-          },
-          "loc": {
-            "type": "string"
-          },
-          "po": {
-            "type": "string"
-          },
-          "dist": {
-            "type": "string"
-          },
-          "subdist": {
-            "type": "string"
-          },
-          "vtc": {
-            "type": "string"
-          },
-          "pc": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          },
-          "country": {
-            "type": "string"
-          }
-        }
-      },
-      "DigiLockerCallbackRequest": {
-        "type": "object",
-        "properties": {
-          "transactionId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "uid": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "errorCode": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/DigiLockerModel"
-          }
-        }
-      },
-      "DigiLockerFile": {
-        "type": "object",
-        "properties": {
-          "docLink": {
-            "type": "string"
-          },
-          "docType": {
-            "type": "string"
-          },
-          "docExtension": {
-            "type": "string"
-          }
-        }
-      },
-      "DigiLockerModel": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "uniqueId": {
-            "type": "string"
-          },
-          "maskedAdharNumber": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "gender": {
-            "type": "string"
-          },
-          "dob": {
-            "type": "string"
-          },
-          "careOf": {
-            "type": "string"
-          },
-          "address": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "image": {
-            "type": "string"
-          },
-          "digilockerFiles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DigiLockerFile"
-            }
           }
         }
       },
