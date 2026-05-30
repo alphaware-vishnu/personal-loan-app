@@ -174,36 +174,79 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           setMandateDetails(mandate);
 
           if (isFeatureEnabled('enableRazorpay') && mandate?.subscriptionId) {
-            try {
-              console.log('[AutoPay Setup] Launching Razorpay SDK for subscription:', mandate.subscriptionId);
-              const RazorpayCheckout = require('react-native-razorpay').default;
+            if (Platform.OS === 'web') {
+              const scriptLoaded = await loadRazorpayScript();
+              if (scriptLoaded) {
+                try {
+                  const options = {
+                    key: env.razorpayKeyId,
+                    subscription_id: mandate.subscriptionId,
+                    name: 'AlphaWare Finance',
+                    description: `EMI AutoPay - ₹${mandate.emiAmount || ''}`,
+                    prefill: {
+                      name: values.accountName,
+                      contact: customerInfo?.mobileNumber || '',
+                      email: customerInfo?.email || '',
+                    },
+                    theme: {
+                      color: '#1E40AF',
+                    },
+                    handler: function (rzpResponse: any) {
+                      setAutopaySetupStatus('success');
+                      completeStep('bank_account');
+                      trackEvent('autopay_setup_completed', { method: selectedAutoPay });
+                      onNext();
+                    },
+                    modal: {
+                      ondismiss: function () {
+                        setAutopaySetupStatus('failed');
+                        Toast.show({
+                          type: 'info',
+                          text1: 'AutoPay Mandate Cancelled',
+                          text2: 'Mandate setup cancelled by user.',
+                        });
+                      }
+                    }
+                  };
+                  const rzp = new (window as any).Razorpay(options);
+                  rzp.open();
+                  return;
+                } catch (err: any) {
+                  console.warn('[Web AutoPay Setup] Web checkout error:', err);
+                }
+              }
+            } else {
+              try {
+                console.log('[AutoPay Setup] Launching Razorpay SDK for subscription:', mandate.subscriptionId);
+                const RazorpayCheckout = require('react-native-razorpay').default;
 
-              const checkoutOptions = {
-                key: env.razorpayKeyId,
-                subscription_id: mandate.subscriptionId,
-                name: 'AlphaWare Finance',
-                description: `EMI AutoPay - ₹${mandate.emiAmount || ''}`,
-                prefill: {
-                  name: values.accountName,
-                  contact: customerInfo?.mobileNumber || '',
-                  email: customerInfo?.email || '',
-                },
-                theme: {
-                  color: '#1E40AF',
-                },
-              };
+                const checkoutOptions = {
+                  key: env.razorpayKeyId,
+                  subscription_id: mandate.subscriptionId,
+                  name: 'AlphaWare Finance',
+                  description: `EMI AutoPay - ₹${mandate.emiAmount || ''}`,
+                  prefill: {
+                    name: values.accountName,
+                    contact: customerInfo?.mobileNumber || '',
+                    email: customerInfo?.email || '',
+                  },
+                  theme: {
+                    color: '#1E40AF',
+                  },
+                };
 
-              setAutopaySetupStatus('authorizing');
-              const rzpData = await RazorpayCheckout.open(checkoutOptions);
-              console.log('[AutoPay Setup] Razorpay SDK authorized:', rzpData);
+                setAutopaySetupStatus('authorizing');
+                const rzpData = await RazorpayCheckout.open(checkoutOptions);
+                console.log('[AutoPay Setup] Razorpay SDK authorized:', rzpData);
 
-              setAutopaySetupStatus('success');
-              completeStep('bank_account');
-              trackEvent('autopay_setup_completed', { method: selectedAutoPay });
-              onNext();
-              return;
-            } catch (sdkError: any) {
-              console.warn('[AutoPay Setup] Razorpay SDK failed or cancelled, falling back to WebBrowser:', sdkError);
+                setAutopaySetupStatus('success');
+                completeStep('bank_account');
+                trackEvent('autopay_setup_completed', { method: selectedAutoPay });
+                onNext();
+                return;
+              } catch (sdkError: any) {
+                console.warn('[AutoPay Setup] Razorpay SDK failed or cancelled, falling back to WebBrowser:', sdkError);
+              }
             }
           }
 
@@ -797,7 +840,29 @@ const styles = StyleSheet.create({
   autopayInfoCard: {
     padding: 16,
     marginBottom: 20,
-    borderWidth: 1,
-    borderRadius: 14,
   },
 });
+
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (Platform.OS !== 'web') {
+      resolve(false);
+      return;
+    }
+    if (typeof window === 'undefined') {
+      resolve(false);
+      return;
+    }
+    if ((window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+

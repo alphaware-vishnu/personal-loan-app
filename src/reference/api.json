@@ -3121,6 +3121,10 @@
             "type": "integer",
             "format": "int64"
           },
+          "lmsLoanId": {
+            "type": "integer",
+            "format": "int64"
+          },
           "isAgreementSign": {
             "type": "boolean"
           },
@@ -5967,4 +5971,4 @@
       }
     }
   }
-}
+} 

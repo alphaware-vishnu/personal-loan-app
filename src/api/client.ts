@@ -35,6 +35,15 @@ export const userManagementApi = axios.create({
   },
 });
 
+export const lmsApi = axios.create({
+  baseURL: env.lmsApi,
+  timeout: 15000, // 15 seconds request timeout
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Tenant-Id': env.tenantId,
+  },
+});
+
 // Shared Request Interceptor Handler
 const requestHandler = (config: InternalAxiosRequestConfig) => {
   // Inject auth token if skipAuth is not explicitly true
@@ -117,3 +126,7 @@ api.interceptors.response.use(responseSuccessHandler, responseErrorHandler(api))
 // Apply interceptors to 'userManagementApi' client
 userManagementApi.interceptors.request.use(requestHandler, requestErrorHandler);
 userManagementApi.interceptors.response.use(responseSuccessHandler, responseErrorHandler(userManagementApi));
+
+// Apply interceptors to 'lmsApi' client
+lmsApi.interceptors.request.use(requestHandler, requestErrorHandler);
+lmsApi.interceptors.response.use(responseSuccessHandler, responseErrorHandler(lmsApi));

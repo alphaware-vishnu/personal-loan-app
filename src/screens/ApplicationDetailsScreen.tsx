@@ -20,7 +20,16 @@ import { MotiView } from "../components/Motion";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { getApplicationDetails, getDocumentDownloadPath, getLoanAccountById, createRepayment, initiateAutopay } from "../services/api";
+import {
+  getApplicationDetails,
+  getDocumentDownloadPath,
+  getLoanAccountById,
+  createRepayment,
+  initiateAutopay,
+  initiateManualPayment,
+  verifyManualPayment,
+  getRepaymentSchedule,
+} from "../services/api";
 import {
   initiateESign,
   isDigioSdkSupported,
@@ -37,6 +46,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { DocumentViewer } from "../components/DocumentViewer";
 import Toast from "react-native-toast-message";
 import * as WebBrowser from "expo-web-browser";
+import { isFeatureEnabled } from "../config/features";
+import { env } from "../config/env";
 
 const { width } = Dimensions.get("window");
 
@@ -68,7 +79,7 @@ export const ApplicationDetailsScreen = ({
 
   React.useEffect(() => {
     if (app && !initialTabSet) {
-      if (autoOpenRepay || app.applicationStatus === "DISBURSED" || app.loanAccountId) {
+      if (autoOpenRepay || app.applicationStatus === "DISBURSED" || app.loanAccountId || app.lmsLoanId) {
         setActiveTab("loan");
       }
       setInitialTabSet(true);
@@ -81,7 +92,7 @@ export const ApplicationDetailsScreen = ({
       { key: "documents", label: "Documents", icon: "file-text" },
       { key: "bank", label: "Bank & Charges", icon: "credit-card" },
     ];
-    if (app?.applicationStatus === "DISBURSED" || app?.loanAccountId) {
+    if (app?.applicationStatus === "DISBURSED" || app?.loanAccountId || app?.lmsLoanId) {
       base.unshift({ key: "loan", label: "Loan", icon: "wallet" });
     }
     return base;
@@ -385,117 +396,260 @@ export const ApplicationDetailsScreen = ({
   );
 };
 
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (Platform.OS !== 'web') {
+      resolve(false);
+      return;
+    }
+    if (typeof window === 'undefined') {
+      resolve(false);
+      return;
+    }
+    if ((window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 /* ─────────────────────────────────────────────
  * LOAN ACCOUNT TAB (DISBURSED ONLY)
  * ───────────────────────────────────────────── */
 const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any) => {
   const queryClient = useQueryClient();
-  const { data: response, isLoading } = useQuery({
+  
+  // Standard loan account query
+  const { data: response, isLoading: isAccountLoading } = useQuery({
     queryKey: ["loanAccount", app?.loanAccountId],
     queryFn: () => getLoanAccountById(app.loanAccountId).then((res) => res.data),
     enabled: !!app?.loanAccountId,
   });
+
+  // LMS schedule query
+  const { data: lmsScheduleRes, isLoading: isScheduleLoading } = useQuery({
+    queryKey: ["repaymentSchedule", app?.lmsLoanId],
+    queryFn: () => getRepaymentSchedule(app.lmsLoanId!).then((res) => res.data || res),
+    enabled: !!app?.lmsLoanId,
+  });
+
   const [selectedEmi, setSelectedEmi] = useState<any>(null);
   const [repaymentModalVisible, setRepaymentModalVisible] = useState(false);
-  const [repaymentForm, setRepaymentForm] = useState({
-    paymentMode: "RTGS",
-    refNo: "",
-    remark: ""
-  });
+  const [payAmount, setPayAmount] = useState<string>("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [isFailed, setIsFailed] = useState(false);
-  const [availableUpiApps, setAvailableUpiApps] = useState<any[]>([]);
-  const [selectedUpiApp, setSelectedUpiApp] = useState<any>(null);
-  const [showAllUpiApps, setShowAllUpiApps] = useState(false);
 
-  const UPI_APPS = [
-    { id: 'gpay', name: 'GPay', scheme: 'tez://upi/pay', color: '#4285F4', icon: 'logo-google' },
-    { id: 'paytm', name: 'Paytm', scheme: 'paytmmp://pay', color: '#00baf2', icon: 'wallet' },
-    { id: 'whatsapp', name: 'WhatsApp', scheme: 'whatsapp://upi/pay', color: '#25D366', icon: 'logo-whatsapp' },
-    { id: 'amazon', name: 'Amazon', scheme: 'amazonpay://upi/pay', color: '#FF9900', icon: 'cart' },
-    { id: 'phonepe', name: 'PhonePe', scheme: 'phonepe://pay', color: '#5f259f', icon: 'arrow-forward' },
-    { id: 'cred', name: 'CRED', scheme: 'credpay://upi/pay', color: '#000000', icon: 'card' },
-    { id: 'bhim', name: 'BHIM', scheme: 'bhim://upi/pay', color: '#e67e22', icon: 'flash' },
-    { id: 'slice', name: 'Slice', scheme: 'slice://upi/pay', color: '#9d34da', icon: 'cut' },
-    { id: 'jupiter', name: 'Jupiter', scheme: 'jupiter://upi/pay', color: '#ff7a45', icon: 'planet' },
-    { id: 'navi', name: 'Navi', scheme: 'navi://upi/pay', color: '#00d09c', icon: 'navigate' },
-    { id: 'mobikwik', name: 'MobiKwik', scheme: 'mobikwik://upi/pay', color: '#004BA0', icon: 'card' },
-    { id: 'freecharge', name: 'Freecharge', scheme: 'freecharge://upi/pay', color: '#f36e21', icon: 'battery-full' },
-    { id: 'airtel', name: 'Airtel Pay', scheme: 'airtel://upi/pay', color: '#e40000', icon: 'call' },
-    { id: 'sbi', name: 'YONO SBI', scheme: 'sbi://upi/pay', color: '#2d68b3', icon: 'home' },
-    { id: 'hdfc', name: 'HDFC PayZapp', scheme: 'payzapp://upi/pay', color: '#004c8f', icon: 'wallet' },
-    { id: 'icici', name: 'iMobile', scheme: 'icici://upi/pay', color: '#f28b01', icon: 'business' },
-    { id: 'axis', name: 'Axis Pay', scheme: 'axispay://upi/pay', color: '#971237', icon: 'trending-up' },
-    { id: 'supermoney', name: 'super.money', scheme: 'supermoney://upi/pay', color: '#ffdd00', icon: 'flash' },
-  ];
+  // Mock gateway states
+  const [showMockGateway, setShowMockGateway] = useState(false);
+  const [mockGatewayParams, setMockGatewayParams] = useState<any>(null);
+  const [mockResolve, setMockResolve] = useState<any>(null);
 
-  const launchUpiPayment = async (upiApp: any = null) => {
-    if (!selectedEmi) return;
+  const lmsScheduleData = lmsScheduleRes;
 
-    const vpa = "alphaware@axisbank";
-    const name = "Alphaware LMS";
-    const amount = Number(selectedEmi.emi).toFixed(2);
+  const emis = React.useMemo(() => {
+    if (app?.lmsLoanId && lmsScheduleData) {
+      return lmsScheduleData.map((item: any) => ({
+        id: item.installmentNumber,
+        emiDate: item.dueDate,
+        paymentStatus: item.status === 'PAID' ? 'PAID' : item.status === 'OVERDUE' ? 'OVERDUE' : 'UNPAID',
+        emi: item.emiAmount,
+        principalDue: item.principalComponent,
+        interestDue: item.interestComponent,
+        outstandingPrincipal: item.outstandingPrincipal,
+        outstandingInterest: item.outstandingInterest,
+        paidPrincipal: item.paidPrincipal,
+        paidInterest: item.paidInterest,
+      }));
+    }
+    return response?.data?.emis || [];
+  }, [app, lmsScheduleData, response]);
 
-    const upiUrl = `upi://pay?pa=${vpa}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR`;
-    const params = `?pa=${vpa}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR`;
+  const loan = React.useMemo(() => {
+    if (response?.data) return response.data;
+    
+    // Fallback: Compute summary from lmsScheduleData
+    if (app?.lmsLoanId && lmsScheduleData && lmsScheduleData.length > 0) {
+      const firstInstallment = lmsScheduleData[0];
+      const totalAmount = lmsScheduleData.reduce((acc: number, item: any) => acc + item.emiAmount, 0);
+      const paidAmount = lmsScheduleData.reduce((acc: number, item: any) => acc + (item.paidPrincipal + item.paidInterest), 0);
+      const outstandingBalance = lmsScheduleData.reduce((acc: number, item: any) => acc + (item.outstandingPrincipal + item.outstandingInterest), 0);
+      const overdueAmount = lmsScheduleData.reduce((acc: number, item: any) => {
+        if (item.status === 'OVERDUE') {
+          return acc + (item.emiAmount - (item.paidPrincipal + item.paidInterest));
+        }
+        return acc;
+      }, 0);
 
-    try {
-      if (upiApp) {
-        let intentUrl = upiApp.scheme + params;
+      return {
+        loanAmount: app.requestedAmount || app.disbursalAmount || firstInstallment.openingPrincipal || 0,
+        loanStatus: app.applicationStatus === 'DISBURSED' ? 'ACTIVE' : app.applicationStatus || 'ACTIVE',
+        loanAccountNo: app.loanAccountNo || `LMS-${app.lmsLoanId}`,
+        disbursedOn: app.disbursedOn || app.updatedAt || new Date().toISOString(),
+        outstandingBalance,
+        paidAmount,
+        overdueAmount,
+        totalPayableAmount: outstandingBalance + overdueAmount,
+        emis: lmsScheduleData,
+      };
+    }
 
-        console.log(`Launching UPI App [${upiApp.name}]: ${intentUrl}`);
+    return null;
+  }, [response, app, lmsScheduleData]);
 
-        if (upiApp.id === 'phonepe') {
-          // Special multi-attempt for PhonePe
-          try {
-            await Linking.openURL(intentUrl); // Try phonepe://pay
-          } catch (e) {
-            try {
-              await Linking.openURL(`phonepe://upi/pay${params}`); // Try fallback phonepe scheme
-            } catch (e2) {
-              await Linking.openURL(upiUrl); // Fallback to system chooser
+  const triggerRazorpayCheckout = (params: any): Promise<any> => {
+    return new Promise(async (resolve) => {
+      if (Platform.OS === 'web') {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          resolve({ success: false, error: 'Failed to load Razorpay script' });
+          return;
+        }
+        const options = {
+          key: params.razorpayKeyId,
+          amount: params.amount,
+          currency: params.currency || 'INR',
+          name: 'AlphaWare Finance',
+          description: 'EMI Repayment',
+          order_id: params.razorpayOrderId,
+          handler: function (response: any) {
+            resolve({
+              success: true,
+              paymentId: response.razorpay_payment_id,
+              orderId: response.razorpay_order_id,
+              signature: response.razorpay_signature,
+            });
+          },
+          prefill: {
+            name: params.customerName,
+            email: params.customerEmail,
+            contact: params.customerContact,
+          },
+          modal: {
+            ondismiss: function () {
+              resolve({
+                success: false,
+                error: 'Payment window closed by user.',
+              });
             }
-          }
-        } else {
-          const canOpen = await Linking.canOpenURL(intentUrl);
-          if (canOpen) {
-            await Linking.openURL(intentUrl);
-          } else {
-            console.log(`Fallback to system chooser: ${upiUrl}`);
-            await Linking.openURL(upiUrl);
-          }
-        }
+          },
+          theme: {
+            color: '#7c3aed',
+          },
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
       } else {
-        console.log(`Launching System Chooser: ${upiUrl}`);
-        await Linking.openURL(upiUrl);
-      }
-
-      setTimeout(() => {
-        setIsFailed(true);
-      }, 2000);
-    } catch (e) {
-      setIsFailed(true);
-    }
-  };
-
-  const detectUpiApps = async () => {
-    const installed = [];
-    for (const app of UPI_APPS) {
-      try {
-        const isSupported = await Linking.canOpenURL(app.scheme);
-        if (isSupported) {
-          installed.push(app);
+        // Native SDK check
+        if (isFeatureEnabled('enableRazorpay')) {
+          try {
+            const RazorpayCheckout = require('react-native-razorpay').default;
+            const checkoutOptions = {
+              key: params.razorpayKeyId,
+              order_id: params.razorpayOrderId,
+              amount: params.amount,
+              currency: params.currency,
+              name: 'AlphaWare Finance',
+              description: 'EMI Repayment',
+              prefill: {
+                name: params.customerName,
+                email: params.customerEmail,
+                contact: params.customerContact,
+              },
+              theme: {
+                color: '#7c3aed',
+              },
+            };
+            const response = await RazorpayCheckout.open(checkoutOptions);
+            resolve({
+              success: true,
+              paymentId: response.razorpay_payment_id,
+              orderId: response.razorpay_order_id,
+              signature: response.razorpay_signature,
+            });
+            return;
+          } catch (sdkError) {
+            console.warn('[Razorpay SDK] Failed to open. Falling back to simulation.', sdkError);
+          }
         }
-      } catch (e) {
-        console.log(`Error checking ${app.name}:`, e);
+
+        // Simulation Fallback for Expo Go / Dev Sandbox
+        setMockGatewayParams(params);
+        setMockResolve(() => resolve);
+        setShowMockGateway(true);
       }
-    }
-    setAvailableUpiApps(installed);
+    });
   };
+
+  const manualPaymentMutation = useMutation({
+    mutationFn: async ({ amount }: { amount: number }) => {
+      const payResponse = await initiateManualPayment(app.id, amount);
+      const payData = payResponse?.data || payResponse;
+      return payData;
+    },
+    onSuccess: async (payData) => {
+      try {
+        const result = await triggerRazorpayCheckout({
+          razorpayKeyId: payData.razorpayKeyId,
+          razorpayOrderId: payData.razorpayOrderId,
+          amount: payData.amount,
+          currency: payData.currency || 'INR',
+          customerName: payData.customerName || app.customerName || '',
+          customerEmail: payData.customerEmail || '',
+          customerContact: payData.customerContact || '',
+        });
+
+        if (result.success) {
+          await verifyManualPayment(app.id, {
+            razorpayOrderId: result.orderId!,
+            razorpayPaymentId: result.paymentId!,
+            razorpaySignature: result.signature!,
+          });
+
+          setIsSuccess(true);
+          queryClient.invalidateQueries({ queryKey: ["loanAccount", app.loanAccountId] });
+          queryClient.invalidateQueries({ queryKey: ["repaymentSchedule", app.lmsLoanId] });
+          queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+        } else {
+          setIsFailed(true);
+          Toast.show({
+            type: 'error',
+            text1: 'Payment Cancelled / Failed',
+            text2: result.error || 'The payment was not completed.',
+            position: 'bottom',
+          });
+        }
+      } catch (err: any) {
+        setIsFailed(true);
+        const errorMsg = err.response?.data?.message || err.message || 'Error completing payment.';
+        Toast.show({
+          type: 'error',
+          text1: 'Payment Verification Failed',
+          text2: errorMsg,
+          position: 'bottom',
+        });
+      }
+    },
+    onError: (error: any) => {
+      setIsFailed(true);
+      const errorMsg = error.response?.data?.message || error.message || "Failed to initiate payment";
+      Toast.show({
+        type: 'error',
+        text1: 'Payment Initiation Failed',
+        text2: errorMsg,
+        position: 'bottom',
+      });
+    }
+  });
 
   React.useEffect(() => {
-    if (autoOpenRepay && response?.data?.emis) {
-      const firstUnpaid = response.data.emis.find((e: any) => e.paymentStatus !== "PAID");
+    if (autoOpenRepay && emis.length > 0) {
+      const firstUnpaid = emis.find((e: any) => e.paymentStatus !== "PAID");
       if (firstUnpaid) {
         openRepaymentModal(firstUnpaid);
       } else if (autoOpenRepay) {
@@ -507,18 +661,13 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
         });
       }
     }
-  }, [autoOpenRepay, response]);
-
-  React.useEffect(() => {
-    if (repaymentForm.paymentMode === 'UPI') {
-      detectUpiApps();
-    }
-  }, [repaymentForm.paymentMode]);
+  }, [autoOpenRepay, emis]);
 
   const openRepaymentModal = (emi: any) => {
     setSelectedEmi(emi);
-    setRepaymentForm({ paymentMode: "RTGS", refNo: "", remark: "" });
+    setPayAmount(String(emi.emi));
     setIsSuccess(false);
+    setIsFailed(false);
     setRepaymentModalVisible(true);
   };
 
@@ -528,44 +677,24 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     setIsFailed(false);
   };
 
-  const repaymentMutation = useMutation({
-    mutationFn: (data: any) => createRepayment(data),
-    onSuccess: () => {
-      setIsSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ["loanAccount", app.loanAccountId] });
-    },
-    onError: (error: any) => {
-      setIsFailed(true);
-      const errorMsg = error.response?.data?.message || "Something went wrong";
-      Toast.show({
-        type: 'error',
-        text1: 'Payment Failed',
-        text2: errorMsg,
-        position: 'bottom'
-      });
-    }
-  });
-
   const handleRepay = () => {
     if (!selectedEmi) return;
-
-    if (repaymentForm.paymentMode === 'UPI') {
-      launchUpiPayment(selectedUpiApp);
+    const amount = Number(payAmount);
+    if (isNaN(amount) || amount < 1000) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Amount',
+        text2: 'Minimum repayment amount is ₹1,000.',
+        position: 'bottom'
+      });
       return;
     }
-
-    repaymentMutation.mutate({
-      amount: selectedEmi.emi,
-      paymentMode: repaymentForm.paymentMode,
-      remark: repaymentForm.remark,
-      loanAccountId: app.loanAccountId,
-      emiId: selectedEmi.id,
-      refNo: repaymentForm.refNo,
-      discount: 0
-    });
+    manualPaymentMutation.mutate({ amount });
   };
 
-  if (isLoading || !response) {
+  const isLoading = (!!app?.loanAccountId && isAccountLoading) || (!!app?.lmsLoanId && isScheduleLoading);
+
+  if (isLoading || !loan) {
     return (
       <View className="py-20 items-center justify-center">
         <LottieView
@@ -580,15 +709,13 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     );
   }
 
-  const loan = response.data;
-  const paidEmisCount = loan.emis?.filter((e: any) => e.paymentStatus === "PAID").length || 0;
-  const totalEmisCount = loan.emis?.length || 0;
+  const paidEmisCount = emis?.filter((e: any) => e.paymentStatus === "PAID").length || 0;
+  const totalEmisCount = emis?.length || 0;
   const progressPercent = totalEmisCount > 0
     ? Math.round((paidEmisCount / totalEmisCount) * 100)
     : 0;
 
-  const nextEmi = loan.emis?.find((e: any) => e.paymentStatus === "UNPAID");
-  const payoffDate = loan.emis?.length > 0 ? loan.emis[loan.emis.length - 1].emiDate : loan.closedOn;
+  const payoffDate = emis?.length > 0 ? emis[emis.length - 1].emiDate : loan.closedOn;
 
   return (
     <View>
@@ -633,7 +760,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
           <View className="flex-row justify-between space-x-3 z-10">
             <Pressable
               onPress={() => {
-                const firstUnpaid = loan.emis?.find((emi: any) => emi.paymentStatus !== "PAID");
+                const firstUnpaid = emis?.find((emi: any) => emi.paymentStatus !== "PAID");
                 if (firstUnpaid) {
                   openRepaymentModal(firstUnpaid);
                 } else {
@@ -653,15 +780,6 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
               <Ionicons name="wallet-outline" size={16} color="#4c1d95" />
               <Text className="text-[#4c1d95] font-black text-xs ml-2 tracking-wide">Repay</Text>
             </Pressable>
-            {/* <Pressable 
-              className="flex-1 bg-purple-800/50 flex-row items-center justify-center py-3.5 rounded-2xl border border-white/10 ml-2 active:bg-purple-800/70"
-              style={({ pressed }) => [
-                pressed && { transform: [{ scale: 0.98 }] }
-              ]}
-            >
-              <Ionicons name="document-text-outline" size={16} color="white" />
-              <Text className="text-white font-black text-xs ml-2 tracking-wide">Statement</Text>
-            </Pressable> */}
           </View>
         </LinearGradient>
       </MotiView>
@@ -712,15 +830,14 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
         <View className="flex-row justify-between items-center mb-4">
           <Text style={styles.sectionTitle}>Repayment Schedule</Text>
           <View className="bg-slate-100 px-3 py-1 rounded-full">
-            <Text className="text-slate-600 font-black text-[10px] uppercase">{loan.emis?.length || 0} EMIs</Text>
+            <Text className="text-slate-600 font-black text-[10px] uppercase">{emis?.length || 0} EMIs</Text>
           </View>
         </View>
 
         <View className="bg-white rounded-[24px] border border-slate-100 mb-8 overflow-hidden shadow-sm shadow-slate-200/50">
-          {loan.emis?.map((emi: any, idx: number) => {
+          {emis?.map((emi: any, idx: number) => {
             const isPaid = emi.paymentStatus === "PAID";
             const isOverdue = emi.paymentStatus === "OVERDUE";
-            const isPending = emi.paymentStatus === "UNPAID";
 
             return (
               <Pressable
@@ -730,7 +847,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                     openRepaymentModal(emi);
                   }
                 }}
-                className={`p-5 flex-row justify-between items-center ${idx !== loan.emis.length - 1 ? 'border-b border-slate-50' : ''} ${!isPaid ? 'active:bg-slate-50' : ''}`}
+                className={`p-5 flex-row justify-between items-center ${idx !== emis.length - 1 ? 'border-b border-slate-50' : ''} ${!isPaid ? 'active:bg-slate-50' : ''}`}
                 style={({ pressed }) => [
                   !isPaid && pressed && { opacity: 0.7 }
                 ]}
@@ -762,7 +879,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   </View>
                   {!isPaid && (
                     <View className="bg-purple-600 px-4 py-2 rounded-xl">
-                      <Text className="text-white text-[10px] font-black tracking-widest uppercase">Repay</Text>
+                      <Text className="text-white text-[10px] font-black tracking-widest uppercase">Pay Now</Text>
                     </View>
                   )}
                 </View>
@@ -770,7 +887,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
             );
           })}
 
-          {(!loan.emis || loan.emis.length === 0) && (
+          {(!emis || emis.length === 0) && (
             <View className="p-8 items-center">
               <Text className="text-slate-400 font-bold">No schedule available</Text>
             </View>
@@ -802,7 +919,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   }}
                 />
                 <Text className="text-slate-900 text-xl font-black mt-4">Payment Successful!</Text>
-                <Text className="text-slate-500 text-sm mt-2 text-center px-4">Your EMI has been recorded successfully.</Text>
+                <Text className="text-slate-500 text-sm mt-2 text-center px-4">Your EMI payment has been processed successfully.</Text>
               </View>
             ) : isFailed ? (
               <View className="items-center py-10">
@@ -813,7 +930,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   style={{ width: 200, height: 200 }}
                 />
                 <Text className="text-slate-900 text-xl font-black mt-6">Payment Failed</Text>
-                <Text className="text-slate-500 text-sm mt-2 text-center px-8 mb-8">We couldn't process your payment. Please check your network or try a different method.</Text>
+                <Text className="text-slate-500 text-sm mt-2 text-center px-8 mb-8">We couldn't process your payment. Please try again or contact support.</Text>
 
                 <Pressable
                   onPress={() => setIsFailed(false)}
@@ -849,10 +966,10 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                 {selectedEmi && (
                   <LinearGradient
                     colors={["#f3e8ff", "#e9d5ff"]}
-                    className="p-6 rounded-3xl mb-8 flex-row justify-between items-center border border-purple-100 shadow-sm shadow-purple-100"
+                    className="p-6 rounded-3xl mb-6 flex-row justify-between items-center border border-purple-100 shadow-sm shadow-purple-100"
                   >
                     <View>
-                      <Text className="text-purple-600 text-[10px] font-black uppercase tracking-widest mb-1">Due Amount</Text>
+                      <Text className="text-purple-600 text-[10px] font-black uppercase tracking-widest mb-1">Scheduled EMI</Text>
                       <Text className="text-purple-900 text-3xl font-black">{formatCurrency(selectedEmi.emi)}</Text>
                     </View>
                     <View className="items-end">
@@ -864,148 +981,34 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   </LinearGradient>
                 )}
 
-                <View className="mb-6">
-                  <Text className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Payment Mode</Text>
-                  <View className="flex-row flex-wrap">
-                    {["RTGS", "NEFT", "IMPS", "UPI", "CASH"].map((mode) => (
-                      <Pressable
-                        key={mode}
-                        onPress={() => {
-                          console.log("Selecting mode:", mode);
-                          setRepaymentForm((current) => ({ ...current, paymentMode: mode }));
-                          if (mode !== 'UPI') setSelectedUpiApp(null);
-                        }}
-                        className={`px-4 py-2.5 rounded-xl border mr-2 mb-2 ${repaymentForm.paymentMode === mode
-                            ? "bg-purple-600 border-purple-600"
-                            : "bg-white border-slate-200"
-                          } active:scale-95`}
-                        style={({ pressed }) => [
-                          repaymentForm.paymentMode === mode && {
-                            shadowColor: "#7c3aed",
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.2,
-                            shadowRadius: 4,
-                            elevation: 3,
-                          },
-                          pressed && { opacity: 0.8 }
-                        ]}
-                      >
-                        <Text className={`font-bold text-[11px] tracking-wide ${repaymentForm.paymentMode === mode ? "text-white" : "text-slate-600"
-                          }`}>{mode}</Text>
-                      </Pressable>
-                    ))}
+                <View className="mb-8">
+                  <Text className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Repayment Amount (INR)</Text>
+                  <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-1">
+                    <Text className="text-slate-900 text-lg font-black mr-1">₹</Text>
+                    <TextInput
+                      value={payAmount}
+                      onChangeText={setPayAmount}
+                      keyboardType="numeric"
+                      placeholder="Enter payment amount"
+                      placeholderTextColor="#94a3b8"
+                      className="flex-1 py-3.5 text-slate-900 font-black text-lg"
+                    />
                   </View>
-
-                  {/* High Fidelity UPI App Picker */}
-                  {repaymentForm.paymentMode === 'UPI' && (
-                    <MotiView
-                      from={{ opacity: 0, translateY: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, translateY: 0, scale: 1 }}
-                      className="mt-4 bg-slate-50 p-4 rounded-2xl border border-slate-100"
-                    >
-                      <View className="flex-row justify-between items-center mb-3 ml-1">
-                        <Text className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Installed UPI Apps</Text>
-                        {availableUpiApps.length > 4 && (
-                          <Pressable onPress={() => setShowAllUpiApps(!showAllUpiApps)}>
-                            <Text className="text-purple-600 text-[10px] font-black uppercase tracking-widest">
-                              {showAllUpiApps ? "Show Less" : `+${availableUpiApps.length - 4} More`}
-                            </Text>
-                          </Pressable>
-                        )}
-                      </View>
-
-                      <View className="flex-row">
-                        {availableUpiApps.length > 0 ? (
-                          <ScrollView
-                            horizontal={!showAllUpiApps}
-                            showsHorizontalScrollIndicator={false}
-                            className={showAllUpiApps ? "flex-row flex-wrap" : ""}
-                          >
-                            <View className={showAllUpiApps ? "flex-row flex-wrap" : "flex-row"}>
-                              {(showAllUpiApps ? availableUpiApps : availableUpiApps.slice(0, 4)).map((upiApp) => (
-                                <Pressable
-                                  key={upiApp.id}
-                                  onPress={() => {
-                                    setSelectedUpiApp(upiApp);
-                                    launchUpiPayment(upiApp);
-                                  }}
-                                  className="mr-4 mb-4 items-center"
-                                >
-                                  <View
-                                    className={`w-14 h-14 rounded-2xl items-center justify-center border-2 ${selectedUpiApp?.id === upiApp.id ? 'border-purple-600 bg-white' : 'border-transparent bg-white'
-                                      } shadow-sm shadow-slate-200`}
-                                  >
-                                    <View style={{ backgroundColor: upiApp.color }} className="w-10 h-10 rounded-xl items-center justify-center">
-                                      <Ionicons name={upiApp.icon as any} size={20} color="white" />
-                                    </View>
-                                  </View>
-                                  <Text className={`text-[10px] mt-2 font-bold ${selectedUpiApp?.id === upiApp.id ? 'text-purple-600' : 'text-slate-500'
-                                    }`}>{upiApp.name}</Text>
-                                </Pressable>
-                              ))}
-
-                              <Pressable
-                                onPress={() => {
-                                  setSelectedUpiApp(null);
-                                  launchUpiPayment(null);
-                                }}
-                                className="mr-2 mb-4 items-center"
-                              >
-                                <View
-                                  className={`w-14 h-14 rounded-2xl items-center justify-center border-2 ${!selectedUpiApp ? 'border-purple-600 bg-white' : 'border-transparent bg-white'
-                                    } shadow-sm shadow-slate-200`}
-                                >
-                                  <View className="w-10 h-10 rounded-xl bg-slate-100 items-center justify-center">
-                                    <Ionicons name="apps-outline" size={20} color="#64748b" />
-                                  </View>
-                                </View>
-                                <Text className={`text-[10px] mt-2 font-bold ${!selectedUpiApp ? 'text-purple-600' : 'text-slate-500'
-                                  }`}>Others</Text>
-                              </Pressable>
-                            </View>
-                          </ScrollView>
-                        ) : (
-                          <View className="flex-row items-center py-2">
-                            <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center mr-3">
-                              <Ionicons name="flash" size={14} color="#7c3aed" />
-                            </View>
-                            <Text className="text-slate-600 text-xs font-bold">Standard UPI intent will be used</Text>
-                          </View>
-                        )}
-                      </View>
-                    </MotiView>
+                  {Number(payAmount) < 1000 && (
+                    <Text className="text-red-500 text-[10px] font-bold mt-2 ml-1">
+                      ⚠️ Minimum manual repayment amount is ₹1,000.
+                    </Text>
                   )}
-                </View>
-
-                <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-1 mb-4">
-                  <Ionicons name="receipt-outline" size={18} color="#94a3b8" />
-                  <TextInput
-                    value={repaymentForm.refNo}
-                    onChangeText={(t) => setRepaymentForm((current) => ({ ...current, refNo: t }))}
-                    placeholder="Reference No. (UTR/Transaction ID)"
-                    placeholderTextColor="#94a3b8"
-                    className="flex-1 ml-3 py-3.5 text-slate-900 font-bold"
-                  />
-                </View>
-
-                <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-1 mb-8">
-                  <Ionicons name="chatbubble-ellipses-outline" size={18} color="#94a3b8" />
-                  <TextInput
-                    value={repaymentForm.remark}
-                    onChangeText={(t) => setRepaymentForm((current) => ({ ...current, remark: t }))}
-                    placeholder="Add a remark (Optional)"
-                    placeholderTextColor="#94a3b8"
-                    className="flex-1 ml-3 py-3.5 text-slate-900 font-bold"
-                  />
                 </View>
 
                 <Pressable
                   onPress={handleRepay}
-                  disabled={repaymentMutation.isPending}
-                  className={`bg-purple-600 py-4 rounded-2xl flex-row justify-center items-center mb-4 ${repaymentMutation.isPending ? "opacity-50" : "active:opacity-90"
-                    }`}
+                  disabled={manualPaymentMutation.isPending || Number(payAmount) < 1000}
+                  className={`bg-purple-600 py-4 rounded-2xl flex-row justify-center items-center mb-4 ${
+                    manualPaymentMutation.isPending || Number(payAmount) < 1000 ? "opacity-50" : "active:opacity-90"
+                  }`}
                   style={({ pressed }) => [
-                    !repaymentMutation.isPending && {
+                    !(manualPaymentMutation.isPending || Number(payAmount) < 1000) && {
                       shadowColor: "#7c3aed",
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.3,
@@ -1015,7 +1018,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                     pressed && { transform: [{ scale: 0.98 }] }
                   ]}
                 >
-                  {repaymentMutation.isPending ? (
+                  {manualPaymentMutation.isPending ? (
                     <LottieView
                       source={require("../../assets/loader.json")}
                       autoPlay
@@ -1025,7 +1028,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   ) : (
                     <>
                       <Ionicons name="shield-checkmark" size={18} color="white" />
-                      <Text className="text-white font-black text-sm tracking-wide ml-2">Confirm Payment</Text>
+                      <Text className="text-white font-black text-sm tracking-wide ml-2">Proceed to Pay</Text>
                     </>
                   )}
                 </Pressable>
@@ -1039,10 +1042,101 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 
                 <View className="flex-row items-center justify-center pb-2">
                   <Ionicons name="lock-closed" size={10} color="#94a3b8" />
-                  <Text className="text-slate-400 text-[10px] font-bold ml-1">Secure 256-bit encrypted transaction</Text>
+                  <Text className="text-slate-400 text-[10px] font-bold ml-1">Secure payment gateway powered by Razorpay</Text>
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Mock Razorpay Gateway Modal */}
+      <Modal
+        visible={showMockGateway}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowMockGateway(false);
+          if (mockResolve) mockResolve({ success: false, error: 'Cancelled' });
+        }}
+      >
+        <View className="flex-1 bg-slate-900/60 justify-center items-center px-6">
+          <View className="bg-white w-full max-w-sm rounded-[32px] p-6 border border-slate-100 shadow-2xl">
+            {/* Header */}
+            <View className="flex-row items-center justify-between mb-6 pb-4 border-b border-slate-100">
+              <View className="flex-row items-center">
+                <Ionicons name="card" size={24} color="#1E40AF" />
+                <Text className="text-lg font-black text-slate-900 ml-2">razorpay</Text>
+                <View className="bg-blue-50 px-2 py-0.5 rounded-md ml-2 border border-blue-100">
+                  <Text className="text-blue-700 text-[8px] font-black uppercase tracking-wider">Sandbox</Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setShowMockGateway(false);
+                  if (mockResolve) mockResolve({ success: false, error: 'Cancelled' });
+                }}
+                className="w-8 h-8 bg-slate-50 rounded-full items-center justify-center"
+              >
+                <Ionicons name="close" size={16} color="#64748b" />
+              </Pressable>
+            </View>
+
+            {/* Details */}
+            <View className="space-y-4 mb-8">
+              <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <Text className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Payment Amount</Text>
+                <Text className="text-slate-900 text-3xl font-black mt-1">
+                  {formatCurrency((mockGatewayParams?.amount || 0) / 100)}
+                </Text>
+              </View>
+
+              <View className="space-y-2 px-1">
+                <View className="flex-row justify-between">
+                  <Text className="text-[10px] text-slate-400 font-bold uppercase">Order ID</Text>
+                  <Text className="text-[10px] text-slate-700 font-black">{mockGatewayParams?.razorpayOrderId}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-[10px] text-slate-400 font-bold uppercase">Customer</Text>
+                  <Text className="text-[10px] text-slate-700 font-black">{mockGatewayParams?.customerName}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View className="space-y-3">
+              <Pressable
+                onPress={() => {
+                  setShowMockGateway(false);
+                  if (mockResolve) {
+                    mockResolve({
+                      success: true,
+                      paymentId: `pay_mock_${Date.now()}`,
+                      orderId: mockGatewayParams.razorpayOrderId,
+                      signature: `sig_mock_${Date.now()}`,
+                    });
+                  }
+                }}
+                className="bg-blue-600 py-4 rounded-2xl items-center justify-center active:bg-blue-700 shadow-md shadow-blue-500/10"
+              >
+                <Text className="text-white font-black text-sm">Simulate Payment Success</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setShowMockGateway(false);
+                  if (mockResolve) {
+                    mockResolve({
+                      success: false,
+                      error: 'Payment simulated failure/cancellation',
+                    });
+                  }
+                }}
+                className="bg-slate-100 py-4 rounded-2xl items-center justify-center active:bg-slate-200"
+              >
+                <Text className="text-slate-700 font-black text-sm">Cancel Payment</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1088,6 +1182,91 @@ const OverviewTab = ({ app, formatCurrency, formatDate, onResumeStep }: any) => 
     onSuccess: async (response: any) => {
       const mandate = response?.data || response;
       const authUrl = mandate?.authUrl || mandate?.authorizationUrl || mandate?.authorization_url || mandate?.short_url || mandate?.url || mandate?.redirectUrl || mandate?.redirect_url;
+      const subscriptionId = mandate?.subscriptionId;
+
+      if (isFeatureEnabled('enableRazorpay') && subscriptionId) {
+        if (Platform.OS === 'web') {
+          // Web SDK Subscription flow
+          const scriptLoaded = await loadRazorpayScript();
+          if (scriptLoaded) {
+            try {
+              const options = {
+                key: env.razorpayKeyId,
+                subscription_id: subscriptionId,
+                name: 'AlphaWare Finance',
+                description: `EMI AutoPay - ₹${mandate.emiAmount || app.emi || ''}`,
+                prefill: {
+                  name: app.customerName || useLoanStore.getState().customerInfo?.applicantName || '',
+                  contact: app.customerContact || app.customerMobile || useAuthStore.getState().mobile || useLoanStore.getState().customerInfo?.mobileNumber || '',
+                  email: app.customerEmail || useLoanStore.getState().customerInfo?.email || '',
+                },
+                theme: {
+                  color: '#7c3aed',
+                },
+                handler: function (rzpResponse: any) {
+                  Toast.show({
+                    type: 'success',
+                    text1: 'AutoPay Authorized',
+                    text2: 'AutoPay mandate setup completed successfully.',
+                    position: 'bottom',
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+                },
+                modal: {
+                  ondismiss: function () {
+                    Toast.show({
+                      type: 'info',
+                      text1: 'AutoPay Mandate Cancelled',
+                      text2: 'Authorization process was cancelled by the user.',
+                      position: 'bottom',
+                    });
+                  }
+                }
+              };
+              const rzp = new (window as any).Razorpay(options);
+              rzp.open();
+              return;
+            } catch (err: any) {
+              console.warn('[Web Razorpay Subscription] Failed to open Web checkout, falling back to URL:', err);
+            }
+          }
+        } else {
+          // Native SDK Subscription flow
+          try {
+            console.log('[AutoPay Setup] Launching Razorpay SDK for subscription:', subscriptionId);
+            const RazorpayCheckout = require('react-native-razorpay').default;
+
+            const checkoutOptions = {
+              key: env.razorpayKeyId,
+              subscription_id: subscriptionId,
+              name: 'AlphaWare Finance',
+              description: `EMI AutoPay - ₹${mandate.emiAmount || app.emi || ''}`,
+              prefill: {
+                name: app.customerName || useLoanStore.getState().customerInfo?.applicantName || '',
+                contact: app.customerContact || app.customerMobile || useAuthStore.getState().mobile || useLoanStore.getState().customerInfo?.mobileNumber || '',
+                email: app.customerEmail || useLoanStore.getState().customerInfo?.email || '',
+              },
+              theme: {
+                color: '#7c3aed',
+              },
+            };
+
+            const rzpData = await RazorpayCheckout.open(checkoutOptions);
+            console.log('[AutoPay Setup] Razorpay SDK authorized:', rzpData);
+
+            Toast.show({
+              type: 'success',
+              text1: 'AutoPay Authorized',
+              text2: 'AutoPay mandate setup completed successfully.',
+              position: 'bottom',
+            });
+            queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+            return;
+          } catch (sdkError: any) {
+            console.warn('[AutoPay Setup] Razorpay SDK failed or cancelled, falling back to WebBrowser:', sdkError);
+          }
+        }
+      }
 
       if (authUrl) {
         await openGatewayUrl(authUrl);

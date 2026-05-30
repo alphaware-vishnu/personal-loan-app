@@ -2,7 +2,7 @@
  * Bank & Repayment API Services
  */
 
-import { api } from '../api/client';
+import { api, lmsApi } from '../api/client';
 
 export interface RepaymentPayload {
   amount: number;
@@ -65,4 +65,13 @@ export const verifyManualPayment = async (
 ) => {
   const response = await api.post(`/repayment/${applicationId}/pay/verify`, data);
   return response.data; // ApiResponseVoid
+};
+
+/**
+ * Fetch repayment schedule (EMIs) from LMS by loanId
+ * GET /loans/{loanId}/schedule -> relative to lmsApi, it's just `${loanId}/schedule`
+ */
+export const getRepaymentSchedule = async (loanId: number | string) => {
+  const response = await lmsApi.get(`${loanId}/schedule`);
+  return response.data; // ApiResponseListRepaymentScheduleResponse
 };

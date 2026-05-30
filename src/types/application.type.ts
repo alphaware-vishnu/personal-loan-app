@@ -31,6 +31,9 @@ export interface Application {
   bankVerificationCompleted?: boolean;
   loanAgreementCompleted?: boolean;
 
+  lmsLoanId?: number;
+  loanAccountId?: number;
+
   createdAt?: string;
   updatedAt?: string;
 }

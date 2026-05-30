@@ -33,7 +33,7 @@ interface EnvConfig {
 const configs: Record<Environment, EnvConfig> = {
   development: {
     environment: 'development',
-    apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
+    apiBaseUrl: 'https://6hfnsmjd-9092.inc1.devtunnels.ms/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     lmsApi: 'https://6hfnsmjd-8085.inc1.devtunnels.ms/api/v1/loans/',
     tenantId: 'product-dev',
@@ -55,7 +55,7 @@ const configs: Record<Environment, EnvConfig> = {
   },
   staging: {
     environment: 'staging',
-    apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
+    apiBaseUrl: 'https://6hfnsmjd-9092.inc1.devtunnels.ms/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     lmsApi: 'https://6hfnsmjd-8085.inc1.devtunnels.ms/api/v1/loans/',
     tenantId: 'product-dev',
@@ -78,7 +78,7 @@ const configs: Record<Environment, EnvConfig> = {
   production: {
     environment: 'production',
     // apiBaseUrl: 'https://apipersonalproduct.alphawarenext.com/api/lms',
-    apiBaseUrl: 'https://personal-product.alfinnext.com/api/los-personal/',
+    apiBaseUrl: 'https://6hfnsmjd-9092.inc1.devtunnels.ms/api/los-personal/',
     userManagement: 'https://ums-product.alfinnext.com/api/user-management/',
     lmsApi: 'https://6hfnsmjd-8085.inc1.devtunnels.ms/api/v1/loans/',
     tenantId: 'product-dev',

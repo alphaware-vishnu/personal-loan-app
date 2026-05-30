@@ -58,7 +58,7 @@ const defaultFlags: FeatureFlags = {
   enableOfflineDrafts: true,
   enableAnalytics: false,
   enableNetworkDebug: true,
-  enableRazorpay: false, // Requires expo-dev-client build; enable when ready
+  enableRazorpay: true, // Requires expo-dev-client build; enable when ready
 };
 
 // In-memory store for remote overrides
