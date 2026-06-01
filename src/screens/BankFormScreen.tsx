@@ -23,13 +23,52 @@ export interface BankDetails {
 
 import { useLoanStore } from "../store/loanStore";
 import { DocumentUploadField } from "../components/DocumentUploadField";
-import { updateStepStatus } from "../services/api";
+import { updateStepStatus, pennyDrop } from "../services/api";
 import { cleanNameInput } from "../utils";
 import Toast from 'react-native-toast-message';
 
 export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack }) => {
   const { documentRequirements, uploadedDocs, addCustomerBank, applicationId } = useLoanStore();
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
+
+  const [verificationState, setVerificationState] = useState<'idle' | 'verifying' | 'success' | 'failed'>('idle');
+  const [verifiedName, setVerifiedName] = useState("");
+  const [verificationError, setVerificationError] = useState("");
+  const [lastVerifiedKey, setLastVerifiedKey] = useState("");
+
+  const triggerPennyDrop = async (accNum: string, ifscCode: string) => {
+    setVerificationState('verifying');
+    setVerificationError('');
+    try {
+      const response = await pennyDrop({ accountNumber: accNum, ifscCode });
+      const data = response?.data || response;
+      if (data && data.beneficiaryName) {
+        setVerificationState('success');
+        setVerifiedName(data.beneficiaryName);
+        setLastVerifiedKey(`${accNum}_${ifscCode}`);
+        formik.setFieldValue('accountName', data.beneficiaryName);
+        Toast.show({
+          type: 'success',
+          text1: 'Bank Account Verified',
+          text2: `Beneficiary Name: ${data.beneficiaryName}`,
+          position: 'top',
+        });
+      } else {
+        throw new Error("Beneficiary name not found");
+      }
+    } catch (err: any) {
+      console.error("Penny drop failed:", err);
+      setVerificationState('failed');
+      const errorMsg = err.response?.data?.message || err.message || "Failed to verify bank account";
+      setVerificationError(errorMsg);
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: errorMsg,
+        position: 'top',
+      });
+    }
+  };
 
   // Find relevant categories and types from dynamic requirements
   const allDocTypes = documentRequirements.flatMap(r => 
@@ -104,9 +143,31 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
     },
   });
 
+  const cleanAcc = (formik.values.accountNumber || "").trim();
+  const cleanIfsc = (formik.values.ifsc || "").trim().toUpperCase();
+
+  const isValidAcc = /^[0-9]{9,18}$/.test(cleanAcc);
+  const isValidIfsc = /^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanIfsc);
+
+  React.useEffect(() => {
+    if (isValidAcc && isValidIfsc) {
+      const key = `${cleanAcc}_${cleanIfsc}`;
+      if (key !== lastVerifiedKey && verificationState !== 'verifying') {
+        triggerPennyDrop(cleanAcc, cleanIfsc);
+      }
+    } else {
+      if (verificationState !== 'idle') {
+        setVerificationState('idle');
+        setVerifiedName('');
+        setVerificationError('');
+      }
+    }
+  }, [formik.values.accountNumber, formik.values.ifsc, isValidAcc, isValidIfsc]);
+
   const isFormValid =
     formik.isValid &&
     formik.dirty &&
+    verificationState === 'success' &&
     (passbookReq ? !!uploadedDocs[passbookReq.id] : true) &&
     (houseReq ? !!uploadedDocs[houseReq.id] : true);
 
@@ -162,6 +223,7 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
                     className="flex-1 ml-3 text-slate-900 font-medium text-base"
                     value={formik.values.accountName}
                     onBlur={formik.handleBlur('accountName')}
+                    editable={verificationState !== 'success'}
                     onChangeText={(val) => {
                       if (/[^a-zA-Z\s]/.test(val)) {
                         Toast.show({
@@ -177,6 +239,12 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
                       formik.setFieldValue("accountName", val);
                     }}
                   />
+                  {verificationState === 'success' && (
+                    <View className="bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg flex-row items-center">
+                      <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                      <Text className="text-emerald-700 text-[10px] font-black ml-1 uppercase">Verified</Text>
+                    </View>
+                  )}
                 </View>
                 {formik.touched.accountName && formik.errors.accountName && (
                   <Text className="text-red-500 text-[10px] font-bold mt-1 ml-1">{formik.errors.accountName}</Text>
@@ -223,6 +291,59 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
                   <Text className="text-red-500 text-[10px] font-bold mt-1 ml-1">{formik.errors.ifsc}</Text>
                 )}
               </View>
+
+              {/* Automatic Bank Verification Status */}
+              {verificationState !== 'idle' && (
+                <MotiView
+                  from={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`mb-6 p-4 rounded-xl border flex-row items-center ${
+                    verificationState === 'verifying'
+                      ? 'bg-amber-50 border-amber-200'
+                      : verificationState === 'success'
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <View className="mr-3">
+                    {verificationState === 'verifying' ? (
+                      <Ionicons name="sync-outline" size={20} color="#d97706" />
+                    ) : verificationState === 'success' ? (
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#059669" />
+                    ) : (
+                      <Ionicons name="alert-circle-outline" size={20} color="#dc2626" />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className={`text-xs font-bold ${
+                      verificationState === 'verifying'
+                        ? 'text-amber-800'
+                        : verificationState === 'success'
+                        ? 'text-emerald-800'
+                        : 'text-red-800'
+                    }`}>
+                      {verificationState === 'verifying'
+                        ? 'Verifying bank details automatically...'
+                        : verificationState === 'success'
+                        ? 'Account Verified'
+                        : 'Verification Failed'}
+                    </Text>
+                    <Text className={`text-[10px] font-medium mt-0.5 ${
+                      verificationState === 'verifying'
+                        ? 'text-amber-600'
+                        : verificationState === 'success'
+                        ? 'text-emerald-600'
+                        : 'text-red-600'
+                    }`}>
+                      {verificationState === 'verifying'
+                        ? 'We are running a penny-drop to check your bank details.'
+                        : verificationState === 'success'
+                        ? `Beneficiary Name: ${verifiedName}`
+                        : verificationError || 'Invalid details or verification timeout.'}
+                    </Text>
+                  </View>
+                </MotiView>
+              )}
 
               {/* Branch Name */}
               <View className="mb-10">

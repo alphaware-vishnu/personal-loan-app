@@ -29,6 +29,7 @@ import {
   initiateManualPayment,
   verifyManualPayment,
   getRepaymentSchedule,
+  getCustomerProfile,
 } from "../services/api";
 import {
   initiateESign,
@@ -77,6 +78,17 @@ export const ApplicationDetailsScreen = ({
 
   const app = response?.data;
 
+  const { authData } = useAuthStore();
+  const customerId = authData?.customerId;
+
+  const { data: profileResponse } = useQuery({
+    queryKey: ["customer-profile", customerId],
+    queryFn: () => getCustomerProfile(customerId!),
+    enabled: !!customerId,
+  });
+
+  const profile = profileResponse?.data;
+
   React.useEffect(() => {
     if (app && !initialTabSet) {
       if (autoOpenRepay || app.applicationStatus === "DISBURSED" || app.loanAccountId || app.lmsLoanId) {
@@ -90,7 +102,7 @@ export const ApplicationDetailsScreen = ({
     const base = [
       { key: "overview", label: "Overview", icon: "layers" },
       { key: "documents", label: "Documents", icon: "file-text" },
-      { key: "bank", label: "Bank & Charges", icon: "credit-card" },
+      { key: "bank", label: "Bank", icon: "credit-card" },
     ];
     if (app?.applicationStatus === "DISBURSED" || app?.loanAccountId || app?.lmsLoanId) {
       base.unshift({ key: "loan", label: "Loan", icon: "wallet" });
@@ -317,9 +329,23 @@ export const ApplicationDetailsScreen = ({
                 autoOpenRepay={autoOpenRepay}
               />
             )}
-            {activeTab === "overview" && <OverviewTab app={app} formatCurrency={formatCurrency} formatDate={formatDate} onResumeStep={onResumeStep ? () => onResumeStep(getResumeScreen(app)) : undefined} />}
+            {activeTab === "overview" && (
+              <OverviewTab
+                app={app}
+                profile={profile}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                onResumeStep={onResumeStep ? () => onResumeStep(getResumeScreen(app)) : undefined}
+              />
+            )}
             {activeTab === "documents" && <DocumentsTab app={app} />}
-            {activeTab === "bank" && <BankChargesTab app={app} formatCurrency={formatCurrency} />}
+            {activeTab === "bank" && (
+              <BankChargesTab
+                app={app}
+                profile={profile}
+                formatCurrency={formatCurrency}
+              />
+            )}
           </MotiView>
           <View className="h-28" />
         </ScrollView>
@@ -1147,7 +1173,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 /* ─────────────────────────────────────────────
  * OVERVIEW TAB
  * ───────────────────────────────────────────── */
-const OverviewTab = ({ app, formatCurrency, formatDate, onResumeStep }: any) => {
+const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }: any) => {
   const queryClient = useQueryClient();
   const rulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
   const bankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
@@ -1670,6 +1696,27 @@ const OverviewTab = ({ app, formatCurrency, formatDate, onResumeStep }: any) => 
         </View>
       </MotiView>
 
+      {/* Borrower Information */}
+      {profile && (
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 600, delay: 500 }}
+        >
+          <Text style={styles.sectionTitle} className="mb-4">Borrower Information</Text>
+          <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
+            <DetailRow label="Full Name" value={profile.borrowerName} />
+            <DetailRow label="Mobile Number" value={profile.mobile} />
+            <DetailRow label="Email Address" value={profile.email} />
+            <DetailRow label="PAN Card" value={profile.panNumber} />
+            <DetailRow label="Date of Birth" value={profile.dob ? formatDate(profile.dob) : "N/A"} />
+            <DetailRow label="Gender" value={profile.gender ? formatLabel(profile.gender) : "N/A"} />
+            <DetailRow label="Employment" value={profile.employmentType ? formatLabel(profile.employmentType) : "N/A"} />
+            <DetailRow label="Monthly Income" value={profile.monthlyIncome ? formatCurrency(profile.monthlyIncome) : "N/A"} isLast />
+          </View>
+        </MotiView>
+      )}
+
       {/* Professional Remark */}
       {app.remark && (
         <MotiView
@@ -1895,13 +1942,87 @@ const DocumentsTab = ({ app }: any) => {
 /* ─────────────────────────────────────────────
  * BANK & CHARGES TAB
  * ───────────────────────────────────────────── */
-const BankChargesTab = ({ app, formatCurrency }: any) => {
+const BankChargesTab = ({ app, profile, formatCurrency }: any) => {
   const bank = app.applicationBank;
+  const profileBank = profile?.bank;
   const charges = app.charges || app.charge || [];
   const [isAccountVisible, setIsAccountVisible] = useState(false);
+  const [isProfileBankVisible, setIsProfileBankVisible] = useState(false);
 
   return (
     <View className="mt-4">
+      {/* Customer Linked Bank Section */}
+      <View className="flex-row justify-between items-center mb-6 px-2">
+        <Text style={styles.sectionTitle}>Customer Bank Account</Text>
+      </View>
+
+      {profileBank ? (
+        <MotiView
+          from={{ opacity: 0, rotateX: "15deg", scale: 0.95 }}
+          animate={{ opacity: 1, rotateX: "0deg", scale: 1 }}
+          transition={{ type: "timing", duration: 600 }}
+          className="mb-10"
+        >
+          <LinearGradient
+            colors={["#059669", "#10b981"]}
+            className="rounded-[32px] p-8 shadow-xl relative overflow-hidden"
+          >
+            {/* Background Pattern */}
+            <View className="absolute right-0 bottom-0 opacity-10">
+              <MaterialCommunityIcons name="bank" size={180} color="white" />
+            </View>
+
+            <View className="flex-row justify-between items-start mb-12">
+              <View className="w-14 h-10 bg-white/20 rounded-xl items-center justify-center border border-white/20">
+                <Ionicons name="card" size={24} color="white" />
+              </View>
+              <View className="items-end">
+                <Text className="text-white font-black text-sm uppercase tracking-widest">Linked Bank</Text>
+                {profileBank.autoDebitType && (
+                  <View className="bg-white/25 px-2.5 py-0.5 rounded-full mt-1.5 border border-white/10">
+                    <Text className="text-white text-[8px] font-black uppercase tracking-wider">
+                      Auto-Debit: {profileBank.autoDebitType}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-emerald-100/60 text-[10px] font-black uppercase tracking-[3px]">Account Number</Text>
+              <TouchableOpacity onPress={() => setIsProfileBankVisible(!isProfileBankVisible)} className="p-1">
+                <Ionicons name={isProfileBankVisible ? "eye-off-outline" : "eye-outline"} size={18} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </View>
+            <Text className="text-white text-2xl font-black tracking-[4px] mb-10">
+              {profileBank.accountNumber
+                ? isProfileBankVisible
+                  ? profileBank.accountNumber.match(/.{1,4}/g)?.join(' ')
+                  : `•••• •••• •••• ${profileBank.accountNumber.slice(-4)}`
+                : "•••• •••• •••• ••••"}
+            </Text>
+
+            <View className="flex-row justify-between items-end">
+              <View>
+                <Text className="text-emerald-100/60 text-[8px] font-black uppercase tracking-widest mb-1">Account Holder</Text>
+                <Text className="text-white font-black text-sm uppercase">{profileBank.accountHolderName || "Authorized User"}</Text>
+              </View>
+              <View className="items-end">
+                <Text className="text-emerald-100/60 text-[8px] font-black uppercase tracking-widest mb-1">IFSC Code</Text>
+                <Text className="text-white font-black text-sm uppercase">{profileBank.ifscCode || "NOT_SET"}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </MotiView>
+      ) : (
+        <View className="bg-white rounded-[32px] p-10 border border-dashed border-slate-200 mb-10 items-center">
+          <View className="w-16 h-16 bg-slate-50 rounded-[24px] items-center justify-center mb-4">
+            <Ionicons name="business" size={28} color="#94a3b8" />
+          </View>
+          <Text className="text-slate-400 font-black text-sm uppercase tracking-widest">No Bank Linked to Profile</Text>
+        </View>
+      )}
+
       {/* Bank Account Section */}
       <View className="flex-row justify-between items-center mb-6 px-2">
         <Text style={styles.sectionTitle}>Disbursement Account</Text>
@@ -1911,7 +2032,7 @@ const BankChargesTab = ({ app, formatCurrency }: any) => {
         <MotiView
           from={{ opacity: 0, rotateX: "15deg", scale: 0.95 }}
           animate={{ opacity: 1, rotateX: "0deg", scale: 1 }}
-          transition={{ type: "timing", duration: 600 }}
+          transition={{ type: "timing", duration: 600, delay: 100 }}
           className="mb-10"
         >
           <LinearGradient

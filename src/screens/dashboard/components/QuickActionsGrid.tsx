@@ -85,9 +85,10 @@ interface ServiceIconProps {
   item: ServiceItem;
   isDark: boolean;
   index: number;
+  onPress: () => void;
 }
 
-const ServiceIcon: React.FC<ServiceIconProps> = ({ item, isDark, index }) => {
+const ServiceIcon: React.FC<ServiceIconProps> = ({ item, isDark, index, onPress }) => {
   const colors = useColors();
 
   return (
@@ -96,7 +97,7 @@ const ServiceIcon: React.FC<ServiceIconProps> = ({ item, isDark, index }) => {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'timing', duration: 400, delay: index * 50 }}
     >
-      <TouchableOpacity activeOpacity={0.7} style={styles.gridItem}>
+      <TouchableOpacity activeOpacity={0.7} style={styles.gridItem} onPress={onPress}>
         <View
           style={[
             styles.iconContainer,
@@ -140,7 +141,11 @@ const ServiceIcon: React.FC<ServiceIconProps> = ({ item, isDark, index }) => {
   );
 };
 
-export const QuickActionsGrid: React.FC = React.memo(() => {
+interface QuickActionsGridProps {
+  onPressService: (label: string) => void;
+}
+
+export const QuickActionsGrid: React.FC<QuickActionsGridProps> = React.memo(({ onPressService }) => {
   const colors = useColors();
   const { mode } = useTheme();
   const isDark = mode === 'dark';
@@ -175,7 +180,13 @@ export const QuickActionsGrid: React.FC = React.memo(() => {
       >
         <View style={styles.gridRow}>
           {row1.map((item, idx) => (
-            <ServiceIcon key={item.label} item={item} isDark={isDark} index={idx} />
+            <ServiceIcon
+              key={item.label}
+              item={item}
+              isDark={isDark}
+              index={idx}
+              onPress={() => onPressService(item.label)}
+            />
           ))}
         </View>
         <View style={[styles.gridRow, { marginTop: 20 }]}>
@@ -185,6 +196,7 @@ export const QuickActionsGrid: React.FC = React.memo(() => {
               item={item}
               isDark={isDark}
               index={idx + 4}
+              onPress={() => onPressService(item.label)}
             />
           ))}
         </View>

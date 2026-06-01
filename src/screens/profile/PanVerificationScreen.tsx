@@ -4,6 +4,8 @@ import {
   Platform, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgXml } from 'react-native-svg';
+import { ILLUSTRATIONS } from '../../assets/illustrations';
 import { MotiView } from 'moti';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
@@ -206,22 +208,21 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
             transition={{ type: 'timing', duration: 500 }}
             style={styles.content}
           >
-            {/* Header Icon */}
-            <View
-              style={[
-                styles.iconContainer,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(79, 70, 229, 0.12)'
-                    : colors.primaryLight,
-                  borderColor: isDark
-                    ? 'rgba(79, 70, 229, 0.2)'
-                    : 'transparent',
-                  borderWidth: isDark ? 1 : 0,
-                },
-              ]}
-            >
-              <Ionicons name="card" size={32} color={colors.primary} />
+            {/* Header Illustration */}
+            <View style={styles.illustrationContainer}>
+              <MotiView
+                key={isVerified ? 'verified' : 'unverified'}
+                from={{ opacity: 0, scale: 0.9, rotate: '-3deg', translateY: 10 }}
+                animate={{ opacity: 1, scale: 1, rotate: '0deg', translateY: 0 }}
+                transition={{ type: 'spring', damping: 15 }}
+                style={styles.illustrationWrapper}
+              >
+                <SvgXml
+                  xml={isVerified ? ILLUSTRATIONS.certification : ILLUSTRATIONS.dataInput}
+                  width="100%"
+                  height="100%"
+                />
+              </MotiView>
             </View>
 
             <AppText variant="h2" style={[styles.title, { color: colors.text }]}>
@@ -260,23 +261,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
             />
 
             {isVerified && panData && (
-              <MotiView
-                from={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', damping: 15 }}
-                style={[
-                  styles.idCard,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255,255,255,0.02)'
-                      : colors.surface,
-                    borderColor: isDark
-                      ? 'rgba(16,185,129,0.2)'
-                      : 'rgba(16,185,129,0.15)',
-                    shadowColor: colors.shadow,
-                  },
-                ]}
-              >
+              <>
                 {/* Badge header */}
                 <View
                   style={[
@@ -348,7 +333,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
                     </View>
                   </View>
                 </View>
-              </MotiView>
+              </>
             )}
           </MotiView>
         </ScrollView>
@@ -463,5 +448,19 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+  },
+  illustrationContainer: {
+    height: 180,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  illustrationWrapper: {
+    width: 220,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

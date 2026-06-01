@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Dimensions, StyleSheet, Platform } from "react-native";
+import { View, Text, Dimensions, StyleSheet, Platform, Image, Animated } from "react-native";
 import { MotiView } from "moti";
 import { Ionicons, Feather } from "@expo/vector-icons";
 
@@ -18,7 +18,7 @@ interface FloatingIcon {
 interface OnboardingSlideProps {
   title: string;
   description: string;
-  icon: keyof typeof Feather.glyphMap;
+  icon: any;
   highlightWord?: string;
   bgColor?: string;
   textColor?: string;
@@ -36,6 +36,33 @@ export const OnboardingSlide = ({
   descColor = "#6B7280",
   primaryColor = "#4F46E5",
 }: OnboardingSlideProps) => {
+  const floatAnim = React.useRef(new Animated.Value(0)).current;
+  const is3DIcon = icon === 'credit_card_money' || icon === 'wallet_icon' || icon === 'rocket_icon' || icon === 'security';
+
+  React.useEffect(() => {
+    if (is3DIcon) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim, {
+            toValue: 1,
+            duration: 1800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatAnim, {
+            toValue: 0,
+            duration: 1800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [icon]);
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-10, 10],
+  });
+
   // Detect dark mode by checking background luminance
   const isDark =
     bgColor === "#0B0F19" ||
@@ -113,47 +140,51 @@ export const OnboardingSlide = ({
           style={styles.circleContainer}
         >
           {/* Outer Ring — dashed */}
-          <MotiView
-            from={{ scale: 0.9, rotate: "0deg" }}
-            animate={{ scale: 1, rotate: "360deg" }}
-            transition={{
-              loop: true,
-              type: "timing",
-              duration: 20000,
-            }}
-            style={[
-              styles.ring,
-              styles.outerRing,
-              {
-                borderColor: isDark
-                  ? `${primaryColor}25`
-                  : `${primaryColor}18`,
-              },
-            ]}
-          />
+          {!is3DIcon && (
+            <MotiView
+              from={{ scale: 0.9, rotate: "0deg" }}
+              animate={{ scale: 1, rotate: "360deg" }}
+              transition={{
+                loop: true,
+                type: "timing",
+                duration: 20000,
+              }}
+              style={[
+                styles.ring,
+                styles.outerRing,
+                {
+                  borderColor: isDark
+                    ? `${primaryColor}25`
+                    : `${primaryColor}18`,
+                },
+              ]}
+            />
+          )}
 
           {/* Inner Ring — solid */}
-          <MotiView
-            from={{ scale: 0.95, rotate: "360deg" }}
-            animate={{ scale: 1, rotate: "0deg" }}
-            transition={{
-              loop: true,
-              type: "timing",
-              duration: 25000,
-            }}
-            style={[
-              styles.ring,
-              styles.innerRing,
-              {
-                borderColor: isDark
-                  ? `${primaryColor}35`
-                  : `${primaryColor}30`,
-              },
-            ]}
-          />
+          {!is3DIcon && (
+            <MotiView
+              from={{ scale: 0.95, rotate: "360deg" }}
+              animate={{ scale: 1, rotate: "0deg" }}
+              transition={{
+                loop: true,
+                type: "timing",
+                duration: 25000,
+              }}
+              style={[
+                styles.ring,
+                styles.innerRing,
+                {
+                  borderColor: isDark
+                    ? `${primaryColor}35`
+                    : `${primaryColor}30`,
+                },
+              ]}
+            />
+          )}
 
           {/* Floating Icons */}
-          {floatingIcons.map((floatIcon, index) => (
+          {!is3DIcon && floatingIcons.map((floatIcon, index) => (
             <MotiView
               key={index}
               from={{ translateY: -8 }}
@@ -197,9 +228,17 @@ export const OnboardingSlide = ({
 
           {/* Main Center Icon */}
           <MotiView
-            from={{ scale: 0, opacity: 0 }}
+            from={
+              is3DIcon
+                ? { scale: 1, opacity: 1 }
+                : { scale: 0, opacity: 0 }
+            }
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", delay: 400, damping: 15 }}
+            transition={
+              is3DIcon
+                ? { type: 'timing', duration: 0 }
+                : { type: 'spring', delay: 400, damping: 15 }
+            }
             style={styles.mainImageWrapper}
           >
             {/* Pulse behind icon */}
@@ -217,22 +256,40 @@ export const OnboardingSlide = ({
               ]}
             />
 
-            <View
-              style={[
-                styles.mainIconBg,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(30,41,59,0.95)"
-                    : "#FFFFFF",
-                  borderColor: isDark
-                    ? `${primaryColor}30`
-                    : "transparent",
-                  borderWidth: isDark ? 1.5 : 0,
-                },
-              ]}
-            >
-              <Feather name={icon} size={48} color={primaryColor} />
-            </View>
+            {is3DIcon ? (
+              <Animated.View style={{ transform: [{ translateY }] }}>
+                <Image
+                  source={
+                    icon === 'credit_card_money'
+                      ? require('../assets/animations/illustration/3d/credit_card_money.png')
+                      : icon === 'wallet_icon'
+                      ? require('../assets/animations/illustration/3d/wallet_icon.png')
+                      : icon === 'rocket_icon'
+                      ? require('../assets/animations/illustration/3d/rocket_icon.png')
+                      : require('../assets/animations/illustration/3d/security.png')
+                  }
+                  style={styles.customImage}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+            ) : (
+              <View
+                style={[
+                  styles.mainIconBg,
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(30,41,59,0.95)"
+                      : "#FFFFFF",
+                    borderColor: isDark
+                      ? `${primaryColor}30`
+                      : "transparent",
+                    borderWidth: isDark ? 1.5 : 0,
+                  },
+                ]}
+              >
+                <Feather name={icon} size={48} color={primaryColor} />
+              </View>
+            )}
           </MotiView>
         </MotiView>
       </View>
@@ -272,7 +329,7 @@ const styles = StyleSheet.create({
     height: CIRCLE_SIZE + 30,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 36,
+    marginBottom: 10,
   },
   circleContainer: {
     width: CIRCLE_SIZE,
@@ -305,6 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
@@ -332,6 +390,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 8,
+  },
+  customImage: {
+    width: CIRCLE_SIZE * 1.35,
+    height: CIRCLE_SIZE * 1.35,
   },
   textSection: {
     paddingHorizontal: 36,

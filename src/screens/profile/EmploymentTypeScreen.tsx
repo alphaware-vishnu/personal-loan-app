@@ -136,8 +136,8 @@ export const EmploymentTypeScreen: React.FC<EmploymentTypeScreenProps> = ({ onNe
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 0,
+    paddingTop: 15,
   },
   formContainer: {
     flex: 1,

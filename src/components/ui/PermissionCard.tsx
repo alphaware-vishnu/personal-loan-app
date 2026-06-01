@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { useColors, useTheme } from '../../theme';
@@ -10,7 +10,8 @@ const { width } = Dimensions.get('window');
 
 export interface PermissionItem {
   key: string;
-  icon: keyof typeof Ionicons.prototype.props.name;
+  icon?: keyof typeof Ionicons.prototype.props.name;
+  illustration?: any;
   iconBg: string;
   iconColor: string;
   title: string;
@@ -102,10 +103,10 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
         />
 
         <MotiView
-          from={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+          from={{ scale: 0.8, opacity: 0, translateY: 10 }}
+          animate={{ scale: 1, opacity: 1, translateY: 0 }}
           transition={{ type: 'spring', delay: 200, damping: 15 }}
-          style={[
+          style={permission.illustration ? undefined : [
             styles.iconOuter,
             {
               borderColor: isDark
@@ -117,11 +118,19 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
             },
           ]}
         >
-          <Ionicons
-            name={permission.icon as any}
-            size={44}
-            color={permission.iconColor}
-          />
+          {permission.illustration ? (
+            <Image
+              source={permission.illustration}
+              style={{ width: 110, height: 110 }}
+              resizeMode="contain"
+            />
+          ) : (
+            <Ionicons
+              name={permission.icon as any}
+              size={44}
+              color={permission.iconColor}
+            />
+          )}
         </MotiView>
       </View>
 

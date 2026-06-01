@@ -15,7 +15,7 @@ interface PermissionsScreenProps {
 const PERMISSIONS_DATA: PermissionItem[] = [
   {
     key: 'camera',
-    icon: 'camera-outline',
+    illustration: require('../../assets/animations/illustration/3d/camera.webp'),
     iconBg: '#FFF7ED',
     iconColor: '#F97316',
     title: 'Camera Access',
@@ -24,7 +24,7 @@ const PERMISSIONS_DATA: PermissionItem[] = [
   },
   {
     key: 'location',
-    icon: 'location-outline',
+    illustration: require('../../assets/animations/illustration/3d/location.webp'),
     iconBg: '#FFF1F2',
     iconColor: '#FB7185',
     title: 'Location Services',
@@ -33,7 +33,7 @@ const PERMISSIONS_DATA: PermissionItem[] = [
   },
   {
     key: 'notifications',
-    icon: 'notifications-outline',
+    illustration: require('../../assets/animations/illustration/3d/message.webp'),
     iconBg: '#EFF6FF',
     iconColor: '#3B82F6',
     title: 'Notifications',

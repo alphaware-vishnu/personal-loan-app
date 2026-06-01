@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
+import LottieView from 'lottie-react-native';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
 import { StepIndicator } from '../../components/ui/StepIndicator';
@@ -153,12 +154,33 @@ export const PersonalAddressScreen: React.FC<PersonalAddressScreenProps> = ({ on
             transition={{ type: 'timing', duration: 500 }}
             style={styles.content}
           >
-            <AppText variant="h2" style={styles.title}>
-              {COPY.address.personalTitle}
-            </AppText>
-            <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
-              {COPY.address.personalSubtitle}
-            </AppText>
+            <View style={styles.headerSection}>
+              <View style={styles.textContainer}>
+                <AppText variant="h2" style={styles.title}>
+                  {COPY.address.personalTitle}
+                </AppText>
+
+                <AppText
+                  variant="bodyMd"
+                  style={[
+                    styles.subtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {COPY.address.personalSubtitle}
+                </AppText>
+              </View>
+
+              <View style={styles.animationWrapper}>
+                <LottieView
+                  source={require('../../assets/animations/location-lottie.json')}
+                  autoPlay
+                  loop
+                  resizeMode="contain"
+                  style={styles.locationAnimation}
+                />
+              </View>
+            </View>
 
             {formData.workAddress && (
               <TouchableOpacity
@@ -213,34 +235,53 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 8,
   },
   content: {
     flex: 1,
-    marginTop: 24,
+    marginTop: 8,
+    paddingHorizontal: 0,
+  },
+  headerSection: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  textContainer: {
+    width: '65%',
+  },
+  animationWrapper: {
+    position: 'absolute',
+    right: -10,
+    top: -30,
+    width: 150,
+    height: 150,
+  },
+  locationAnimation: {
+    width: 150,
+    height: 150,
+    opacity: 0.75,
   },
   title: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
-    marginBottom: 16,
+    lineHeight: 20,
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   checkboxLabel: {
     marginLeft: 12,
     fontWeight: '500',
   },
   button: {
-    marginTop: 24,
-    marginBottom: 24,
+    marginTop: 16,
+    marginBottom: 12,
   },
   skipButton: {
     marginBottom: 24,

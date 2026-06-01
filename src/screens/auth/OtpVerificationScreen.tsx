@@ -91,7 +91,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         };
         // Log in the user in the secure store
         setAuth(authData, mobile);
-        
+
         // Show success animation in button
         setIsSuccess(true);
 
@@ -176,31 +176,27 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-          {/* Back Button */}
-          <TouchableOpacity
-            onPress={onBack}
-            style={[
-              styles.backButton,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(255,255,255,0.06)'
-                  : colors.backgroundSecondary,
-                borderColor: isDark
-                  ? 'rgba(255,255,255,0.08)'
-                  : colors.border,
-              },
-            ]}
-          >
-            <Ionicons name="arrow-back" size={18} color={colors.text} />
-          </TouchableOpacity>
-
-          <View style={styles.content}>
-            {/* Icon */}
-            <MotiView
-              from={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', delay: 100, damping: 15 }}
+            {/* Back Button */}
+            <TouchableOpacity
+              onPress={onBack}
+              style={[
+                styles.backButton,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255,255,255,0.06)'
+                    : colors.backgroundSecondary,
+                  borderColor: isDark
+                    ? 'rgba(255,255,255,0.08)'
+                    : colors.border,
+                },
+              ]}
             >
+              <Ionicons name="arrow-back" size={18} color={colors.text} />
+            </TouchableOpacity>
+
+            <View style={styles.content}>
+              {/* Icon */}
+
               <View
                 style={[
                   styles.iconContainer,
@@ -217,147 +213,147 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
               >
                 <Feather name="shield" size={36} color={colors.success} />
               </View>
-            </MotiView>
 
-            {/* Title / Subtitle */}
-            <MotiView
-              from={{ opacity: 0, translateY: 15 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', duration: 500, delay: 200 }}
-            >
-              <AppText variant="h2" style={[styles.title, { color: colors.text }]}>
-                Verify your number
-              </AppText>
-              <AppText
-                variant="bodyMd"
-                style={[styles.subtitle, { color: colors.textSecondary }]}
+
+              {/* Title / Subtitle */}
+              <MotiView
+                from={{ opacity: 0, translateY: 15 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'timing', duration: 500, delay: 200 }}
               >
-                We sent a {OTP_LENGTH}-digit code to{' '}
+                <AppText variant="h2" style={[styles.title, { color: colors.text }]}>
+                  Verify your number
+                </AppText>
                 <AppText
                   variant="bodyMd"
-                  style={{ color: colors.text, fontWeight: '700' }}
+                  style={[styles.subtitle, { color: colors.textSecondary }]}
                 >
-                  +91 {mobile}
+                  We sent a {OTP_LENGTH}-digit code to{' '}
+                  <AppText
+                    variant="bodyMd"
+                    style={{ color: colors.text, fontWeight: '700' }}
+                  >
+                    +91 {mobile}
+                  </AppText>
                 </AppText>
-              </AppText>
-            </MotiView>
+              </MotiView>
 
-            {/* OTP Input Fields */}
-            <MotiView
-              from={{ opacity: 0, translateY: 10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', duration: 500, delay: 350 }}
-            >
-              <OtpInput
-                code={otp}
-                onChangeCode={setOtp}
-                length={OTP_LENGTH}
-              />
-            </MotiView>
-
-            {/* Resend Timer / Action */}
-            <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ type: 'timing', duration: 500, delay: 450 }}
-              style={styles.resendContainer}
-            >
-              {canResend ? (
-                <TouchableOpacity
-                  onPress={handleResend}
-                  disabled={resendOtpMutation.isPending}
-                  style={[
-                    styles.resendButton,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(99,102,241,0.12)'
-                        : colors.primaryLight,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="refresh"
-                    size={14}
-                    color={colors.primary}
-                    style={{ marginRight: 5 }}
-                  />
-                  <AppText
-                    variant="bodySm"
-                    style={{ color: colors.primary, fontWeight: '700' }}
-                  >
-                    Resend Code
-                  </AppText>
-                </TouchableOpacity>
-              ) : (
-                <View
-                  style={[
-                    styles.timerContainer,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(255,255,255,0.04)'
-                        : colors.backgroundSecondary,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="time-outline"
-                    size={14}
-                    color={colors.textMuted}
-                    style={{ marginRight: 5 }}
-                  />
-                  <AppText
-                    variant="bodySm"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    Resend code in{' '}
-                    <AppText
-                      variant="bodySm"
-                      style={{ color: colors.text, fontWeight: '700' }}
-                    >
-                      {formatTime(timer)}
-                    </AppText>
-                  </AppText>
-                </View>
-              )}
-            </MotiView>
-
-            {/* Verify CTA */}
-            <MotiView
-              from={{ opacity: 0, translateY: 10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', duration: 500, delay: 500 }}
-            >
-              <AppButton
-                title={isSuccess ? undefined : "Verify & Continue"}
-                variant={isSuccess ? "success" : "primary"}
-                onPress={handleSubmit}
-                disabled={otp.length !== OTP_LENGTH}
-                loading={verifyOtpMutation.isPending && !isSuccess}
-                style={styles.submitButton}
+              {/* OTP Input Fields */}
+              <MotiView
+                from={{ opacity: 0, translateY: 10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'timing', duration: 500, delay: 350 }}
               >
-                {isSuccess && (
-                  <LottieView
-                    source={require('../../../assets/button-success.json')}
-                    autoPlay
-                    loop={false}
-                    style={{ width: 40, height: 40 }}
-                    colorFilters={[
+                <OtpInput
+                  code={otp}
+                  onChangeCode={setOtp}
+                  length={OTP_LENGTH}
+                />
+              </MotiView>
+
+              {/* Resend Timer / Action */}
+              <MotiView
+                from={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ type: 'timing', duration: 500, delay: 450 }}
+                style={styles.resendContainer}
+              >
+                {canResend ? (
+                  <TouchableOpacity
+                    onPress={handleResend}
+                    disabled={resendOtpMutation.isPending}
+                    style={[
+                      styles.resendButton,
                       {
-                        keypath: 'Shape Layer 2',
-                        color: colors.success,
-                      },
-                      {
-                        keypath: 'Shape Layer 1',
-                        color: colors.successLight,
+                        backgroundColor: isDark
+                          ? 'rgba(99,102,241,0.12)'
+                          : colors.primaryLight,
                       },
                     ]}
-                  />
+                  >
+                    <Ionicons
+                      name="refresh"
+                      size={14}
+                      color={colors.primary}
+                      style={{ marginRight: 5 }}
+                    />
+                    <AppText
+                      variant="bodySm"
+                      style={{ color: colors.primary, fontWeight: '700' }}
+                    >
+                      Resend Code
+                    </AppText>
+                  </TouchableOpacity>
+                ) : (
+                  <View
+                    style={[
+                      styles.timerContainer,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255,255,255,0.04)'
+                          : colors.backgroundSecondary,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="time-outline"
+                      size={14}
+                      color={colors.textMuted}
+                      style={{ marginRight: 5 }}
+                    />
+                    <AppText
+                      variant="bodySm"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      Resend code in{' '}
+                      <AppText
+                        variant="bodySm"
+                        style={{ color: colors.text, fontWeight: '700' }}
+                      >
+                        {formatTime(timer)}
+                      </AppText>
+                    </AppText>
+                  </View>
                 )}
-              </AppButton>
-            </MotiView>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              </MotiView>
+
+              {/* Verify CTA */}
+              <MotiView
+                from={{ opacity: 0, translateY: 10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'timing', duration: 500, delay: 500 }}
+              >
+                <AppButton
+                  title={isSuccess ? undefined : "Verify & Continue"}
+                  variant={isSuccess ? "success" : "primary"}
+                  onPress={handleSubmit}
+                  disabled={otp.length !== OTP_LENGTH}
+                  loading={verifyOtpMutation.isPending && !isSuccess}
+                  style={styles.submitButton}
+                >
+                  {isSuccess && (
+                    <LottieView
+                      source={require('../../../assets/button-success.json')}
+                      autoPlay
+                      loop={false}
+                      style={{ width: 40, height: 40 }}
+                      colorFilters={[
+                        {
+                          keypath: 'Shape Layer 2',
+                          color: colors.success,
+                        },
+                        {
+                          keypath: 'Shape Layer 1',
+                          color: colors.successLight,
+                        },
+                      ]}
+                    />
+                  )}
+                </AppButton>
+              </MotiView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </MeshBackground>
   );

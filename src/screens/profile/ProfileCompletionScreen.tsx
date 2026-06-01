@@ -1,22 +1,20 @@
 /**
- * ProfileCompletionScreen — Fibe-inspired celebration screen
- * Displays completion percentage, summary card, and motivational UI.
+ * ProfileCompletionScreen — Minimalistic celebration screen
+ * Displays undraw success illustration, key status badges, and continue CTA.
  */
 
 import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MotiView, MotiText } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import { SvgXml } from 'react-native-svg';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { useColors, useTheme } from '../../theme';
-import { COPY } from '../../constants/copy';
-import { useOnboardingStore } from '../../store/onboardingStore';
-import { getTrackableSteps } from '../../constants/onboardingSteps';
 import { AppText } from '../../components/ui/AppText';
 import { AppButton } from '../../components/ui/AppButton';
+import { ILLUSTRATIONS } from '../../assets/illustrations';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface ProfileCompletionScreenProps {
   onContinue: () => void;
@@ -26,224 +24,101 @@ export const ProfileCompletionScreen: React.FC<ProfileCompletionScreenProps> = (
   const colors = useColors();
   const { mode } = useTheme();
   const isDark = mode === 'dark';
-  const { completedSteps, formData } = useOnboardingStore();
-
-  const trackable = getTrackableSteps();
-  const completedTrackable = trackable.filter(s => completedSteps.includes(s.id));
-  const completionPct = Math.round((completedTrackable.length / trackable.length) * 100);
-
-  const getEmploymentLabel = () => {
-    switch (formData.employmentType) {
-      case 'salaried':
-        return 'Salaried';
-      case 'self_employed':
-        return 'Self-Employed';
-      case 'freelancer':
-        return 'Freelancer';
-      case 'business_owner':
-        return 'Business Owner';
-      default:
-        return 'Not Specified';
-    }
-  };
-
-  const detailItems = [
-    {
-      label: 'Full Name (PAN)',
-      value: formData.panValidation?.name || 'Not Available',
-      icon: 'person',
-    },
-    {
-      label: 'PAN Number',
-      value: formData.panNumber
-        ? `${formData.panNumber.substring(0, 5)}XXXX${formData.panNumber.substring(9)}`
-        : 'Not Available',
-      icon: 'card',
-    },
-    {
-      label: 'Employment Type',
-      value: getEmploymentLabel(),
-      icon: 'briefcase',
-    },
-    ...(formData.companyName
-      ? [{ label: 'Company', value: formData.companyName, icon: 'business' }]
-      : []),
-    ...(formData.workAddress
-      ? [
-          {
-            label: 'Work Address',
-            value: `${formData.workAddress.flatNo}, ${formData.workAddress.city}`,
-            icon: 'location',
-          },
-        ]
-      : []),
-    ...(formData.personalAddress
-      ? [
-          {
-            label: 'Home Address',
-            value: `${formData.personalAddress.flatNo}, ${formData.personalAddress.city}`,
-            icon: 'home',
-          },
-        ]
-      : []),
-  ];
 
   return (
     <ScreenWrapper>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
-          {/* Celebration Badge */}
+          {/* Illustration Container */}
           <MotiView
-            from={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', duration: 1200 }}
-            style={styles.celebrationContainer}
+            from={{ opacity: 0, scale: 0.8, translateY: -20 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 18, delay: 100 }}
+            style={styles.illustrationWrapper}
           >
-            <View
-              style={[
-                styles.celebrationOuter,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(16,185,129,0.08)'
-                    : '#ECFDF5',
-                  borderColor: isDark
-                    ? 'rgba(16,185,129,0.15)'
-                    : '#D1FAE5',
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={
-                  isDark
-                    ? ['rgba(16,185,129,0.15)', 'rgba(16,185,129,0.05)']
-                    : ['#ECFDF5', '#D1FAE5']
-                }
-                style={styles.celebrationInner}
-              >
-                <Ionicons name="checkmark-circle" size={36} color={colors.success} />
-                <MotiText
-                  from={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 500 }}
-                  style={[styles.percentText, { color: colors.success }]}
-                >
-                  {completionPct}%
-                </MotiText>
-                <AppText
-                  variant="caption"
-                  style={[styles.completeLabel, { color: colors.success }]}
-                >
-                  COMPLETE
-                </AppText>
-              </LinearGradient>
-            </View>
+            <SvgXml
+              xml={ILLUSTRATIONS.actionSuccessful}
+              width={width * 0.75}
+              height={width * 0.58}
+            />
           </MotiView>
 
-          {/* Title */}
+          {/* Celebration Header */}
           <MotiView
-            from={{ opacity: 0, translateY: 20 }}
+            from={{ opacity: 0, translateY: 15 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ delay: 300, type: 'timing', duration: 600 }}
+            transition={{ type: 'timing', duration: 500, delay: 300 }}
             style={styles.textContainer}
           >
             <AppText variant="h1" style={[styles.title, { color: colors.text }]}>
-              Profile Setup Complete!
+              Profile Completed!
             </AppText>
             <AppText
               variant="bodyMd"
               style={[styles.subtitle, { color: colors.textSecondary }]}
             >
-              You have completed Step 1 of your application. Great job!
+              Your identity, employment, and address details have been successfully verified. Let's set up your income next.
             </AppText>
           </MotiView>
 
-          {/* Summary Card */}
+          {/* Minimalist Verified Badges */}
           <MotiView
-            from={{ opacity: 0, translateY: 20 }}
+            from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ delay: 500, type: 'timing', duration: 600 }}
-            style={styles.cardContainer}
+            transition={{ type: 'timing', duration: 500, delay: 500 }}
+            style={styles.badgesWrapper}
           >
             <View
               style={[
-                styles.summaryCard,
+                styles.badge,
                 {
-                  backgroundColor: isDark
-                    ? 'rgba(255,255,255,0.04)'
-                    : colors.surface,
-                  borderColor: isDark
-                    ? 'rgba(255,255,255,0.06)'
-                    : colors.border,
+                  backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : '#ECFDF5',
+                  borderColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)',
                 },
               ]}
             >
-              <AppText
-                variant="h3"
-                style={[styles.summaryTitle, { color: colors.text }]}
-              >
-                Verified Details
+              <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+              <AppText variant="caption" style={[styles.badgeText, { color: colors.success }]}>
+                PAN Verified
               </AppText>
+            </View>
 
-              {detailItems.map((item, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.detailRow,
-                    {
-                      borderBottomColor: isDark
-                        ? 'rgba(255,255,255,0.05)'
-                        : colors.borderLight,
-                      borderBottomWidth:
-                        idx < detailItems.length - 1
-                          ? StyleSheet.hairlineWidth
-                          : 0,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.detailIconBox,
-                      {
-                        backgroundColor: isDark
-                          ? 'rgba(16,185,129,0.1)'
-                          : '#ECFDF5',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={item.icon as any}
-                      size={16}
-                      color={colors.success}
-                    />
-                  </View>
-                  <View style={styles.detailTextContainer}>
-                    <AppText
-                      variant="caption"
-                      style={[styles.detailLabel, { color: colors.textMuted }]}
-                    >
-                      {item.label}
-                    </AppText>
-                    <AppText
-                      variant="bodyMd"
-                      style={{
-                        color: colors.text,
-                        fontWeight: '600',
-                        fontSize: 14,
-                      }}
-                    >
-                      {item.value}
-                    </AppText>
-                  </View>
-                </View>
-              ))}
+            <View
+              style={[
+                styles.badge,
+                {
+                  backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : '#ECFDF5',
+                  borderColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)',
+                },
+              ]}
+            >
+              <Ionicons name="location" size={16} color={colors.success} />
+              <AppText variant="caption" style={[styles.badgeText, { color: colors.success }]}>
+                Address Linked
+              </AppText>
+            </View>
+
+            <View
+              style={[
+                styles.badge,
+                {
+                  backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : '#ECFDF5',
+                  borderColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)',
+                },
+              ]}
+            >
+              <Ionicons name="briefcase" size={16} color={colors.success} />
+              <AppText variant="caption" style={[styles.badgeText, { color: colors.success }]}>
+                Work Synced
+              </AppText>
             </View>
           </MotiView>
 
           {/* Action button */}
           <MotiView
-            from={{ opacity: 0, translateY: 20 }}
+            from={{ opacity: 0, translateY: 15 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ delay: 700, type: 'timing', duration: 600 }}
+            transition={{ type: 'timing', duration: 500, delay: 650 }}
             style={styles.actionContainer}
           >
             <AppButton
@@ -261,98 +136,59 @@ export const ProfileCompletionScreen: React.FC<ProfileCompletionScreenProps> = (
 const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 24,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 36,
-    alignItems: 'center',
-  },
-  celebrationContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  celebrationOuter: {
-    width: 140,
-    height: 140,
-    borderRadius: 40,
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: height * 0.05,
+    paddingBottom: 24,
   },
-  celebrationInner: {
-    width: 120,
-    height: 120,
-    borderRadius: 32,
+  illustrationWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  percentText: {
-    fontSize: 26,
-    fontWeight: '900',
-    marginTop: 4,
-  },
-  completeLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginTop: 2,
+    marginBottom: 32,
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 36,
     paddingHorizontal: 12,
   },
   title: {
     textAlign: 'center',
-    marginBottom: 8,
-    fontWeight: '800',
-    fontSize: 26,
+    marginBottom: 12,
+    fontWeight: '900',
+    fontSize: 28,
   },
   subtitle: {
     textAlign: 'center',
     lineHeight: 22,
   },
-  cardContainer: {
-    width: '100%',
-    marginBottom: 28,
+  badgesWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 48,
   },
-  summaryCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 20,
-  },
-  summaryTitle: {
-    marginBottom: 18,
-    fontWeight: '700',
-  },
-  detailRow: {
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
   },
-  detailIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  detailTextContainer: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+  badgeText: {
+    fontWeight: '700',
+    fontSize: 11,
+    letterSpacing: 0.2,
   },
   actionContainer: {
     width: '100%',
-    marginBottom: 40,
+    marginTop: 'auto',
   },
   button: {
     width: '100%',

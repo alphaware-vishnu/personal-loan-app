@@ -66,12 +66,7 @@ export const ProfileScreen = ({ customerId, onBack }: ProfileScreenProps) => {
   }
 
   const StatCard = ({ icon, label, value, color, iconColor }: any) => (
-    <MotiView
-      from={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'timing', duration: 500 }}
-      className="w-[48%] bg-white rounded-[32px] p-5 mb-4 relative shadow-sm shadow-slate-200 border border-slate-50"
-    >
+    <>
       <View style={{ backgroundColor: color }} className="w-10 h-10 rounded-xl items-center justify-center mb-4">
         <Ionicons name={icon} size={18} color={iconColor} />
       </View>
@@ -79,7 +74,8 @@ export const ProfileScreen = ({ customerId, onBack }: ProfileScreenProps) => {
         <Text className="text-slate-900 text-sm font-black mb-1" numberOfLines={1}>{value || "N/A"}</Text>
         <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{label}</Text>
       </View>
-    </MotiView>
+    </>
+    
   );
 
   return (

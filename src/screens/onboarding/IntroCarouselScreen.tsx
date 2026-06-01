@@ -17,25 +17,26 @@ const SLIDES_DATA = [
     title: 'Instant digital approval',
     highlightWord: 'approval',
     description: 'Get verified in minutes with zero paperwork and no branch visits needed.',
-    icon: 'zap' as const,
+    icon: 'credit_card_money' as const,
   },
   {
     title: 'Bank-grade secure processing',
     highlightWord: 'secure',
     description: 'Your personal data is fully encrypted with industry-standard 256-bit AES protection.',
-    icon: 'shield' as const,
+    icon: 'security' as const,
   },
   {
     title: 'Flexible custom repayment',
     highlightWord: 'repayment',
     description: 'Choose repayment schedules and EMI limits that fit your monthly budget comfortably.',
-    icon: 'sliders' as const,
+    icon: 'wallet_icon' as const,
+    size: 2.0
   },
   {
     title: 'Money directly in minutes',
     highlightWord: 'minutes',
     description: 'Once approved, funds are transferred instantly to your verified bank account.',
-    icon: 'check-circle' as const,
+    icon: 'rocket_icon' as const,
   },
 ];
 
@@ -135,7 +136,7 @@ export const IntroCarouselScreen: React.FC<IntroCarouselScreenProps> = ({ onStar
           ref={carouselRef}
           style={{ backgroundColor: 'transparent' }}
           width={width}
-          height={height * 0.58}
+          height={height * 0.64}
           data={SLIDES_DATA}
           onSnapToItem={(index) => setCurrentIndex(index)}
           renderItem={({ item }) => (

@@ -379,25 +379,37 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
         </View>
       )}
 
-      <View style={styles.inputGroup}>
-        <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Flat / House No.</Text>
-        <TextInput
-          style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
-          value={value.flatNo || ''}
-          onChangeText={(text) => updateField('flatNo', text)}
-          placeholder="e.g. Flat 101, House 23"
-          placeholderTextColor={theme.colors.textMuted}
-        />
-      </View>
-
-      {!isWorkAddress && (
+      {!isWorkAddress ? (
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Flat / House No.</Text>
+            <TextInput
+              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
+              value={value.flatNo || ''}
+              onChangeText={(text) => updateField('flatNo', text)}
+              placeholder="e.g. Flat 101"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Building Name</Text>
+            <TextInput
+              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
+              value={value.buildingName || ''}
+              onChangeText={(text) => updateField('buildingName', text)}
+              placeholder="e.g. Oakwood Apts"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+        </View>
+      ) : (
         <View style={styles.inputGroup}>
-          <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Building Name</Text>
+          <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Flat / House No.</Text>
           <TextInput
             style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
-            value={value.buildingName || ''}
-            onChangeText={(text) => updateField('buildingName', text)}
-            placeholder="e.g. Oakwood Apartments, Tech Park"
+            value={value.flatNo || ''}
+            onChangeText={(text) => updateField('flatNo', text)}
+            placeholder="e.g. Flat 101, House 23"
             placeholderTextColor={theme.colors.textMuted}
           />
         </View>
@@ -413,15 +425,27 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
         transition={{ type: 'timing', duration: 400 }}
         style={styles.detailsContainer}
       >
-        <View style={styles.inputGroup}>
-          <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Area / Locality</Text>
-          <TextInput
-            style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
-            value={value.area || ''}
-            onChangeText={(text) => updateField('area', text)}
-            placeholder="e.g. Sector 43, HSR Layout"
-            placeholderTextColor={theme.colors.textMuted}
-          />
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Area / Locality</Text>
+            <TextInput
+              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
+              value={value.area || ''}
+              onChangeText={(text) => updateField('area', text)}
+              placeholder="e.g. HSR Layout"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>State</Text>
+            <TextInput
+              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
+              value={value.stateName || ''}
+              onChangeText={(text) => updateField('stateName', text)}
+              placeholder="State"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
         </View>
 
         <View style={styles.row}>
@@ -448,17 +472,6 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
               placeholderTextColor={theme.colors.textMuted}
             />
           </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>State</Text>
-          <TextInput
-            style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
-            value={value.stateName || ''}
-            onChangeText={(text) => updateField('stateName', text)}
-            placeholder="State"
-            placeholderTextColor={theme.colors.textMuted}
-          />
         </View>
       </MotiView>
     </View>

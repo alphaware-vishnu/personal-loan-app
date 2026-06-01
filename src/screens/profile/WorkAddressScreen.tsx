@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { MotiView } from 'moti';
+import LottieView from 'lottie-react-native';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
 import { StepIndicator } from '../../components/ui/StepIndicator';
@@ -163,12 +164,33 @@ export const WorkAddressScreen: React.FC<WorkAddressScreenProps> = ({ onNext, on
             transition={{ type: 'timing', duration: 500 }}
             style={styles.content}
           >
-            <AppText variant="h2" style={styles.title}>
-              {COPY.address.workTitle}
-            </AppText>
-            <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
-              {COPY.address.workSubtitle}
-            </AppText>
+            <View style={styles.headerSection}>
+              <View style={styles.textContainer}>
+                <AppText variant="h2" style={styles.title}>
+                  {COPY.address.workTitle}
+                </AppText>
+
+                <AppText
+                  variant="bodyMd"
+                  style={[
+                    styles.subtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {COPY.address.workSubtitle}
+                </AppText>
+              </View>
+
+              <View style={styles.animationWrapper}>
+                <LottieView
+                  source={require('../../assets/animations/location-lottie.json')}
+                  autoPlay
+                  loop
+                  resizeMode="contain"
+                  style={styles.locationAnimation}
+                />
+              </View>
+            </View>
 
             <AppInput
               label="Company Name"
@@ -202,23 +224,51 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 8,
   },
+
   content: {
     flex: 1,
-    marginTop: 24,
+    marginTop: 8,
+    paddingHorizontal: 0,
   },
+
+  headerSection: {
+  position: 'relative',
+  marginBottom: 12,
+},
+
+  textContainer: {
+  width: '65%',
+},
+
+  animationWrapper: {
+  position: 'absolute',
+  right: -10,
+  top: -30,
+  width: 150,
+  height: 150,
+},
+
+  locationAnimation: {
+    width: 150,
+    height: 150,
+    opacity: 0.75,
+  },
+
   title: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
+
   subtitle: {
-    marginBottom: 16,
+    lineHeight: 20,
   },
+
   button: {
-    marginTop: 24,
+    marginTop: 16,
     marginBottom: 24,
   },
 });

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View, TouchableOpacity, Linking } from 'react-native';
 import { MotiView } from 'moti';
 import { Feather } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { SafeHeader } from '../../components/layout/SafeHeader';
 import { StepIndicator } from '../../components/ui/StepIndicator';
@@ -221,9 +222,18 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
             Upload your bank statement
           </AppText>
           
-          <AppText variant="bodyMd" style={{ color: colors.textSecondary, marginBottom: 24 }}>
+          <AppText variant="bodyMd" style={{ color: colors.textSecondary, marginBottom: 12 }}>
             Upload the PDF statement of your primary bank account where your income is credited.
           </AppText>
+
+          <View style={styles.animationContainer}>
+            <LottieView
+              source={require('../../assets/animations/statement.json')}
+              autoPlay
+              loop
+              style={styles.lottie}
+            />
+          </View>
 
           {/* Upload Area */}
           {!fileName && (
@@ -354,11 +364,20 @@ export const BankStatementUploadScreen: React.FC<BankStatementUploadScreenProps>
 const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
+    padding: 0,
   },
   content: {
     flex: 1,
-    marginTop: 20,
+    marginTop: 10,
+  },
+  animationContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  lottie: {
+    width: 240,
+    height: 190,
   },
   title: {
     fontSize: 22,

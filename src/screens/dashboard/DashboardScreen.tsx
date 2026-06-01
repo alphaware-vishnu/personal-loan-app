@@ -31,6 +31,10 @@ import { QuickActionsGrid } from './components/QuickActionsGrid';
 import { OfferBanner } from './components/OfferBanner';
 import { LoanSelectionModal } from '../../components/LoanSelectionModal';
 import { AppText } from '../../components/ui/AppText';
+import { EmiCalculatorModal } from './components/EmiCalculatorModal';
+import { ReferEarnModal } from './components/ReferEarnModal';
+import { SupportModal } from './components/SupportModal';
+import { CreditScoreModal } from './components/CreditScoreModal';
 
 interface DashboardScreenProps {
   onStartLoan: () => void;
@@ -50,6 +54,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const colors = useColors();
   const { theme } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
+  const [activeModal, setActiveModal] = useState<'emi' | 'credit' | 'refer' | 'support' | null>(null);
+
+  const handlePressService = (label: string) => {
+    switch (label) {
+      case 'EMI Calc':
+        setActiveModal('emi');
+        break;
+      case 'Credit Score':
+        setActiveModal('credit');
+        break;
+      case 'Refer & Earn':
+        setActiveModal('refer');
+        break;
+      case 'Support':
+        setActiveModal('support');
+        break;
+      default:
+        break;
+    }
+  };
 
   const {
     setScheme,
@@ -283,7 +307,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           )}
 
           {/* Quick Actions Grid */}
-          <QuickActionsGrid />
+          <QuickActionsGrid onPressService={handlePressService} />
 
           {/* Instant Loan Schemes Banner */}
           <OfferBanner
@@ -406,6 +430,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           isVisible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSelect={handleSelectScheme}
+        />
+
+        <EmiCalculatorModal
+          isVisible={activeModal === 'emi'}
+          onClose={() => setActiveModal(null)}
+        />
+
+        <ReferEarnModal
+          isVisible={activeModal === 'refer'}
+          onClose={() => setActiveModal(null)}
+        />
+
+        <SupportModal
+          isVisible={activeModal === 'support'}
+          onClose={() => setActiveModal(null)}
+        />
+
+        <CreditScoreModal
+          isVisible={activeModal === 'credit'}
+          onClose={() => setActiveModal(null)}
         />
       </SafeAreaView>
     </MeshBackground>

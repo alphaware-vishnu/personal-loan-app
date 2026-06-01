@@ -147,3 +147,27 @@ export const getStatementDetails = async () => {
   const response = await api.get(`/customer/statement-details`);
   return response.data?.data;
 };
+
+// ─── Penny Drop / Bank Verification Services ───
+
+export interface PennyDropRequest {
+  accountNumber: string;
+  ifscCode: string;
+}
+
+export interface PennyDropResponse {
+  id: number;
+  beneficiaryName: string;
+  borrowerName: string;
+  isNameVerified: boolean;
+}
+
+/**
+ * Automate penny-drop verification for customer bank account.
+ * POST /customer/penny-drop
+ */
+export const pennyDrop = async (payload: PennyDropRequest): Promise<{ data: PennyDropResponse }> => {
+  const response = await api.post(`/customer/penny-drop`, payload);
+  return response.data;
+};
+

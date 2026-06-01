@@ -96,11 +96,7 @@ export const MobileInputScreen: React.FC<MobileInputScreenProps> = ({
 
           <View style={styles.content}>
             {/* Icon */}
-            <MotiView
-              from={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', delay: 100, damping: 15 }}
-            >
+            
               <View
                 style={[
                   styles.iconContainer,
@@ -117,7 +113,7 @@ export const MobileInputScreen: React.FC<MobileInputScreenProps> = ({
               >
                 <Feather name="smartphone" size={36} color={colors.primary} />
               </View>
-            </MotiView>
+         
 
             {/* Title / Subtitle */}
             <MotiView
