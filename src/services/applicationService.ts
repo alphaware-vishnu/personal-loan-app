@@ -61,3 +61,21 @@ export const generateSanctionLetter = async (applicationId: number) => {
   return response.data;
 };
 
+/**
+ * Get status history for an application
+ * GET /application/{id}/status-history
+ */
+export const getApplicationStatusHistory = (applicationId: number) => {
+  return api.get(`/application/${applicationId}/status-history`);
+};
+
+/**
+ * Download signed agreement for an application
+ * GET /application/{id}/signed-agreement/download
+ */
+export const downloadSignedAgreement = (applicationId: number) => {
+  return api.get(`/application/${applicationId}/signed-agreement/download`, {
+    responseType: 'blob',
+  });
+};
+

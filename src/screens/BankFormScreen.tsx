@@ -284,7 +284,7 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
                     className="flex-1 ml-3 text-slate-900 font-medium text-base"
                     value={formik.values.ifsc}
                     onBlur={formik.handleBlur('ifsc')}
-                    onChangeText={formik.handleChange('ifsc')}
+                    onChangeText={(val) => formik.setFieldValue('ifsc', val.toUpperCase().trim())}
                   />
                 </View>
                 {formik.touched.ifsc && formik.errors.ifsc && (

@@ -49,9 +49,9 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryDelayMs: 1000,
     razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv',
     digioEnvironment: 'SANDBOX',
-    digioLogoUrl: 'https://your-company-logo.png', // Replace with your company logo URL
-    digioThemePrimaryColor: '#AB0F0C',
-    digioThemeSecondaryColor: '#AB0F0C',
+    digioLogoUrl: 'https://cbslms.s3.ap-south-1.amazonaws.com/static/Documents/2026/5/28/07cd685d-ee1d-45f1-a35e-b10ba0b1be63.png',
+    digioThemePrimaryColor: '#0c36abff',
+    digioThemeSecondaryColor: '#0c5cabff',
   },
   staging: {
     environment: 'staging',
@@ -71,9 +71,9 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryDelayMs: 1000,
     razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv',
     digioEnvironment: 'SANDBOX',
-    digioLogoUrl: 'https://your-company-logo.png',
-    digioThemePrimaryColor: '#AB0F0C',
-    digioThemeSecondaryColor: '#AB0F0C',
+    digioLogoUrl: 'https://cbslms.s3.ap-south-1.amazonaws.com/static/Documents/2026/5/28/07cd685d-ee1d-45f1-a35e-b10ba0b1be63.png',
+    digioThemePrimaryColor: '#0c36abff',
+    digioThemeSecondaryColor: '#0c5cabff',
   },
   production: {
     environment: 'production',
@@ -94,9 +94,9 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryDelayMs: 1500,
     razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv', // Replace with your Razorpay live key
     digioEnvironment: 'SANDBOX',
-    digioLogoUrl: 'https://your-company-logo.png',
-    digioThemePrimaryColor: '#AB0F0C',
-    digioThemeSecondaryColor: '#AB0F0C',
+    digioLogoUrl: 'https://cbslms.s3.ap-south-1.amazonaws.com/static/Documents/2026/5/28/07cd685d-ee1d-45f1-a35e-b10ba0b1be63.png',
+    digioThemePrimaryColor: '#0c36abff',
+    digioThemeSecondaryColor: '#0c5cabff',
   },
 };
 

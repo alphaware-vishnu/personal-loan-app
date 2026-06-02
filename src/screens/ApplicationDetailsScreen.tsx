@@ -30,6 +30,8 @@ import {
   verifyManualPayment,
   getRepaymentSchedule,
   getCustomerProfile,
+  getApplicationStatusHistory,
+  downloadSignedAgreement,
 } from "../services/api";
 import {
   initiateESign,
@@ -70,6 +72,42 @@ export const ApplicationDetailsScreen = ({
 }: ApplicationDetailsScreenProps) => {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [initialTabSet, setInitialTabSet] = useState(false);
+  const [isDownloadingAgreement, setIsDownloadingAgreement] = useState(false);
+
+  const handleDownloadAgreement = async () => {
+    if (!app) return;
+    setIsDownloadingAgreement(true);
+    try {
+      const response = await downloadSignedAgreement(app.id);
+      
+      if (Platform.OS === 'web') {
+        const blob = new Blob([response.data as any], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Signed_Loan_Agreement_${app.applicationNo || app.id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        Toast.show({
+          type: "success",
+          text1: "Download Complete",
+          text2: "Signed loan agreement PDF saved to downloads.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Failed to download signed agreement:", error);
+      Toast.show({
+        type: "error",
+        text1: "Download Failed",
+        text2: error.response?.data?.message || error.message || "Could not retrieve signed agreement.",
+      });
+    } finally {
+      setIsDownloadingAgreement(false);
+    }
+  };
 
   const { data: response, isLoading, isError } = useQuery({
     queryKey: ["application", applicationId],
@@ -78,6 +116,14 @@ export const ApplicationDetailsScreen = ({
   });
 
   const app = response?.data;
+
+  const { data: statusHistoryResponse } = useQuery({
+    queryKey: ["application-status-history", applicationId],
+    queryFn: () => getApplicationStatusHistory(applicationId).then((res) => res.data),
+    enabled: !!applicationId,
+  });
+
+  const statusHistory = statusHistoryResponse?.data || [];
 
   const { authData } = useAuthStore();
   const customerId = authData?.customerId;
@@ -247,67 +293,74 @@ export const ApplicationDetailsScreen = ({
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
       <View className="flex-1">
-        <View className="bg-white px-6 pb-4 pt-4 border-b border-slate-100 z-50 shadow-sm shadow-slate-200/10">
+        {/* Redesigned Premium Header */}
+        <View className="bg-slate-50 px-6 pt-4 pb-2 border-b border-slate-100 z-50">
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
               onPress={onBack}
-              className="w-10 h-10 items-center justify-center rounded-[16px] bg-slate-50 border border-slate-100 shadow-sm"
+              className="w-10 h-10 items-center justify-center rounded-2xl bg-white border border-slate-200/60 shadow-sm shadow-slate-100/50"
             >
-              <Ionicons name="arrow-back" size={20} color="#1e293b" />
+              <Ionicons name="arrow-back" size={20} color="#0f172a" />
             </TouchableOpacity>
 
-            <View className="flex-row items-center bg-slate-50 px-4 py-2 rounded-full border border-slate-100">
-              <View className={`w-2 h-2 rounded-full mr-3 ${getStatusBg(app.applicationStatus).replace('bg-', 'bg-')}`} style={{ backgroundColor: statusColor }} />
-              <Text className="text-slate-900 text-xs font-black tracking-tight mr-2">
+            <View className="items-center">
+              <Text className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Application ID</Text>
+              <Text className="text-slate-900 font-black text-sm tracking-tight mt-0.5">
                 #{app.applicationNo || app.id}
               </Text>
-              <View className="w-[1px] h-3 bg-slate-200 mx-2" />
-              <Text style={{ color: statusColor }} className="text-[10px] font-black uppercase tracking-widest">
-                {app.applicationStatus}
-              </Text>
-              {stageName ? (
-                <>
-                  <View className="w-[1px] h-3 bg-slate-200 mx-2" />
-                  <Text className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                    {stageName}
-                  </Text>
-                </>
-              ) : null}
             </View>
 
-            <TouchableOpacity className="w-10 h-10 items-center justify-center rounded-[16px] bg-slate-50 border border-slate-100 shadow-sm">
-              <Feather name="more-vertical" size={18} color="#1e293b" />
-            </TouchableOpacity>
+            <View
+              className="px-3.5 py-1.5 rounded-xl border flex-row items-center"
+              style={{
+                backgroundColor: getStatusBg(app.applicationStatus),
+                borderColor: statusColor + '20',
+              }}
+            >
+              <View className="w-1.5 h-1.5 rounded-full mr-2" style={{ backgroundColor: statusColor }} />
+              <Text style={{ color: statusColor }} className="text-[9px] font-black uppercase tracking-widest">
+                {app.applicationStatus}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Exact Match Tab Bar */}
-        <View className="bg-white border-b border-slate-200">
-          <View className="flex-row px-4 py-5 justify-around">
+        {/* Premium Segmented Pill Tab Bar */}
+        <View className="px-6 py-4 bg-slate-50/50">
+          <View className="flex-row bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/50">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
                 <TouchableOpacity
                   key={tab.key}
                   onPress={() => setActiveTab(tab.key)}
-                  className="flex-1 py-4 relative items-center justify-center"
-                  activeOpacity={0.7}
+                  className="flex-1 py-2.5 rounded-xl items-center justify-center relative"
+                  activeOpacity={0.8}
                 >
-                  <Text
-                    className={`text-[12px] font-semibold ${isActive ? "text-[#E85D5D]" : "text-slate-500"
-                      }`}
-                  >
-                    {tab.label}
-                  </Text>
-
                   {isActive && (
                     <MotiView
-                      from={{ scaleX: 0 }}
-                      animate={{ scaleX: 1 }}
-                      transition={{ type: 'timing', duration: 300 }}
-                      className="absolute bottom-[-1px] left-2 right-2 h-[2px] bg-[#E85D5D]"
+                      from={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: 'timing', duration: 200 }}
+                      style={StyleSheet.absoluteFillObject}
+                      className="bg-white rounded-xl shadow-sm border border-slate-200/20"
                     />
                   )}
+                  <View className="flex-row items-center justify-center">
+                    <Feather
+                      name={tab.icon as any}
+                      size={13}
+                      color={isActive ? "#0f172a" : "#64748b"}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      className={`text-[11px] font-black tracking-wide ${
+                        isActive ? "text-slate-900" : "text-slate-500"
+                      }`}
+                    >
+                      {tab.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -337,6 +390,9 @@ export const ApplicationDetailsScreen = ({
                 formatCurrency={formatCurrency}
                 formatDate={formatDate}
                 onResumeStep={onResumeStep ? () => onResumeStep(getResumeScreen(app)) : undefined}
+                statusHistory={statusHistory}
+                onDownloadAgreement={handleDownloadAgreement}
+                isDownloadingAgreement={isDownloadingAgreement}
               />
             )}
             {activeTab === "documents" && <DocumentsTab app={app} />}
@@ -753,33 +809,56 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
         transition={{ type: "timing", duration: 600 }}
       >
         <LinearGradient
-          colors={["#7c3aed", "#4c1d95"]}
-          className="rounded-[32px] p-6 mb-8 mt-2 shadow-xl shadow-purple-500/30 overflow-hidden relative"
+          colors={["#7c3aed", "#5b21b6", "#4c1d95"]}
+          className="rounded-[32px] p-6 mb-8 mt-2 shadow-xl shadow-purple-500/30 overflow-hidden relative border border-white/10"
+          style={{ minHeight: 220 }}
         >
-          {/* Decorative Elements */}
-          <View className="absolute -top-16 -right-16 w-48 h-48 bg-white/5 rounded-full" />
-          <View className="absolute bottom-[-40px] left-[-20px] w-32 h-32 bg-purple-400/20 rounded-full" />
+          {/* Wave/Circle Background Ornaments */}
+          <View className="absolute -right-20 -top-20 w-64 h-64 bg-white/5 rounded-full border border-white/5" />
+          <View className="absolute -left-10 -bottom-10 w-32 h-32 bg-white/5 rounded-full" />
 
-          <View className="flex-row justify-between items-start mb-6 z-10">
-            <View>
-              <Text className="text-purple-200 text-[10px] font-black uppercase tracking-[2px] mb-1">Loan Amount</Text>
-              <Text className="text-white text-3xl font-black tracking-tight">{formatCurrency(loan.loanAmount)}</Text>
+          {/* Card Header */}
+          <View className="flex-row justify-between items-center mb-6">
+            <View className="flex-row items-center space-x-2">
+              <MaterialCommunityIcons name="integrated-circuit-chip" size={28} color="rgba(255,255,255,0.7)" />
+              <Text className="text-white/80 text-[10px] font-black uppercase tracking-[3px] ml-2">AlphaWare Pay</Text>
             </View>
-
-            {/* Custom Progress Ring Replacement */}
-            <View className="w-16 h-16 rounded-full bg-white/10 items-center justify-center border-4 border-yellow-400/80">
-              <Text className="text-white font-black text-sm">{progressPercent}%</Text>
+            <View className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">
+              <Text className="text-white/90 text-[8px] font-black uppercase tracking-wider">
+                {app.productName || "Active Loan"}
+              </Text>
             </View>
           </View>
 
-          <View className="flex-row justify-between items-end border-t border-white/10 pt-4 z-10 mb-6">
+          {/* Card Body */}
+          <View className="flex-row justify-between items-end mb-6">
             <View>
-              <Text className="text-purple-200 text-[9px] font-black uppercase tracking-widest mb-1">Payoff Date</Text>
-              <Text className="text-white font-black">{formatDate(payoffDate)}</Text>
+              <Text className="text-purple-200 text-[9px] font-black uppercase tracking-widest mb-1.5">Outstanding Balance</Text>
+              <Text className="text-white text-3xl font-black tracking-tight">{formatCurrency(loan.outstandingBalance)}</Text>
             </View>
-            <View className="items-end">
-              <Text className="text-purple-200 text-[9px] font-black uppercase tracking-widest mb-1">Loan Status</Text>
-              <Text className="text-white font-black">{loan.loanStatus}</Text>
+            
+            <View className="items-end bg-white/20 border border-white/35 px-4 py-2 rounded-2xl">
+              <Text className="text-[10px] text-white font-black uppercase tracking-wider">{loan.loanStatus}</Text>
+            </View>
+          </View>
+
+          {/* Glassmorphic Stats Bar */}
+          <View className="bg-white/10 border border-white/20 px-4 py-3 rounded-2xl flex-row justify-between mb-5">
+            <View className="flex-1 items-center border-r border-white/15">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Loan Limit</Text>
+              <Text className="text-white text-xs font-black">{formatCurrency(loan.loanAmount)}</Text>
+            </View>
+            <View className="flex-1 items-center border-r border-white/15">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Paid EMIs</Text>
+              <Text className="text-white text-xs font-black">{paidEmisCount}/{totalEmisCount}</Text>
+            </View>
+            <View className="flex-1 items-center border-r border-white/15">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Progress</Text>
+              <Text className="text-white text-xs font-black">{progressPercent}%</Text>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Payoff Date</Text>
+              <Text className="text-white text-xs font-black">{formatDate(payoffDate)}</Text>
             </View>
           </View>
 
@@ -799,13 +878,13 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                   });
                 }
               }}
-              className="flex-1 bg-white flex-row items-center justify-center py-3.5 rounded-2xl mr-2 active:opacity-90"
+              className="flex-1 bg-white/15 border border-white/20 flex-row items-center justify-center py-3.5 rounded-2xl mr-2 active:bg-white/25"
               style={({ pressed }) => [
                 pressed && { transform: [{ scale: 0.98 }] }
               ]}
             >
-              <Ionicons name="wallet-outline" size={16} color="#4c1d95" />
-              <Text className="text-[#4c1d95] font-black text-xs ml-2 tracking-wide">Repay</Text>
+              <Ionicons name="wallet-outline" size={16} color="white" />
+              <Text className="text-white font-black text-xs ml-2 tracking-wide uppercase">Repay EMI</Text>
             </Pressable>
           </View>
         </LinearGradient>
@@ -1174,8 +1253,76 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 /* ─────────────────────────────────────────────
  * OVERVIEW TAB
  * ───────────────────────────────────────────── */
-const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }: any) => {
+const InfoGridCell = ({ icon, label, value, color = "#6366f1" }: any) => (
+  <View className="w-[48%] mb-5 flex-row items-center">
+    <View
+      style={{ backgroundColor: color + '10' }}
+      className="w-9 h-9 rounded-xl items-center justify-center mr-3"
+    >
+      <Feather name={icon as any} size={15} color={color} />
+    </View>
+    <View className="flex-1">
+      <Text className="text-slate-400 text-[9px] font-black uppercase tracking-wider">{label}</Text>
+      <Text className="text-slate-805 font-bold text-xs mt-0.5" numberOfLines={1}>
+        {value || "N/A"}
+      </Text>
+    </View>
+  </View>
+);
+const getStatusBadgeColors = (status: string) => {
+  switch (status) {
+    case "APPROVED":
+    case "BRE_APPROVED":
+    case "SANCTION_SIGNED":
+      return { bg: "bg-emerald-50", text: "text-emerald-600" };
+    case "REJECTED":
+    case "BRE_REJECTED":
+    case "FAILED":
+      return { bg: "bg-red-50", text: "text-red-600" };
+    case "PENDING":
+    case "UNDER_REVIEW":
+    case "BRE_PROCESSING":
+    case "SANCTION_SIGN_INITIATED":
+      return { bg: "bg-amber-50", text: "text-amber-600" };
+    case "DISBURSED":
+      return { bg: "bg-indigo-50", text: "text-indigo-600" };
+    default:
+      return { bg: "bg-slate-100", text: "text-slate-600" };
+  }
+};
+
+const mapStatusLabel = (status: string) => {
+  if (!status) return "N/A";
+  switch (status) {
+    case "BRE_APPROVED":
+      return "Eligibility Approved";
+    case "BRE_REJECTED":
+      return "Eligibility Rejected";
+    case "BRE_PROCESSING":
+      return "Eligibility Processing";
+    case "SANCTION_GENERATED":
+      return "Sanction Generated";
+    case "SANCTION_SIGN_INITIATED":
+      return "Signature Pending";
+    case "SANCTION_SIGNED":
+      return "Agreement Signed";
+    case "DISBURSED":
+      return "Disbursed";
+    case "DRAFT":
+      return "Draft";
+    case "SUBMITTED":
+      return "Submitted";
+    case "UNDER_REVIEW":
+      return "Under Review";
+    default:
+      return status.replace(/_/g, " ");
+  }
+};
+
+const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep, statusHistory, onDownloadAgreement, isDownloadingAgreement }: any) => {
   const queryClient = useQueryClient();
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+
   const rulesEngineCompleted = app.applicationStepStatus?.rulesEngineCompleted ?? app.rulesEngineCompleted;
   const bankVerificationCompleted = app.applicationStepStatus?.bankVerificationCompleted ?? app.bankVerificationCompleted;
   const loanAgreementCompleted = app.applicationStepStatus?.loanAgreementCompleted ?? app.loanAgreementCompleted;
@@ -1183,12 +1330,57 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
   const isCancelledOrRejected = app.applicationStatus === 'CANCELLED' || app.applicationStatus === 'REJECTED';
   const isAutoPayEnabled = app.isAutoPayEnabled ?? false;
   const isAgreementSign = app.isAgreementSign ?? false;
-  const showPendingOverviewActions = !isCancelledOrRejected && (!isAutoPayEnabled || !isAgreementSign);
+  const showPendingOverviewActions = !isCancelledOrRejected;
 
   const rulesEngineActive = !rulesEngineCompleted;
   const bankVerificationActive = rulesEngineCompleted && !bankVerificationCompleted;
   const loanAgreementActive = bankVerificationCompleted && !loanAgreementCompleted;
   const disbursalActive = loanAgreementCompleted && !disbursalCompleted;
+
+  // Chronologically sorted history (oldest first for milestone dates)
+  const historyList = statusHistory
+    ? [...statusHistory].sort((a: any, b: any) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
+    : [];
+
+  // Milestone 1: Profile Setup / Submission
+  const isSubmittedCompleted = app.applicationStatus !== 'DRAFT' || historyList.length > 0;
+  const submittedStatus = isSubmittedCompleted ? 'COMPLETED' : 'IN_PROGRESS';
+  const submittedItem = historyList.find((h: any) => h.toStatus === 'BRE_PROCESSING' || h.toStatus === 'SUBMITTED' || h.toStatus === 'UNDER_REVIEW');
+  const submittedDate = submittedItem?.occurredAt || app.createdOn;
+
+  // Milestone 2: Credit & Eligibility Check (BRE)
+  const breApprovedItem = historyList.find((h: any) => h.toStatus === 'BRE_APPROVED' || h.toStatus === 'SANCTION_GENERATED');
+  const breRejectedItem = historyList.find((h: any) => h.toStatus === 'BRE_REJECTED');
+  const isBreCompleted = !!breApprovedItem || rulesEngineCompleted;
+  const isBreFailed = !!breRejectedItem && !isBreCompleted;
+  const isBreActive = !isBreCompleted && !isBreFailed && (app.applicationStatus === 'BRE_PROCESSING' || app.applicationStatus === 'UNDER_REVIEW' || historyList.some((h: any) => h.toStatus === 'BRE_PROCESSING'));
+  
+  const breStatus = isBreCompleted ? 'COMPLETED' : isBreFailed ? 'FAILED' : isBreActive ? 'IN_PROGRESS' : 'PENDING';
+  const breDate = breApprovedItem?.occurredAt || breRejectedItem?.occurredAt;
+  const breRemark = breApprovedItem?.remark || breRejectedItem?.remark;
+
+  // Milestone 3: Bank Account Verification
+  const isBankCompleted = bankVerificationCompleted || isAgreementSign || loanAgreementCompleted || disbursalCompleted || historyList.some((h: any) => ['SANCTION_GENERATED', 'SANCTION_SIGN_INITIATED', 'SANCTION_SIGNED', 'DISBURSED'].includes(h.toStatus));
+  const isBankActive = isBreCompleted && !isBreFailed && !isBankCompleted;
+  const bankStatus = isBankCompleted ? 'COMPLETED' : isBankActive ? 'IN_PROGRESS' : 'PENDING';
+  const bankDate = historyList.find((h: any) => h.fromStatus === 'BRE_APPROVED' && h.toStatus === 'SANCTION_GENERATED')?.occurredAt || app.updatedAt;
+
+  // Milestone 4: Sanction & Loan Agreement
+  const esignCompletedItem = historyList.find((h: any) => h.toStatus === 'SANCTION_SIGNED');
+  const esignInitiatedItem = historyList.find((h: any) => h.toStatus === 'SANCTION_SIGN_INITIATED');
+  const isAgreementCompleted = !!esignCompletedItem || loanAgreementCompleted || disbursalCompleted;
+  const isAgreementActive = isBankCompleted && !isAgreementCompleted;
+  const agreementStatus = isAgreementCompleted ? 'COMPLETED' : isAgreementActive ? 'IN_PROGRESS' : 'PENDING';
+  const esignDate = esignCompletedItem?.occurredAt || esignInitiatedItem?.occurredAt;
+  const esignRemark = esignCompletedItem?.remark || esignInitiatedItem?.remark;
+
+  // Milestone 5: Loan Disbursal
+  const disbursalItem = historyList.find((h: any) => h.toStatus === 'DISBURSED');
+  const isDisbursalCompleted = !!disbursalItem || disbursalCompleted;
+  const isDisbursalActive = isAgreementCompleted && !isDisbursalCompleted;
+  const disbursalStatus = isDisbursalCompleted ? 'COMPLETED' : isDisbursalActive ? 'IN_PROGRESS' : 'PENDING';
+  const disbursalDate = disbursalItem?.occurredAt;
+  const disbursalRemark = disbursalItem?.remark;
 
   // Determine if there's an action required banner to show
   const showActionBanner = !isCancelledOrRejected && !disbursalCompleted && rulesEngineCompleted && (!bankVerificationCompleted || !loanAgreementCompleted) && !!onResumeStep;
@@ -1396,53 +1588,85 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
 
   return (
     <View>
-      {/* Hero Card - Premium Notched Gradient */}
+      {/* Redesigned Premium Banking Hero Card */}
       <MotiView
-        from={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+        animate={{ opacity: 1, scale: 1, translateY: 0 }}
         transition={{ type: "timing", duration: 600 }}
+        className="mb-8"
       >
-        <NotchedCard style={[styles.heroNotchedCard]} notchColor="#F8FAFC">
-          <LinearGradient
-            colors={["#0F172A", "#1E293B"]}
-            className="rounded-[32px] p-8 relative overflow-hidden h-full"
-          >
-            {/* Subtle Decorative Circle */}
-            <View className="absolute -right-20 -top-20 w-64 h-64 bg-blue-500/10 rounded-full" />
+        <LinearGradient
+          colors={
+            app.applicationStatus === "APPROVED"
+              ? ["#059669", "#047857", "#065f46"]
+              : app.applicationStatus === "DISBURSED"
+              ? ["#6366f1", "#4f46e5", "#3730a3"]
+              : app.applicationStatus === "REJECTED"
+              ? ["#ef4444", "#dc2626", "#991b1b"]
+              : ["#1e293b", "#0f172a", "#020617"]
+          }
+          className="rounded-[32px] p-6 shadow-xl shadow-slate-900/10 overflow-hidden relative border border-white/10"
+          style={{ minHeight: 220 }}
+        >
+          {/* Wave/Circle Background Ornaments */}
+          <View className="absolute -right-20 -top-20 w-64 h-64 bg-white/5 rounded-full border border-white/5" />
+          <View className="absolute -left-10 -bottom-10 w-32 h-32 bg-white/5 rounded-full" />
 
-            <View className="flex-row justify-between items-start mb-8">
-              <View>
-                <Text className="text-blue-400 text-[9px] font-black uppercase tracking-[2px] mb-2">Principal Amount</Text>
-                <Text className="text-white text-3xl font-black tracking-tight">
-                  {formatCurrency(app.requestedAmount)}
-                </Text>
-              </View>
-              <View className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10">
-                <MaterialCommunityIcons name="wallet-outline" size={24} color="#3B82F6" />
-              </View>
+          {/* Card Header */}
+          <View className="flex-row justify-between items-center mb-6">
+            <View className="flex-row items-center space-x-2">
+              <MaterialCommunityIcons name="integrated-circuit-chip" size={28} color="rgba(255,255,255,0.7)" />
+              <Text className="text-white/80 text-[10px] font-black uppercase tracking-[3px] ml-2">AlphaWare Pay</Text>
             </View>
+            <View className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">
+              <Text className="text-white/90 text-[8px] font-black uppercase tracking-wider">
+                {app.productName || "Personal Loan"}
+              </Text>
+            </View>
+          </View>
 
-            {/* Stats Grid - High Fidelity */}
-            <View className="flex-row flex-wrap justify-between pt-6 border-t border-white/5">
-              <View className="w-[48%] mb-6">
-                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Monthly EMI</Text>
-                <Text className="text-white text-base font-black">{formatCurrency(app.emi)}</Text>
-              </View>
-              <View className="w-[48%] mb-6">
-                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Interest</Text>
-                <Text className="text-white text-base font-black">{app.interest}% p.a.</Text>
-              </View>
-              <View className="w-[48%]">
-                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Tenure</Text>
-                <Text className="text-white text-base font-black">{app.tenure} Months</Text>
-              </View>
-              <View className="w-[48%]">
-                <Text className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Disbursal</Text>
-                <Text className="text-white text-base font-black">{formatCurrency(app.disbursalAmount)}</Text>
-              </View>
+          {/* Card Body */}
+          <View className="flex-row justify-between items-end mb-6">
+            <View>
+              <Text className="text-white/60 text-[9px] font-black uppercase tracking-widest mb-1.5">Approved Loan Limit</Text>
+              <Text className="text-white text-3xl font-black tracking-tight">
+                {formatCurrency(app.sanctionedAmount || app.requestedAmount || 0)}
+              </Text>
             </View>
-          </LinearGradient>
-        </NotchedCard>
+            
+            <View className="items-end bg-white/20 border border-white/35 px-4 py-2 rounded-2xl">
+              <Text className="text-[10px] text-white font-black uppercase tracking-wider">{app.applicationStatus}</Text>
+            </View>
+          </View>
+
+          {/* Glassmorphic Stats Bar */}
+          <View className="bg-white/10 border border-white/20 px-4 py-3 rounded-2xl flex-row justify-between">
+            <View className="flex-1 items-center border-r border-white/15">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">EMI</Text>
+              <Text className="text-white text-xs font-black">
+                {formatCurrency(app.emi || app.emiAmount || 0)}
+              </Text>
+            </View>
+            <View className="flex-1 items-center border-r border-white/15">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Tenure</Text>
+              <Text className="text-white text-xs font-black">
+                {app.tenure || app.approvedTenure || 0} Mo.
+              </Text>
+            </View>
+            <View className="flex-1 items-center border-r border-white/15">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Rate</Text>
+              <Text className="text-white text-xs font-black">
+                {app.interest !== undefined ? app.interest : app.approvedInterestRate !== undefined ? app.approvedInterestRate : 0}%
+              </Text>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-white/50 text-[8px] font-black uppercase tracking-wider mb-0.5">Disbursal</Text>
+              <Text className="text-white text-xs font-black">
+                {formatCurrency(app.disbursalAmount || app.sanctionedAmount || 0)}
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
       </MotiView>
 
       {/* Pending Overview Actions */}
@@ -1453,7 +1677,9 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
           transition={{ type: "timing", duration: 500, delay: 120 }}
           style={{ marginBottom: 24 }}
         >
-          <Text style={styles.sectionTitle} className="mb-4">Pending Actions</Text>
+          <Text style={styles.sectionTitle} className="mb-4">
+            {(!isAutoPayEnabled || !isAgreementSign) ? "Pending Actions" : "Loan Documents"}
+          </Text>
           <View className="bg-white rounded-[28px] p-4 border border-slate-100 shadow-sm shadow-slate-200/50">
             {!isAutoPayEnabled && (
               <TouchableOpacity
@@ -1468,7 +1694,7 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
                   backgroundColor: '#f0fdf4',
                   borderWidth: 1,
                   borderColor: '#bbf7d0',
-                  marginBottom: !isAgreementSign ? 12 : 0,
+                  marginBottom: (!isAgreementSign || (isAgreementSign && app.signedLoanAgreementUrl)) ? 12 : 0,
                   opacity: autoPayMutation.isPending ? 0.7 : 1,
                 }}
               >
@@ -1494,7 +1720,7 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
               </TouchableOpacity>
             )}
 
-            {!isAgreementSign && (
+            {!isAgreementSign ? (
               <TouchableOpacity
                 onPress={() => eSignMutation.mutate()}
                 disabled={eSignMutation.isPending}
@@ -1528,6 +1754,42 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
                   />
                 ) : (
                   <Ionicons name="arrow-forward" size={18} color="#2563eb" />
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={onDownloadAgreement}
+                disabled={isDownloadingAgreement}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 16,
+                  borderRadius: 22,
+                  backgroundColor: '#eff6ff',
+                  borderWidth: 1,
+                  borderColor: '#bfdbfe',
+                  opacity: isDownloadingAgreement ? 0.75 : 1,
+                }}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 16, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                  <Ionicons name="document-text-outline" size={22} color="white" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#1e3a8a', fontSize: 14, fontWeight: '900', letterSpacing: 0.1 }}>Download Loan Agreement</Text>
+                  <Text style={{ color: '#1d4ed8', fontSize: 11, fontWeight: '600', marginTop: 3, lineHeight: 16 }}>
+                    Download a copy of your digitally signed loan agreement.
+                  </Text>
+                </View>
+                {isDownloadingAgreement ? (
+                  <LottieView
+                    source={require("../../assets/loader.json")}
+                    autoPlay
+                    loop
+                    style={{ width: 24, height: 24 }}
+                  />
+                ) : (
+                  <Ionicons name="cloud-download-outline" size={18} color="#2563eb" />
                 )}
               </TouchableOpacity>
             )}
@@ -1642,44 +1904,178 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
       >
         <View className="flex-row justify-between items-center mb-4">
           <Text style={styles.sectionTitle}>Track Progress</Text>
-          <TouchableOpacity>
-            <Text className="text-blue-600 text-xs font-black uppercase tracking-widest">History</Text>
-          </TouchableOpacity>
         </View>
 
-        <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
-          <StepItem
+        <View className="bg-white rounded-md p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
+          <StatusMilestoneItem
+            title="Profile Setup"
+            subtitle="Submit borrower profile details"
+            status={submittedStatus}
+            date={submittedDate}
+            formatDate={formatDate}
+          />
+          <StatusMilestoneItem
             title="Rules Engine Check"
-            subtitle="Credit & eligibility verification"
-            isCompleted={rulesEngineCompleted}
-            isActive={rulesEngineActive}
-            isFirst
+            subtitle="Credit check & initial eligibility verification"
+            status={breStatus}
+            date={breDate}
+            remark={breRemark}
+            formatDate={formatDate}
           />
-          <StepItem
+          <StatusMilestoneItem
             title="Bank Verification"
-            subtitle="Validating disbursal account"
-            isCompleted={bankVerificationCompleted}
-            isActive={bankVerificationActive}
-            onAction={bankVerificationActive && onResumeStep ? onResumeStep : undefined}
+            subtitle="Validating disbursal account details"
+            status={bankStatus}
+            date={bankStatus === 'COMPLETED' ? bankDate : undefined}
+            onAction={bankStatus === 'IN_PROGRESS' && onResumeStep ? onResumeStep : undefined}
             actionLabel="Set Up Bank →"
+            formatDate={formatDate}
           />
-          <StepItem
+          <StatusMilestoneItem
             title="Loan Agreement"
-            subtitle="Digital signing & final review"
-            isCompleted={loanAgreementCompleted}
-            isActive={loanAgreementActive}
-            onAction={loanAgreementActive && onResumeStep ? onResumeStep : undefined}
+            subtitle="Digital signing & final contract review"
+            status={agreementStatus}
+            date={agreementStatus === 'COMPLETED' ? esignDate : undefined}
+            remark={agreementStatus === 'COMPLETED' ? esignRemark : undefined}
+            onAction={agreementStatus === 'IN_PROGRESS' && onResumeStep ? onResumeStep : undefined}
             actionLabel="Sign Agreement →"
+            formatDate={formatDate}
           />
-          <StepItem
+          <StatusMilestoneItem
             title="Loan Disbursal"
-            subtitle="Disbursal of funds to bank account"
-            isCompleted={disbursalCompleted}
-            isActive={disbursalActive}
+            subtitle="Transfer of approved funds to your bank account"
+            status={disbursalStatus}
+            date={disbursalDate}
+            remark={disbursalRemark}
+            formatDate={formatDate}
             isLast
           />
         </View>
       </MotiView>
+
+      {/* Detailed Activity Log Accordion */}
+      {historyList.length > 0 && (
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 500, delay: 250 }}
+          style={{ marginBottom: 32 }}
+        >
+          <View className="bg-white rounded-md border border-slate-100 overflow-hidden shadow-sm shadow-slate-200/50">
+            {/* Accordion Header */}
+            <Pressable
+              onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
+              className="p-6 flex-row justify-between items-center bg-white active:bg-slate-50/50"
+            >
+              <View className="flex-row items-center flex-1">
+                <View className="w-10 h-10 bg-slate-100 rounded-2xl items-center justify-center mr-4">
+                  <MaterialCommunityIcons name="history" size={20} color="#475569" />
+                </View>
+                <View>
+                  <Text className="text-slate-900 font-black text-sm">Detailed Activity Log</Text>
+                  <Text className="text-slate-400 text-[10px] font-bold mt-0.5">
+                    {historyList.length} status updates recorded
+                  </Text>
+                </View>
+              </View>
+
+              <MotiView
+                animate={{ rotate: isHistoryExpanded ? "180deg" : "0deg" }}
+                transition={{ type: "timing", duration: 250 }}
+              >
+                <Ionicons name="chevron-down" size={18} color="#64748b" />
+              </MotiView>
+            </Pressable>
+
+            {/* Accordion Content */}
+            {isHistoryExpanded && (
+              <MotiView
+                from={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                transition={{ type: "timing", duration: 300 }}
+                className="px-6 pb-6 pt-2 border-t border-slate-50"
+              >
+                <View className="mb-4 bg-slate-50 px-3 py-2 rounded-xl flex-row items-center">
+                  <Ionicons name="information-circle-outline" size={14} color="#64748b" className="mr-1.5" />
+                  <Text className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+                    Showing latest updates first (Audit Trail)
+                  </Text>
+                </View>
+
+                <View className="pl-2 pr-1">
+                  {[...historyList].reverse().map((item: any, idx: number) => {
+                    const isLastItem = idx === historyList.length - 1;
+                    const fromBadge = getStatusBadgeColors(item.fromStatus);
+                    const toBadge = getStatusBadgeColors(item.toStatus);
+                    const itemDateStr = formatDate(item.occurredAt);
+                    const itemTimeStr = new Date(item.occurredAt).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+
+                    return (
+                      <View key={item.id || idx} className="flex-row">
+                        {/* Timeline bar */}
+                        <View className="items-center mr-4">
+                          <View
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 4,
+                              backgroundColor: item.toStatus === 'BRE_REJECTED' || item.toStatus === 'CANCELLED' ? '#ef4444' : '#6366f1',
+                              marginTop: 18,
+                            }}
+                          />
+                          {!isLastItem && (
+                            <View style={{ width: 1.5, flex: 1, backgroundColor: '#e2e8f0', minHeight: 40 }} />
+                          )}
+                        </View>
+
+                        {/* Event Details */}
+                        <View className="flex-1 pb-6 pt-3">
+                          <View className="flex-row justify-between items-center mb-2 flex-wrap">
+                            {/* Badges fromStatus -> toStatus */}
+                            <View className="flex-row items-center flex-wrap mb-1">
+                              {item.fromStatus ? (
+                                <>
+                                  <View className={`px-2 py-0.5 rounded-lg ${fromBadge.bg}`}>
+                                    <Text className={`text-[9px] font-black uppercase tracking-wider ${fromBadge.text}`}>
+                                      {mapStatusLabel(item.fromStatus)}
+                                    </Text>
+                                  </View>
+                                  <Ionicons name="arrow-forward-sharp" size={10} color="#94a3b8" style={{ marginHorizontal: 6 }} />
+                                </>
+                              ) : null}
+                              <View className={`px-2 py-0.5 rounded-lg ${toBadge.bg}`}>
+                                <Text className={`text-[9px] font-black uppercase tracking-wider ${toBadge.text}`}>
+                                  {mapStatusLabel(item.toStatus)}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text className="text-slate-400 text-[9px] font-black uppercase tracking-wide">
+                              {itemDateStr} • {itemTimeStr}
+                            </Text>
+                          </View>
+
+                          {item.remark ? (
+                            <View className="bg-slate-50/70 border border-slate-100 p-3 rounded-2xl flex-row items-start">
+                              <Feather name="edit-3" size={10} color="#64748b" style={{ marginTop: 2, marginRight: 6 }} />
+                              <Text className="text-slate-600 text-[10px] leading-4 flex-1">
+                                {item.remark}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </MotiView>
+            )}
+          </View>
+        </MotiView>
+      )}
 
       {/* Information Grid */}
       <MotiView
@@ -1688,13 +2084,15 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
         transition={{ type: "timing", duration: 600, delay: 400 }}
       >
         <Text style={styles.sectionTitle} className="mb-4">Loan Particulars</Text>
-        <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
-          <DetailRow label="Loan Product" value={app.productName || "Personal Finance"} />
-          <DetailRow label="Selected Scheme" value={app.schemeName || "Standard Plan"} />
-          <DetailRow label="Interest Model" value={app.interestType || "Reducing Balance"} />
-          <DetailRow label="EMI Frequency" value={app.repaymentFrequency || "Monthly"} />
-          <DetailRow label="Acquisition" value={app.applicationSource || "Direct"} />
-          <DetailRow label="Applied Date" value={formatDate(app.createdOn)} isLast />
+        <View className="bg-white rounded-md p-4 border border-slate-100 mb-8 flex-row flex-wrap justify-between shadow-sm shadow-slate-200/50">
+          <InfoGridCell icon="package" label="Loan Product" value={app.productName || "Personal Finance"} color="#6366f1" />
+          <InfoGridCell icon="file-text" label="Selected Scheme" value={app.schemeName || "Standard Plan"} color="#10b981" />
+          <InfoGridCell icon="clock" label="Tenure" value={app.tenure ? `${app.tenure} Months` : app.approvedTenure ? `${app.approvedTenure} Months` : "N/A"} color="#06b6d4" />
+          <InfoGridCell icon="percent" label="Interest Rate" value={app.interest !== undefined ? `${app.interest}%` : app.approvedInterestRate !== undefined ? `${app.approvedInterestRate}%` : "N/A"} color="#f59e0b" />
+          <InfoGridCell icon="tag" label="Processing Fee" value={app.processingFee !== undefined && app.processingFee !== null ? formatCurrency(app.processingFee) : "N/A"} color="#ec4899" />
+          <InfoGridCell icon="dollar-sign" label="EMI Amount" value={app.emi ? formatCurrency(app.emi) : app.emiAmount ? formatCurrency(app.emiAmount) : "N/A"} color="#8b5cf6" />
+          <InfoGridCell icon="calendar" label="EMI Frequency" value={app.repaymentFrequency || "Monthly"} color="#8b5cf6" />
+          <InfoGridCell icon="clock" label="Applied Date" value={formatDate(app.createdOn)} color="#06b6d4" />
         </View>
       </MotiView>
 
@@ -1706,15 +2104,15 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
           transition={{ type: "timing", duration: 600, delay: 500 }}
         >
           <Text style={styles.sectionTitle} className="mb-4">Borrower Information</Text>
-          <View className="bg-white rounded-[32px] p-6 border border-slate-100 mb-8 shadow-sm shadow-slate-200/50">
-            <DetailRow label="Full Name" value={profile.borrowerName} />
-            <DetailRow label="Mobile Number" value={profile.mobile} />
-            <DetailRow label="Email Address" value={profile.email} />
-            <DetailRow label="PAN Card" value={profile.panNumber} />
-            <DetailRow label="Date of Birth" value={profile.dob ? formatDate(profile.dob) : "N/A"} />
-            <DetailRow label="Gender" value={profile.gender ? formatLabel(profile.gender) : "N/A"} />
-            <DetailRow label="Employment" value={profile.employmentType ? formatLabel(profile.employmentType) : "N/A"} />
-            <DetailRow label="Monthly Income" value={profile.monthlyIncome ? formatCurrency(profile.monthlyIncome) : "N/A"} isLast />
+          <View className="bg-white roundedmd p-5 border border-slate-100 mb-8 flex-row flex-wrap justify-between shadow-sm shadow-slate-200/50">
+            <InfoGridCell icon="user" label="Full Name" value={profile.borrowerName} color="#3b82f6" />
+            <InfoGridCell icon="phone" label="Mobile Number" value={profile.mobile} color="#10b981" />
+            <InfoGridCell icon="mail" label="Email Address" value={profile.email} color="#ef4444" />
+            <InfoGridCell icon="credit-card" label="PAN Card" value={profile.panNumber} color="#f59e0b" />
+            <InfoGridCell icon="calendar" label="Date of Birth" value={profile.dob ? formatDate(profile.dob) : "N/A"} color="#8b5cf6" />
+            <InfoGridCell icon="smile" label="Gender" value={profile.gender ? formatLabel(profile.gender) : "N/A"} color="#ec4899" />
+            <InfoGridCell icon="briefcase" label="Employment" value={profile.employmentType ? formatLabel(profile.employmentType) : "N/A"} color="#6366f1" />
+            <InfoGridCell icon="trending-up" label="Monthly Income" value={profile.monthlyIncome ? formatCurrency(profile.monthlyIncome) : "N/A"} color="#22c55e" />
           </View>
         </MotiView>
       )}
@@ -1823,11 +2221,11 @@ const DocumentsTab = ({ app }: any) => {
           transition={{ delay: gIdx * 100, type: "timing", duration: 500 }}
           className="mb-8"
         >
-          {/* Category Section */}
+          {/* Category Section Header */}
           <View className="flex-row items-center justify-between mb-4 px-2">
             <View className="flex-row items-center">
-              <View className="w-10 h-10 bg-blue-100/50 rounded-2xl items-center justify-center mr-4">
-                <Feather name="layers" size={18} color="#2563eb" />
+              <View className="w-10 h-10 bg-indigo-50 rounded-2xl items-center justify-center mr-4 border border-indigo-100/50">
+                <Ionicons name="folder-open" size={18} color="#6366f1" />
               </View>
               <View>
                 <Text className="text-slate-900 font-black text-sm uppercase tracking-wider">
@@ -1838,9 +2236,9 @@ const DocumentsTab = ({ app }: any) => {
                 </Text>
               </View>
             </View>
-            <View className="bg-slate-200/50 px-3 py-1 rounded-full">
+            <View className="bg-slate-100 px-3 py-1 rounded-full border border-slate-200/55">
               <Text className="text-slate-600 text-[10px] font-black">
-                {group.documentTypes?.length || 0} ITEMS
+                {group.documentTypes?.length || 0} {group.documentTypes?.length === 1 ? 'FILE' : 'FILES'}
               </Text>
             </View>
           </View>
@@ -1854,40 +2252,43 @@ const DocumentsTab = ({ app }: any) => {
               return (
                 <View
                   key={doc.id || dIdx}
-                  className={`bg-white rounded-2xl border ${hasUpload ? "border-emerald-100 shadow-sm shadow-emerald-50" : "border-slate-100 shadow-sm shadow-slate-100"
-                    } p-4`}
+                  className={`bg-white rounded-2xl border ${
+                    hasUpload
+                      ? "border-emerald-100/80 shadow-sm shadow-emerald-50/50 bg-emerald-50/5"
+                      : "border-slate-100 shadow-sm shadow-slate-100 bg-white"
+                  } p-4`}
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center flex-1">
-                      {/* Icon */}
-                      <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${hasUpload ? "bg-emerald-50" : "bg-slate-50"
-                        }`}>
+                      {/* Folder File Icon */}
+                      <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${
+                        hasUpload ? "bg-emerald-50 border border-emerald-100/50" : "bg-slate-50 border border-slate-100"
+                      }`}>
                         {hasUpload && (
-                          <View className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white items-center justify-center z-10">
-                            <Ionicons name="checkmark" size={10} color="white" />
+                          <View className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white items-center justify-center z-10 shadow-sm">
+                            <Ionicons name="checkmark" size={11} color="white" />
                           </View>
                         )}
                         <Ionicons
                           name={getFileIcon(doc.documentName)}
                           size={22}
-                          color={hasUpload ? "#059669" : "#94a3b8"}
+                          color={hasUpload ? "#10b981" : "#94a3b8"}
                         />
                       </View>
 
                       {/* Meta */}
                       <View className="flex-1 pr-2">
-                        <Text className="text-slate-900 font-bold text-[14px] mb-1 tracking-tight">
+                        <Text className="text-slate-900 font-black text-[14px] mb-0.5 tracking-tight">
                           {formatLabel(doc.documentName || "Document")}
                         </Text>
-                        <View className="flex-row items-center">
+                        <View className="flex-row items-center flex-wrap">
                           {doc.isRequired && (
-                            <View className="flex-row items-center mr-3">
-                              <View className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-1.5" />
-                              <Text className="text-slate-500 text-[10px] font-bold">Required</Text>
+                            <View className="flex-row items-center mr-3 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded-lg">
+                              <Text className="text-orange-600 text-[8px] font-black uppercase tracking-wider">Required</Text>
                             </View>
                           )}
-                          <Text className="text-slate-400 text-[10px] font-medium" numberOfLines={1}>
-                            {hasUpload ? "Uploaded successfully" : "Awaiting upload"}
+                          <Text className={`text-[10px] font-bold ${hasUpload ? "text-emerald-600" : "text-slate-400"}`}>
+                            {hasUpload ? "Document verified" : "Awaiting verification/upload"}
                           </Text>
                         </View>
                       </View>
@@ -1897,7 +2298,7 @@ const DocumentsTab = ({ app }: any) => {
                     <View className="items-end pl-2">
                       {hasUpload ? (
                         <TouchableOpacity
-                          className="bg-white border border-emerald-100 px-4 py-2.5 rounded-[12px] flex-row items-center shadow-sm shadow-emerald-50"
+                          className="bg-white border border-emerald-200 px-3.5 py-2.5 rounded-[12px] flex-row items-center shadow-sm shadow-emerald-500/5 active:bg-emerald-50/20"
                           onPress={() => handleViewDocument(doc)}
                           disabled={isDownloading}
                         >
@@ -1906,20 +2307,20 @@ const DocumentsTab = ({ app }: any) => {
                               source={require("../../assets/loader.json")}
                               autoPlay
                               loop
-                              style={{ width: 24, height: 24 }}
+                              style={{ width: 16, height: 16 }}
                             />
                           ) : (
                             <>
-                              <Ionicons name="eye" size={14} color="#059669" />
-                              <Text className="text-emerald-700 text-[12px] font-black ml-1.5 tracking-tight">
+                              <Ionicons name="eye-outline" size={14} color="#059669" />
+                              <Text className="text-emerald-700 text-[11px] font-black ml-1.5 tracking-tight uppercase">
                                 View
                               </Text>
                             </>
                           )}
                         </TouchableOpacity>
                       ) : (
-                        <View className="bg-slate-50 px-3 py-1.5 rounded-lg border border-dashed border-slate-200">
-                          <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Pending</Text>
+                        <View className="bg-slate-50 px-3 py-2 rounded-xl border border-dashed border-slate-200">
+                          <Text className="text-slate-400 text-[9px] font-black uppercase tracking-wider">Pending</Text>
                         </View>
                       )}
                     </View>
@@ -2097,47 +2498,51 @@ const BankChargesTab = ({ app, profile, formatCurrency }: any) => {
       </View>
 
       {charges.length > 0 ? (
-        <View className="bg-white rounded-[32px] border border-slate-100 mb-10 overflow-hidden shadow-sm shadow-slate-200/40">
-          <View className="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex-row justify-between">
-            <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Description</Text>
-            <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Value</Text>
+        <View className="bg-white rounded-[32px] border border-slate-100 mb-10 overflow-hidden shadow-sm shadow-slate-200/40 p-2">
+          {/* Table Header */}
+          <View className="bg-slate-50/70 px-5 py-4 rounded-2xl flex-row justify-between items-center border border-slate-100/60 mb-2">
+            <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Charge Details</Text>
+            <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Value / Rate</Text>
           </View>
 
           {charges.map((charge: any, idx: number) => {
             const isLast = idx === charges.length - 1;
             return (
-              <View key={charge.id || idx} className={`p-6 ${!isLast ? "border-b border-slate-50" : ""}`}>
+              <View key={charge.id || idx} className={`p-4 mx-1 ${!isLast ? "border-b border-slate-100/60" : ""}`}>
                 <View className="flex-row items-center justify-between mb-2">
-                  <View className="flex-row items-center">
-                    <View className="w-8 h-8 bg-slate-100 rounded-xl items-center justify-center mr-4">
-                      <Feather name="percent" size={14} color="#475569" />
+                  <View className="flex-row items-center flex-1 pr-2">
+                    <View className="w-8 h-8 bg-slate-50 rounded-xl items-center justify-center mr-3 border border-slate-100/80">
+                      <Feather name="tag" size={12} color="#64748b" />
                     </View>
-                    <Text className="text-slate-900 font-black text-sm">{charge.name || charge.code || "Service Fee"}</Text>
+                    <View className="flex-1">
+                      <Text className="text-slate-800 font-black text-sm tracking-tight">{charge.name || charge.code || "Service Fee"}</Text>
+                      <View className="flex-row items-center mt-1">
+                        <View className="bg-slate-100 px-1.5 py-0.5 rounded-md mr-2 border border-slate-200/40">
+                          <Text className="text-slate-550 text-[8px] font-black uppercase tracking-wider">
+                            {charge.chargeType?.replace(/_/g, " ") || "TAXABLE"}
+                          </Text>
+                        </View>
+                        <View className="bg-indigo-50/50 px-1.5 py-0.5 rounded-md border border-indigo-100/40">
+                          <Text className="text-indigo-600 text-[8px] font-black uppercase tracking-wider">
+                            {charge.deductionType || "UPFRONT"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                  <Text className="text-slate-900 font-black text-sm">
+                  <Text className="text-slate-900 font-black text-sm text-right">
                     {charge.calculationType === "PERCENTAGE" ? `${charge.value}%` : formatCurrency(charge.value || 0)}
                   </Text>
                 </View>
 
-                <View className="flex-row items-center ml-12">
-                  <View className="bg-slate-100 px-2 py-0.5 rounded-lg mr-3">
-                    <Text className="text-slate-500 text-[8px] font-black uppercase tracking-tighter">
-                      {charge.chargeType?.replace(/_/g, " ") || "TAXABLE"}
-                    </Text>
-                  </View>
-                  <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                    {charge.deductionType || "UPFRONT"}
-                  </Text>
-                </View>
-
-                {/* Nested Charges */}
+                {/* Nested Child Charges (GST, etc.) */}
                 {charge.childCharges && charge.childCharges.length > 0 && (
-                  <View className="ml-12 mt-4 space-y-3">
+                  <View className="ml-11 mt-3 bg-slate-50/50 rounded-2xl p-3.5 border border-slate-100/80 space-y-2.5">
                     {charge.childCharges.map((child: any, cIdx: number) => (
                       <View key={child.id || cIdx} className="flex-row items-center justify-between">
-                        <View className="flex-row items-center">
-                          <View className="w-1 h-1 rounded-full bg-slate-300 mr-3" />
-                          <Text className="text-slate-500 text-[11px] font-medium">{child.name || child.code}</Text>
+                        <View className="flex-row items-center flex-1 pr-2">
+                          <View className="w-1.5 h-1.5 rounded-full bg-slate-300 mr-2" />
+                          <Text className="text-slate-500 text-[11px] font-bold tracking-tight">{child.name || child.code}</Text>
                         </View>
                         <Text className="text-slate-700 text-[11px] font-black">
                           {child.calculationType === "PERCENTAGE" ? `${child.value}%` : formatCurrency(child.value || 0)}
@@ -2152,7 +2557,7 @@ const BankChargesTab = ({ app, profile, formatCurrency }: any) => {
         </View>
       ) : (
         <View className="bg-white rounded-[32px] p-10 border border-dashed border-slate-200 mb-10 items-center">
-          <Feather name="info" size={24} color="#94a3b8" className="mb-4" />
+          <Feather name="info" size={24} color="#94a3b8" className="mb-3" />
           <Text className="text-slate-400 font-black text-sm uppercase tracking-widest">No Charges Applied</Text>
         </View>
       )}
@@ -2225,26 +2630,41 @@ const PulsingDot = () => {
   );
 };
 
-const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast, onAction, actionLabel }: any) => {
-  const { theme } = useTheme();
-  const isDark = theme.mode === 'dark';
+const StatusMilestoneItem = ({
+  title,
+  subtitle,
+  status,
+  date,
+  remark,
+  onAction,
+  actionLabel,
+  formatDate,
+  isLast,
+}: any) => {
+  const isCompleted = status === "COMPLETED";
+  const isActive = status === "IN_PROGRESS";
+  const isFailed = status === "FAILED";
 
   return (
     <View className="flex-row">
       <View style={{ paddingTop: isActive ? 6 : 8 }} className="items-center mr-5">
         {isCompleted ? (
-          <View className="w-10 h-10 rounded-2xl items-center justify-center border-2 bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200">
+          <View className="w-10 h-10 rounded-2xl items-center justify-center bg-emerald-500 border-2 border-emerald-500 shadow-sm shadow-emerald-200">
             <Ionicons name="checkmark-done" size={20} color="white" />
           </View>
         ) : isActive ? (
           <View
             style={{
-              backgroundColor: isDark ? 'rgba(124, 58, 237, 0.2)' : '#f3e8ff',
-              borderColor: '#a855f7',
+              backgroundColor: "#f3e8ff",
+              borderColor: "#a855f7",
             }}
             className="w-10 h-10 rounded-2xl items-center justify-center border-2 shadow-sm"
           >
             <View className="w-3 h-3 bg-purple-600 rounded-full" />
+          </View>
+        ) : isFailed ? (
+          <View className="w-10 h-10 rounded-2xl items-center justify-center bg-red-500 border-2 border-red-500 shadow-sm shadow-red-200">
+            <Ionicons name="close" size={20} color="white" />
           </View>
         ) : (
           <View className="w-10 h-10 rounded-2xl items-center justify-center border-2 bg-white border-slate-100">
@@ -2252,7 +2672,7 @@ const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast, onA
           </View>
         )}
         {!isLast && (
-          <View className={`w-0.5 flex-1 my-1 ${isCompleted ? "bg-emerald-500" : "bg-slate-100"}`} />
+          <View className={`w-0.5 flex-1 my-1 ${isCompleted ? "bg-emerald-500" : isFailed ? "bg-red-500" : "bg-slate-100"}`} />
         )}
       </View>
 
@@ -2260,40 +2680,70 @@ const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast, onA
         style={
           isActive
             ? {
-              backgroundColor: isDark ? 'rgba(124, 58, 237, 0.1)' : 'rgba(243, 232, 255, 0.5)',
-              borderColor: isDark ? 'rgba(168, 85, 247, 0.4)' : '#e9d5ff',
-              borderWidth: 1,
-              borderRadius: 16,
-              padding: 16,
-              marginBottom: !isLast ? 16 : 0,
-            }
+                backgroundColor: "rgba(243, 232, 255, 0.5)",
+                borderColor: "#e9d5ff",
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: !isLast ? 16 : 0,
+              }
             : {
-              marginBottom: !isLast ? 32 : 8,
-              paddingTop: 8,
-            }
+                marginBottom: !isLast ? 32 : 8,
+                paddingTop: 8,
+              }
         }
         className="flex-1"
       >
         {isActive && (
-          <View className="flex-row items-center bg-purple-100 dark:bg-purple-950/40 px-2.5 py-1 rounded-full self-start mb-2 border border-purple-200 dark:border-purple-800">
+          <View className="flex-row items-center bg-purple-100 px-2.5 py-1 rounded-full self-start mb-2 border border-purple-200">
             <PulsingDot />
-            <Text className="text-purple-700 dark:text-purple-300 text-[9px] font-black uppercase tracking-widest">
+            <Text className="text-purple-700 text-[9px] font-black uppercase tracking-widest">
               In Progress
             </Text>
           </View>
         )}
-        <Text
-          className={`font-black text-sm tracking-tight ${isCompleted ? "text-slate-900" : isActive ? "text-purple-950" : "text-slate-400"
-            }`}
-        >
-          {title}
-        </Text>
-        <Text
-          className={`text-[11px] font-bold mt-1 leading-4 ${isActive ? "text-purple-900/60" : "text-slate-400"
-            }`}
-        >
-          {subtitle}
-        </Text>
+        <View className="flex-row justify-between items-start">
+          <View className="flex-1 pr-2">
+            <Text
+              className={`font-black text-sm tracking-tight ${
+                isCompleted
+                  ? "text-slate-900"
+                  : isActive
+                  ? "text-purple-950"
+                  : isFailed
+                  ? "text-red-950"
+                  : "text-slate-400"
+              }`}
+            >
+              {title}
+            </Text>
+            <Text
+              className={`text-[11px] font-bold mt-1 leading-4 ${
+                isActive
+                  ? "text-purple-900/60"
+                  : isFailed
+                  ? "text-red-900/60"
+                  : "text-slate-400"
+              }`}
+            >
+              {subtitle}
+            </Text>
+          </View>
+          {date && (
+            <Text className="text-[9px] font-black text-slate-400 uppercase tracking-wider self-start mt-1">
+              {formatDate(date)}
+            </Text>
+          )}
+        </View>
+
+        {remark ? (
+          <View className="bg-slate-50/80 border border-slate-100 p-3 rounded-2xl flex-row items-start mt-3">
+            <Feather name="edit-3" size={10} color="#64748b" style={{ marginTop: 2, marginRight: 6 }} />
+            <Text className="text-slate-600 text-[10px] leading-4 flex-1">
+              {remark}
+            </Text>
+          </View>
+        ) : null}
 
         {isActive && onAction && (
           <TouchableOpacity
@@ -2301,22 +2751,22 @@ const StepItem = ({ title, subtitle, isCompleted, isActive, isFirst, isLast, onA
             activeOpacity={0.8}
             style={{
               marginTop: 12,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#7c3aed',
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#7c3aed",
               paddingHorizontal: 14,
               paddingVertical: 8,
               borderRadius: 10,
-              alignSelf: 'flex-start',
-              shadowColor: '#7c3aed',
+              alignSelf: "flex-start",
+              shadowColor: "#7c3aed",
               shadowOffset: { width: 0, height: 3 },
               shadowOpacity: 0.25,
               shadowRadius: 6,
               elevation: 3,
             }}
           >
-            <Text style={{ color: 'white', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 }}>
-              {actionLabel || 'Continue'}
+            <Text style={{ color: "white", fontSize: 11, fontWeight: "900", letterSpacing: 0.3 }}>
+              {actionLabel || "Continue"}
             </Text>
           </TouchableOpacity>
         )}
