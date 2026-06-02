@@ -183,37 +183,38 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({
       const docId = esignData?.docId;
       let signingLink = esignData?.signingLink;
       if (esignData && !signingLink) {
-        // Fallback checks for alternative casing or schema names (e.g. signing_link, url, esignUrl)
+        // Fallback checks for alternative casing or schema names
         signingLink = (esignData as any).signing_link || (esignData as any).url || (esignData as any).esignUrl || (esignData as any).redirectUrl || (esignData as any).redirect_url;
       }
 
       // Check if native Digio SDK is supported in this build/environment and we have a valid docId
       if (isDigioSdkSupported() && docId) {
         console.log('[Digitap eSign] Native Digio SDK is supported. Launching native gateway...');
-        
+
         // Identifier is signer's mobile number or email
         const identifier = loanStoreState.customerInfo?.mobileNumber || loanStoreState.customerInfo?.email || '';
-        
+
         try {
           const digio = createDigioInstance();
           setEsignStatus('signing');
-          
+
           const result = await startEsignFlow(digio, docId, identifier);
           console.log('[Digitap eSign] Native SDK flow result:', result);
-          
+
           if (result.success) {
-            // eSign completed successfully via native SDK
+            // eSign completed successfully via native SDK — handleCheckEsignStatus manages isSubmitting
             await handleCheckEsignStatus();
             return;
           } else {
-            // eSign cancelled or failed in native SDK
+            // eSign cancelled or failed
             setEsignStatus('failed');
+            setIsSubmitting(false);
             Alert.alert('eSign Failed', result.message || 'The eSign process failed or was cancelled.');
             return;
           }
         } catch (sdkError: any) {
           console.error('[Digitap eSign] SDK invocation crashed:', sdkError);
-          // If SDK crashes or fails at native boundary, fallback to WebBrowser if signingLink is available
+          // If SDK crashes, fallback to WebBrowser if signingLink is available
         }
       }
 
@@ -222,6 +223,7 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({
         console.warn('[Digitap eSign] No signing link resolved from response and Native SDK is unavailable:', esignData);
 
         if (__DEV__) {
+          setIsSubmitting(false);
           Alert.alert(
             'Dev Sandbox: eSign Initiation Failed',
             'The backend did not return a valid signing link, and the native Digio SDK is unavailable (e.g. inside Expo Go). Would you like to mock the eSign process for testing?',
@@ -255,13 +257,16 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({
 
       esignLinkRef.current = signingLink;
 
-      // 2. Open in in-app web browser
+      // 2. Open in in-app web browser — user must return manually
       setEsignStatus('signing');
+      setIsSubmitting(false); // Release spinner; user must tap "I've Completed Signing"
       console.log('[Digitap eSign] Opening signing link in WebBrowser:', signingLink);
-      
+
       await WebBrowser.openBrowserAsync(signingLink);
+      // Browser dismissed (user closed it) — status stays 'signing' so user can tap the check button
     } catch (error: any) {
       setEsignStatus('failed');
+      setIsSubmitting(false);
       console.error('eSign flow failed:', error);
       trackEvent('api_error', { error: error.message });
 
@@ -294,8 +299,6 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({
           error.response?.data?.message || error.message || 'There was an error initiating eSign. Please try again.',
         );
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

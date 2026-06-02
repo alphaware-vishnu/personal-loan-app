@@ -103,6 +103,17 @@ export const createDigioInstance = (): Digio => {
  * @param identifier - The signer's email or mobile (must match what was sent in request)
  * @returns DigioResult with success/failure status
  */
+/**
+ * Digio response codes:
+ *   1001 = SUCCESS
+ *   1002 = FAIL
+ *  -1000 = CANCEL
+ *   1003 = WEBVIEW_CRASH
+ *   1004 = SDK_CRASH
+ *  10017 = WEBVIEW_ERROR
+ */
+const DIGIO_SUCCESS_CODE = 1001;
+
 export const startEsignFlow = async (
   digio: Digio,
   documentId: string,
@@ -110,13 +121,28 @@ export const startEsignFlow = async (
 ): Promise<DigioResult> => {
   try {
     const response = await digio.start(documentId, identifier);
+
+    if (env.enableDebugTools) {
+      console.log('[DigioService] eSign raw response:', response);
+    }
+
+    if (response.code === DIGIO_SUCCESS_CODE) {
+      return {
+        success: true,
+        documentId: response.documentId || documentId,
+        message: 'Document signed successfully',
+      };
+    }
+
+    // code 1002 = FAIL, -1000 = CANCEL, etc.
+    const isCancelled = response.code === -1000;
     return {
-      success: true,
-      documentId,
-      message: 'Document signed successfully',
+      success: false,
+      documentId: response.documentId || documentId,
+      message: response.message || (isCancelled ? 'eSign was cancelled by user' : 'eSign process failed'),
     };
   } catch (error: any) {
-    // SDK throws on cancellation or failure
+    // SDK throws on unexpected errors
     const errorMessage = error?.message || 'eSign process failed or was cancelled by user';
 
     if (env.enableDebugTools) {

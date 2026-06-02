@@ -1318,41 +1318,39 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
 
   const eSignMutation = useMutation({
     mutationFn: () => initiateESign(app.id),
-    onSuccess: async (response: any) => {
-      const docId = response?.docId || response?.documentId || (response?.data && (response.data.docId || response.data.documentId));
-      let signingLink = response?.signingLink || response?.signing_link || response?.url || response?.esignUrl || response?.redirectUrl || response?.redirect_url;
-      if (response?.data && !signingLink) {
-        signingLink = response.data.signingLink || response.data.signing_link || response.data.url || response.data.esignUrl || response.data.redirectUrl || response.data.redirect_url;
-      }
+    onSuccess: async (esignData: any) => {
+      // initiateESign already returns response.data?.data so esignData is the payload directly
+      const docId = esignData?.docId || esignData?.documentId;
+      let signingLink = esignData?.signingLink || esignData?.signing_link || esignData?.url || esignData?.esignUrl || esignData?.redirectUrl || esignData?.redirect_url;
 
       if (isDigioSdkSupported() && docId) {
         console.log('[ApplicationDetailsScreen] Native Digio SDK is supported. Launching native gateway...');
         const identifier = useAuthStore.getState().mobile || useLoanStore.getState().customerInfo?.mobileNumber || '';
-        
+
         try {
           const digio = createDigioInstance();
           const result = await startEsignFlow(digio, docId, identifier);
           console.log('[ApplicationDetailsScreen] Native SDK flow result:', result);
-          
+
           if (result.success) {
             try {
               await refreshESignStatus(app.id);
             } catch (statusError) {
               console.error('[ApplicationDetailsScreen] Failed to refresh eSign status on backend:', statusError);
             }
-            
+
             Toast.show({
               type: 'success',
               text1: 'eSign Completed',
               text2: 'Your sanction letter has been signed successfully!',
               position: 'bottom',
             });
-            queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+            queryClient.invalidateQueries({ queryKey: ['application', app.id] });
             return;
           } else {
             Toast.show({
               type: 'error',
-              text1: 'eSign Failed',
+              text1: 'eSign Cancelled / Failed',
               text2: result.message || 'The eSign process failed or was cancelled.',
               position: 'bottom',
             });
@@ -1380,7 +1378,7 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
           position: 'bottom',
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+      queryClient.invalidateQueries({ queryKey: ['application', app.id] });
     },
     onError: (error: any) => {
       Toast.show({
