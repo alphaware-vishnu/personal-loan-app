@@ -93,7 +93,7 @@ const configs: Record<Environment, EnvConfig> = {
     apiRetryAttempts: 3,
     apiRetryDelayMs: 1500,
     razorpayKeyId: 'rzp_test_SrUlrOqO3qLPxv', // Replace with your Razorpay live key
-    digioEnvironment: 'PRODUCTION',
+    digioEnvironment: 'SANDBOX',
     digioLogoUrl: 'https://your-company-logo.png',
     digioThemePrimaryColor: '#AB0F0C',
     digioThemeSecondaryColor: '#AB0F0C',
