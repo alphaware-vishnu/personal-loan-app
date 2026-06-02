@@ -37,6 +37,7 @@ import {
   createDigioInstance,
   startEsignFlow,
   refreshESignStatus,
+  extractTokenIdFromUrl,
 } from "../services/digioService";
 import { useAuthStore } from "../store/authStore";
 import { useLoanStore } from "../store/loanStore";
@@ -1325,11 +1326,14 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep }:
 
       if (isDigioSdkSupported() && docId) {
         console.log('[ApplicationDetailsScreen] Native Digio SDK is supported. Launching native gateway...');
-        const identifier = useAuthStore.getState().mobile || useLoanStore.getState().customerInfo?.mobileNumber || '';
+        const identifier = esignData?.identifier || useAuthStore.getState().mobile || useLoanStore.getState().customerInfo?.mobileNumber || '';
 
         try {
           const digio = createDigioInstance();
-          const result = await startEsignFlow(digio, docId, identifier);
+          const tokenId = signingLink ? extractTokenIdFromUrl(signingLink, docId) : undefined;
+          console.log('[ApplicationDetailsScreen] Extracted Token ID for native SDK:', tokenId);
+
+          const result = await startEsignFlow(digio, docId, identifier, tokenId);
           console.log('[ApplicationDetailsScreen] Native SDK flow result:', result);
 
           if (result.success) {

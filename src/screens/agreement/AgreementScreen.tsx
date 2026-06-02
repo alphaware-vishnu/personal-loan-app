@@ -19,6 +19,7 @@ import { StepIndicator } from '../../components/ui/StepIndicator';
 
 import { useLoanStore } from '../../store/loanStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
+import { useAuthStore } from '../../store/authStore';
 import { trackEvent } from '../../utils/analytics';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -27,6 +28,7 @@ import {
   isDigioSdkSupported,
   createDigioInstance,
   startEsignFlow,
+  extractTokenIdFromUrl,
 } from '../../services/digioService';
 
 interface AgreementScreenProps {
@@ -192,13 +194,16 @@ export const AgreementScreen: React.FC<AgreementScreenProps> = ({
         console.log('[Digitap eSign] Native Digio SDK is supported. Launching native gateway...');
 
         // Identifier is signer's mobile number or email
-        const identifier = loanStoreState.customerInfo?.mobileNumber || loanStoreState.customerInfo?.email || '';
+        const identifier = esignData?.identifier || useAuthStore.getState().mobile || loanStoreState.customerInfo?.mobileNumber || loanStoreState.customerInfo?.email || '';
 
         try {
           const digio = createDigioInstance();
           setEsignStatus('signing');
 
-          const result = await startEsignFlow(digio, docId, identifier);
+          const tokenId = signingLink ? extractTokenIdFromUrl(signingLink, docId) : undefined;
+          console.log('[Digitap eSign] Extracted Token ID for native SDK:', tokenId);
+
+          const result = await startEsignFlow(digio, docId, identifier, tokenId);
           console.log('[Digitap eSign] Native SDK flow result:', result);
 
           if (result.success) {

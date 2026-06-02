@@ -25,7 +25,8 @@ export const isDigioSdkSupported = (): boolean => {
 /** Response from backend after initiating eSign */
 export interface EsignInitiateResponse {
   docId: string;
-  signingLink: string;
+  signingLink?: string;
+  identifier?: string;
 }
 
 /** Status response from backend for eSign */
@@ -114,14 +115,47 @@ export const createDigioInstance = (): Digio => {
  */
 const DIGIO_SUCCESS_CODE = 1001;
 
+/**
+ * Extract the tokenId (gToken) from the signingLink returned by the backend.
+ * Digio URLs typically follow the structure: /gateway/login/<doc_id>/<token_id>/<identifier>
+ */
+export const extractTokenIdFromUrl = (url: string, documentId: string): string | undefined => {
+  if (!url || !documentId) return undefined;
+  try {
+    // Attempt 1: Regex matching standard Digio login path structure
+    const match = url.match(/\/gateway\/login\/([^\/]+)\/([^\/]+)/i);
+    if (match && match[2]) {
+      const tokenId = match[2].split('?')[0];
+      if (tokenId && tokenId.startsWith('g_')) {
+        return tokenId;
+      }
+    }
+
+    // Attempt 2: Positional path matching
+    const cleanUrl = url.split('?')[0];
+    const segments = cleanUrl.split('/').map(s => s.trim()).filter(Boolean);
+    const docIndex = segments.findIndex(seg => seg.toUpperCase() === documentId.toUpperCase());
+    if (docIndex !== -1 && docIndex + 1 < segments.length) {
+      return segments[docIndex + 1];
+    }
+  } catch (error) {
+    console.error('[DigioService] Error extracting token ID:', error);
+  }
+  return undefined;
+};
+
 export const startEsignFlow = async (
   digio: Digio,
   documentId: string,
   identifier: string,
+  tokenId?: string,
 ): Promise<DigioResult> => {
   try {
-    const response = await digio.start(documentId, identifier);
-
+    if (env.enableDebugTools) {
+      console.log(`[DigioService] Launching SDK with docId=${documentId}, identifier=${identifier}, tokenId=${tokenId || 'none'}`);
+    }
+    const response = await digio.start(documentId, identifier, tokenId);
+    console.log('[Digio Response 123]', response)
     if (env.enableDebugTools) {
       console.log('[DigioService] eSign raw response:', response);
     }
@@ -142,6 +176,7 @@ export const startEsignFlow = async (
       message: response.message || (isCancelled ? 'eSign was cancelled by user' : 'eSign process failed'),
     };
   } catch (error: any) {
+    console.log('[Digio error 123]', error)
     // SDK throws on unexpected errors
     const errorMessage = error?.message || 'eSign process failed or was cancelled by user';
 
@@ -156,3 +191,4 @@ export const startEsignFlow = async (
     };
   }
 };
+
