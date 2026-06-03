@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, ScrollView, KeyboardAvoidingView,
-  Platform, StyleSheet,
+  Platform, StyleSheet, TouchableOpacity,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
 import { ILLUSTRATIONS } from '../../assets/illustrations';
@@ -43,6 +44,49 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
   const [error, setError] = useState<string | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
 
+  const [dobInput, setDobInput] = useState('');
+  const [genderInput, setGenderInput] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
+  const [dobError, setDobError] = useState<string | null>(null);
+  const [calculatedAge, setCalculatedAge] = useState<number | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      setDobInput(formattedDate);
+    }
+  };
+
+  useEffect(() => {
+    if (dobInput.length === 10) {
+      const d = new Date(dobInput);
+      if (isNaN(d.getTime())) {
+        setDobError('Invalid date format (YYYY-MM-DD).');
+        setCalculatedAge(null);
+      } else if (d > new Date()) {
+        setDobError('Cannot be a future date.');
+        setCalculatedAge(null);
+      } else {
+        const age = calculateAge(dobInput);
+        setCalculatedAge(age);
+        if (age < 18) {
+          setDobError('Age must be at least 18.');
+        } else {
+          setDobError(null);
+        }
+      }
+    } else if (dobInput.length > 0) {
+      setDobError('Enter date as YYYY-MM-DD.');
+      setCalculatedAge(null);
+    } else {
+      setDobError(null);
+      setCalculatedAge(null);
+    }
+  }, [dobInput]);
+
   useEffect(() => {
     const loadProfile = async () => {
       const customerId = useAuthStore.getState().authData?.customerId || 99999;
@@ -61,14 +105,45 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
               gender: data.gender,
             });
             setPanNumber(mappedPan);
-            setPanData({
-              isValid: true,
-              panNumber: mappedPan,
-              name: data.borrowerName,
-              dateOfBirth: data.dob || '',
-              gender: data.gender || 'MALE',
-            });
-            setIsVerified(true);
+            
+            // Validate the PAN again when on this screen even if populated
+            if (mappedPan && /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(mappedPan.toUpperCase())) {
+              try {
+                const result = await validatePan(mappedPan);
+                if (result.isValid && result.name && result.name.trim().length > 0) {
+                  setPanData(result);
+                  setIsVerified(true);
+                  const age = calculateAge(result.dateOfBirth);
+                  updateFormData({
+                    panNumber: result.panNumber,
+                    applicantName: result.name,
+                    dateOfBirth: result.dateOfBirth,
+                    age,
+                    gender: result.gender,
+                  });
+                  setPanVerified(result);
+                  setDobInput(result.dateOfBirth || '');
+                  setGenderInput(result.gender || 'MALE');
+                  
+                  await updateCustomerProfile({
+                    borrowerName: result.name,
+                    dob: result.dateOfBirth,
+                    gender: result.gender,
+                    panNumber: result.panNumber,
+                  });
+                } else {
+                  setIsVerified(false);
+                  setPanData(null);
+                }
+              } catch (e) {
+                console.error('[PAN Verification] auto-validation failed:', e);
+                setIsVerified(false);
+                setPanData(null);
+              }
+            } else {
+              setIsVerified(false);
+              setPanData(null);
+            }
           } else {
             setIsVerified(false);
             setPanData(null);
@@ -108,6 +183,9 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
         });
         setPanVerified(result);
         trackEvent('pan_verified');
+
+        setDobInput(result.dateOfBirth || '');
+        setGenderInput(result.gender || 'MALE');
 
         const customerId = useAuthStore.getState().authData?.customerId || 99999;
         await updateCustomerProfile({
@@ -155,8 +233,8 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
       await updateCustomerProfile({
         // id: customerId,
         borrowerName: panData?.name || formData.applicantName || '',
-        dob: panData?.dateOfBirth || formData.dateOfBirth || '',
-        gender: panData?.gender || formData.gender || 'MALE',
+        dob: dobInput || formData.dateOfBirth || '',
+        gender: genderInput || formData.gender || 'MALE',
         panNumber: panData?.panNumber || formData.panNumber || '',
       });
 
@@ -165,8 +243,9 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
         updateFormData({
           panNumber: profile.data.panNumber || panData?.panNumber || formData.panNumber || '',
           applicantName: profile.data.borrowerName || panData?.name || formData.applicantName || '',
-          dateOfBirth: profile.data.dob || panData?.dateOfBirth || formData.dateOfBirth || '',
-          gender: profile.data.gender || panData?.gender || formData.gender || 'MALE',
+          dateOfBirth: dobInput || profile.data.dob || formData.dateOfBirth || '',
+          gender: genderInput || profile.data.gender || formData.gender || 'MALE',
+          age: calculatedAge || undefined,
         });
       }
       completeStep('pan_verification');
@@ -303,33 +382,62 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
 
                   <View style={[styles.cardRow, { marginTop: 16 }]}>
                     <View style={styles.cardCol}>
-                      <AppText
-                        variant="caption"
-                        style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5 }}
-                      >
-                        Date of Birth
-                      </AppText>
-                      <AppText
-                        variant="bodyMd"
-                        style={{ fontWeight: '600', color: colors.text, marginTop: 4 }}
-                      >
-                        {panData.dateOfBirth}
-                      </AppText>
+                      <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
+                        <View pointerEvents="none">
+                          <AppInput
+                            label="Date of Birth"
+                            placeholder="Select Date"
+                            value={dobInput}
+                            editable={false}
+                            error={dobError || undefined}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                      {showDatePicker && (
+                        <DateTimePicker
+                          value={dobInput.length === 10 && !isNaN(new Date(dobInput).getTime()) ? new Date(dobInput) : new Date()}
+                          mode="date"
+                          display="default"
+                          maximumDate={new Date()}
+                          onChange={handleDateChange}
+                        />
+                      )}
+                      {calculatedAge !== null && calculatedAge >= 0 && !dobError && (
+                        <AppText variant="caption" style={{ color: colors.success, marginTop: 4 }}>
+                          Derived Age: {calculatedAge} years
+                        </AppText>
+                      )}
                     </View>
+                  </View>
 
+                  <View style={[styles.cardRow, { marginTop: 16 }]}>
                     <View style={styles.cardCol}>
                       <AppText
                         variant="caption"
-                        style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5 }}
+                        style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5, marginBottom: 8 }}
                       >
                         Gender
                       </AppText>
-                      <AppText
-                        variant="bodyMd"
-                        style={{ fontWeight: '600', color: colors.text, marginTop: 4 }}
-                      >
-                        {panData.gender}
-                      </AppText>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {['MALE', 'FEMALE', 'OTHER'].map((g) => (
+                          <TouchableOpacity
+                            key={g}
+                            onPress={() => setGenderInput(g as any)}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 8,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: genderInput === g ? colors.primary : colors.borderLight,
+                              backgroundColor: genderInput === g ? (isDark ? 'rgba(16,185,129,0.1)' : '#EFF6FF') : 'transparent',
+                            }}
+                          >
+                            <AppText variant="bodySm" style={{ color: genderInput === g ? colors.primary : colors.text, fontWeight: genderInput === g ? '600' : '400' }}>
+                              {g.charAt(0) + g.slice(1).toLowerCase()}
+                            </AppText>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -362,6 +470,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
               style={styles.actionButton}
               icon={<Ionicons name="arrow-forward" size={16} color="#FFFFFF" />}
               iconPosition="right"
+              disabled={!!dobError || dobInput.length !== 10 || (calculatedAge ?? 0) < 18}
             />
           )}
         </View>

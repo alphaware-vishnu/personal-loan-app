@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { MotiView, MotiText } from 'moti';
 import Toast from 'react-native-toast-message';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather, Ionicons } from '@expo/vector-icons';
 
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { SafeHeader } from '../../components/layout/SafeHeader';
 import { useColors } from '../../theme';
 import { AppText } from '../../components/ui/AppText';
+import { AppButton } from '../../components/ui/AppButton';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useAuthStore } from '../../store/authStore';
 import { useLoanStore } from '../../store/loanStore';
@@ -16,12 +20,20 @@ import { trackEvent } from '../../utils/analytics';
 
 interface EligibilityProcessingScreenProps {
   onComplete: () => void;
+  onBack?: () => void;
+  onSkip?: () => void;
 }
 
-export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenProps> = ({ onComplete }) => {
+export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenProps> = ({
+  onComplete,
+  onBack,
+  onSkip,
+}) => {
   const colors = useColors();
-  const { completeStep } = useOnboardingStore();
   const [statusIndex, setStatusIndex] = useState(0);
+  const [breState, setBreState] = useState<'processing' | 'failed' | 'rejected'>('processing');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const analysisSteps = [
     'Reading bank statements...',
@@ -30,6 +42,13 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
     'Structuring custom loan offers...',
     'Almost ready...'
   ];
+
+  const handleRetry = () => {
+    setBreState('processing');
+    setErrorMessage('');
+    setStatusIndex(0);
+    setRetryTrigger((prev) => prev + 1);
+  };
 
   useEffect(() => {
     trackEvent('eligibility_check_started');
@@ -43,7 +62,7 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
         clearInterval(interval);
         return prev;
       });
-    }, 1500);
+    }, 1505);
 
     let active = true;
     const startTime = Date.now();
@@ -67,9 +86,11 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
 
         if (!active) return;
 
+        const isEligible = breResult.decision === 'APPROVED' || breResult.decision === 'APPROVED_WITH_REDUCED_AMOUNT';
+
         // 3. Map BRE result to store format
         const mappedResult = {
-          status: (breResult.decision === 'APPROVED' || breResult.decision === 'APPROVED_WITH_REDUCED_AMOUNT') ? 'ELIGIBLE' as const : 'NOT_ELIGIBLE' as const,
+          status: isEligible ? 'ELIGIBLE' as const : 'NOT_ELIGIBLE' as const,
           maxAmount: breResult.maxEligibleAmount || breResult.sanctionedAmount || firstScheme.maxLoanAmount || 150000,
           minAmount: firstScheme.minLoanAmount || 10000,
           maxTenure: breResult.approvedTenure || firstScheme.maxTenure || 12,
@@ -96,9 +117,12 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
 
         setTimeout(() => {
           if (active) {
-            completeStep('eligibility');
             trackEvent('eligibility_result_received', { decision: breResult.decision });
-            onComplete();
+            if (isEligible) {
+              onComplete();
+            } else {
+              setBreState('rejected');
+            }
           }
         }, remaining);
 
@@ -112,34 +136,8 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
           text2: err.message || 'An error occurred during eligibility check.',
         });
 
-        // Fallback for development/testing so the user is not blocked
-        const fallbackResult = {
-          status: 'ELIGIBLE' as const,
-          maxAmount: 150000,
-          minAmount: 10000,
-          maxTenure: 12,
-          minTenure: 3,
-          interestRate: 14.5,
-        };
-
-        useOfferStore.getState().setEligibilityResult(fallbackResult);
-        useLoanStore.getState().setScheme({
-          id: 101, // Default fallback scheme ID
-          loanAmount: 75000,
-          defaultTenure: 12,
-          defaultInterest: 14.5,
-          tenureFrequency: 'MONTHLY',
-        });
-
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, 4000 - elapsed);
-
-        setTimeout(() => {
-          if (active) {
-            completeStep('eligibility');
-            onComplete();
-          }
-        }, remaining);
+        setErrorMessage(err.message || 'An error occurred during eligibility check.');
+        setBreState('failed');
       }
     };
 
@@ -149,7 +147,122 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
       active = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [retryTrigger]);
+
+  if (breState === 'failed') {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Eligibility Status" onBack={onBack} />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 18 }}
+            style={styles.cardContainer}
+          >
+            <View style={styles.iconWrap}>
+              <LinearGradient
+                colors={['#FEF3C7', '#FDE68A']}
+                style={styles.iconGrad}
+              >
+                <Feather name="alert-triangle" size={52} color="#D97706" />
+              </LinearGradient>
+            </View>
+
+            <AppText variant="h2" style={styles.cardTitle} align="center">
+              Evaluation Failed
+            </AppText>
+            
+            <AppText
+              variant="bodyMd"
+              style={{ color: colors.textSecondary, marginTop: 12, lineHeight: 22 }}
+              align="center"
+            >
+              We encountered an issue while evaluating your eligibility. This could be due to a connection issue or a temporary service disruption.
+            </AppText>
+
+            <View style={[styles.errorDetailBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+              <AppText variant="caption" style={{ color: '#DC2626', fontWeight: '700' }} align="center">
+                Details: {errorMessage}
+              </AppText>
+            </View>
+
+            <View style={{ width: '100%', marginTop: 24, gap: 12 }}>
+              <AppButton
+                title="Try Again"
+                onPress={handleRetry}
+                variant="primary"
+                size="lg"
+              />
+              {onSkip && (
+                <AppButton
+                  title="Back to Dashboard"
+                  onPress={onSkip}
+                  variant="outline"
+                  size="lg"
+                />
+              )}
+            </View>
+          </MotiView>
+        </ScrollView>
+      </ScreenWrapper>
+    );
+  }
+
+  if (breState === 'rejected') {
+    return (
+      <ScreenWrapper>
+        <SafeHeader title="Eligibility Status" onBack={onBack} />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 18 }}
+            style={styles.cardContainer}
+          >
+            <View style={styles.iconWrap}>
+              <LinearGradient
+                colors={['#FEE2E2', '#FCA5A5']}
+                style={styles.iconGrad}
+              >
+                <Ionicons name="close-circle" size={52} color="#DC2626" />
+              </LinearGradient>
+            </View>
+
+            <AppText variant="h2" style={styles.cardTitle} align="center">
+              Not eligible right now
+            </AppText>
+            <AppText
+              variant="bodyMd"
+              style={{ color: colors.textSecondary, marginTop: 12, lineHeight: 22 }}
+              align="center"
+            >
+              Thank you for applying. Unfortunately, your credit profile doesn't meet our current criteria for a loan approval at this time.
+            </AppText>
+
+            <View style={[styles.infoBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+              <Feather name="info" size={16} color={colors.textSecondary} style={{ marginBottom: 8 }} />
+              <AppText variant="caption" style={{ color: colors.textSecondary, lineHeight: 20 }} align="center">
+                You can re-apply after 90 days. Feel free to work on improving your credit score, clear existing outstanding dues, or contact our support team for guidance.
+              </AppText>
+            </View>
+
+            <View style={{ width: '100%', marginTop: 24 }}>
+              {onSkip && (
+                <AppButton
+                  title="Back to Dashboard"
+                  onPress={onSkip}
+                  variant="outline"
+                  size="lg"
+                  style={{ width: '100%' }}
+                />
+              )}
+            </View>
+          </MotiView>
+        </ScrollView>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -266,5 +379,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 99,
     borderWidth: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+  cardContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+  },
+  iconWrap: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  iconGrad: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  errorDetailBox: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 20,
+  },
+  infoBox: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: 24,
+    alignItems: 'center',
   },
 });

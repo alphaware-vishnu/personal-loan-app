@@ -362,6 +362,8 @@ function AppContent() {
       return (
         <EligibilityProcessingScreen
           onComplete={() => replace("offer")}
+          onBack={pop}
+          onSkip={() => replace("dashboard")}
         />
       );
     }

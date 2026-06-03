@@ -79,7 +79,8 @@
       "expo-web-browser",
       "expo-font",
       "./withReplaceAllowBackup",
-      "./withDigioSdk"
+      "./withDigioSdk",
+      "@react-native-community/datetimepicker"
     ]
   }
 }
