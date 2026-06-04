@@ -275,7 +275,13 @@ function AppContent() {
       return (
         <PanVerificationScreen
           onNext={() => push("employmentType")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("dashboard");
+            }
+          }}
         />
       );
     }
@@ -284,7 +290,13 @@ function AppContent() {
       return (
         <EmploymentTypeScreen
           onNext={() => push("workAddress")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("panVerification");
+            }
+          }}
         />
       );
     }
@@ -293,7 +305,13 @@ function AppContent() {
       return (
         <WorkAddressScreen
           onNext={() => push("personalAddress")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("employmentType");
+            }
+          }}
         />
       );
     }
@@ -302,7 +320,13 @@ function AppContent() {
       return (
         <PersonalAddressScreen
           onNext={() => push("profileCompletion")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("workAddress");
+            }
+          }}
           onSkip={() => replace("dashboard")}
         />
       );
@@ -321,7 +345,13 @@ function AppContent() {
       return (
         <IncomeInputScreen
           onNext={() => push("bankStatementUpload")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("dashboard");
+            }
+          }}
           onSkip={() => replace("dashboard")}
         />
       );
@@ -331,7 +361,13 @@ function AppContent() {
       return (
         <BankStatementUploadScreen
           onNext={() => push("aadhaarVerification")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("incomeInput");
+            }
+          }}
         />
       );
     }
@@ -340,7 +376,13 @@ function AppContent() {
       return (
         <AadhaarVerificationScreen
           onNext={() => push("selfieVerification")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("bankStatementUpload");
+            }
+          }}
           onSkip={() => replace("dashboard")}
           deepLinkParams={deepLinkParams}
           clearDeepLinkParams={() => setDeepLinkParams(null)}
@@ -352,7 +394,13 @@ function AppContent() {
       return (
         <SelfieVerificationScreen
           onNext={() => replace("eligibilityProcessing")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("aadhaarVerification");
+            }
+          }}
           onSkip={() => replace("dashboard")}
         />
       );
@@ -362,7 +410,13 @@ function AppContent() {
       return (
         <EligibilityProcessingScreen
           onComplete={() => replace("offer")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("selfieVerification");
+            }
+          }}
           onSkip={() => replace("dashboard")}
         />
       );
@@ -372,7 +426,13 @@ function AppContent() {
       return (
         <OfferScreen
           onNext={() => push("bankDetails")}
-          onBack={pop}
+          onBack={() => {
+            if (history.length > 1) {
+              pop();
+            } else {
+              replace("dashboard");
+            }
+          }}
           onSkip={() => replace("dashboard")}
         />
       );

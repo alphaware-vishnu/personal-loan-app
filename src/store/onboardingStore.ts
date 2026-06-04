@@ -19,6 +19,7 @@ export interface OnboardingFormData {
   dateOfBirth?: string;
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
   age?: number;
+  isPanVerified?: boolean;
 
   // Employment step
   employmentType?: EmploymentType;

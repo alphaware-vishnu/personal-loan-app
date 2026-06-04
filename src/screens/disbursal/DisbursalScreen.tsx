@@ -34,7 +34,7 @@ type DisbursalStep = {
 export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) => {
   const colors = useColors();
   const { theme } = useTheme();
-  const { completeStep } = useOnboardingStore();
+  const { completeStep, reset: resetOnboarding } = useOnboardingStore();
   const { requestedAmount, disbursalAmount, customerInfo } = useLoanStore();
 
   const bankDetail = customerInfo.customerBanks?.[0];
@@ -47,10 +47,10 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [steps, setSteps] = useState<DisbursalStep[]>([
-    { id: 1, label: 'Securing Digital Sanction Letter', status: 'active' },
-    { id: 2, label: 'Verifying Signature & Stamp Duty', status: 'pending' },
-    { id: 3, label: 'Initiating Bank Account Linkage', status: 'pending' },
-    { id: 4, label: 'Disbursing Funds to Account', status: 'pending' },
+    { id: 1, label: 'Validating Profile Details', status: 'active' },
+    { id: 2, label: 'Verifying Bank Account', status: 'pending' },
+    { id: 3, label: 'Processing Eligibility Criteria', status: 'pending' },
+    { id: 4, label: 'Finalizing Application Setup', status: 'pending' },
   ]);
 
   // Animated values for custom progress styling
@@ -98,9 +98,10 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
           setSteps((prevSteps) =>
             prevSteps.map((step) => ({ ...step, status: 'success' as const }))
           );
-          setIsCompleted(true);
           completeStep('disbursal');
           trackEvent('disbursal_completed', { amount: requestedAmount });
+          resetOnboarding();
+          onComplete();
         }, 1200);
       }
     };
@@ -139,10 +140,10 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
             </View>
 
             <AppText variant="h2" style={styles.title}>
-              Disbursing Loan
+              Creating Application
             </AppText>
             <AppText variant="bodyMd" style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Please do not close the app or press the back button. We are transferring the funds to your account.
+              Please do not close the app or press the back button. We are validating your details and setting up your application.
             </AppText>
 
             {/* Custom Premium Progress Bar */}

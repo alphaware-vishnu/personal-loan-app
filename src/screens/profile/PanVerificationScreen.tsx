@@ -103,6 +103,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
               applicantName: data.borrowerName,
               dateOfBirth: data.dob,
               gender: data.gender,
+              isPanVerified: data.panVerified || false,
             });
             setPanNumber(mappedPan);
             
@@ -120,6 +121,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
                     dateOfBirth: result.dateOfBirth,
                     age,
                     gender: result.gender,
+                    isPanVerified: true,
                   });
                   setPanVerified(result);
                   setDobInput(result.dateOfBirth || '');
@@ -130,6 +132,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
                     dob: result.dateOfBirth,
                     gender: result.gender,
                     panNumber: result.panNumber,
+                    isPanVerified: true,
                   });
                 } else {
                   setIsVerified(false);
@@ -180,6 +183,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
           dateOfBirth: result.dateOfBirth,
           age,
           gender: result.gender,
+          isPanVerified: true,
         });
         setPanVerified(result);
         trackEvent('pan_verified');
@@ -194,6 +198,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
           dob: result.dateOfBirth,
           gender: result.gender,
           panNumber: result.panNumber,
+          isPanVerified: true,
         });
 
         const profile = await getCustomerProfile(customerId);
@@ -203,6 +208,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
             applicantName: profile.data.borrowerName || result.name,
             dateOfBirth: profile.data.dob || result.dateOfBirth,
             gender: profile.data.gender || result.gender,
+            isPanVerified: profile.data.panVerified || true,
           });
         }
       } else {
@@ -236,6 +242,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
         dob: dobInput || formData.dateOfBirth || '',
         gender: genderInput || formData.gender || 'MALE',
         panNumber: panData?.panNumber || formData.panNumber || '',
+        isPanVerified: true,
       });
 
       const profile = await getCustomerProfile(customerId);
@@ -246,6 +253,7 @@ export const PanVerificationScreen: React.FC<PanVerificationScreenProps> = ({ on
           dateOfBirth: dobInput || profile.data.dob || formData.dateOfBirth || '',
           gender: genderInput || profile.data.gender || formData.gender || 'MALE',
           age: calculatedAge || undefined,
+          isPanVerified: profile.data.panVerified || true,
         });
       }
       completeStep('pan_verification');

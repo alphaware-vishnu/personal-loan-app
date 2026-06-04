@@ -278,8 +278,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Determine if onboarding is completed
   const trackableSteps = getTrackableSteps().filter((step) => step.isRequired && step.isEnabled);
   const isOnboardingComplete = trackableSteps.every((step) => completedSteps.includes(step.id));
-  const hasActiveApplications = applications && applications.length > 0;
-  const showActiveLoans = hasActiveApplications || isOnboardingComplete;
+  const hasActiveLoans = applications && applications.some((app: any) => app.applicationStatus === 'DISBURSED');
+  const showActiveLoans = hasActiveLoans || isOnboardingComplete;
 
   return (
     <MeshBackground style={styles.container}>
