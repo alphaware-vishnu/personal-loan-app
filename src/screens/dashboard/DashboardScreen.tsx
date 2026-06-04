@@ -42,6 +42,7 @@ interface DashboardScreenProps {
   onViewDetails: (applicationId: number, autoOpenRepay?: boolean) => void;
   onViewProfile: () => void;
   onResumeOnboarding: (screenKey: any) => void;
+  onClearAndStartOver: (appId?: number | null) => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -50,6 +51,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onViewDetails,
   onViewProfile,
   onResumeOnboarding,
+  onClearAndStartOver,
 }) => {
   const colors = useColors();
   const { theme } = useTheme();
@@ -132,10 +134,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return sorted.find((app: any) => app.applicationStatus !== 'DISBURSED' && app.applicationStatus !== 'CANCELLED') || null;
   }, [applications]);
 
-  const { completeStep, reset: resetOnboarding } = useOnboardingStore();
+  const { completeStep, reset: resetOnboarding, ignoredApplicationId } = useOnboardingStore();
 
   React.useEffect(() => {
     if (activeApp) {
+      if (ignoredApplicationId === activeApp.id) {
+        console.log('[DashboardScreen] Active application is marked as ignored (cleared):', activeApp.id);
+        return;
+      }
       console.log('[DashboardScreen] Syncing active application progress:', activeApp.id, activeApp.applicationStatus);
       
       setCustomerId(activeApp.customerId);
@@ -305,31 +311,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         >
 
           {!isOnboardingComplete && (
-            <OnboardingProgressCard onResume={onResumeOnboarding} />
-          )}
-
-          {hasActiveApplications && (
-            <ActiveLoanCard
-              applications={applications}
-              isLoading={isAppsLoading}
-              onViewDetails={(appId) => {
-                // Always show application details screen — resume logic is inside it
-                onViewDetails(appId);
-              }}
-              onApplyNow={handleApplyNow}
+            <OnboardingProgressCard
+              onResume={onResumeOnboarding}
+              onClearAndStartOver={() => onClearAndStartOver(activeApp?.id)}
             />
           )}
+
+          <ActiveLoanCard
+            applications={applications}
+            isLoading={isAppsLoading}
+            onViewDetails={(appId) => {
+              // Always show application details screen — resume logic is inside it
+              onViewDetails(appId);
+            }}
+            onApplyNow={handleApplyNow}
+          />
 
           {/* Quick Actions Grid */}
           <QuickActionsGrid onPressService={handlePressService} />
 
           {/* Instant Loan Schemes Banner */}
-          <OfferBanner
+          {/* <OfferBanner
             schemes={schemes}
             isLoading={isSchemesLoading}
             onSelectScheme={handleSelectScheme}
             onViewAll={() => setModalVisible(true)}
-          />
+          /> */}
 
           {/* Active Loan Details List at bottom */}
           {applications && applications.length > 0 && (

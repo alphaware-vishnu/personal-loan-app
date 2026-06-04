@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
@@ -39,9 +39,10 @@ const GROUP_TO_STAGE: Record<string, string> = {
 
 interface OnboardingProgressCardProps {
   onResume: (screen: any) => void;
+  onClearAndStartOver: () => void;
 }
 
-export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = React.memo(({ onResume }) => {
+export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = React.memo(({ onResume, onClearAndStartOver }) => {
   const colors = useColors();
   const { mode } = useTheme();
   const { completedSteps } = useOnboardingStore();
@@ -61,8 +62,23 @@ export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = Rea
     onResume(nextFlowTarget);
   };
 
+  const handleClearAndStartOver = () => {
+    Alert.alert(
+      'Reset Application',
+      'Are you sure you want to clear your current application progress and start over? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Over',
+          style: 'destructive',
+          onPress: onClearAndStartOver,
+        },
+      ]
+    );
+  };
+
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={handleResume} style={styles.touchable}>
+    <View style={styles.touchable}>
       <LinearGradient
         colors={isDark ? ['#1e1b4b', '#111827'] : ['#f5f3ff', '#ffffff']}
         start={{ x: 0, y: 0 }}
@@ -75,7 +91,7 @@ export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = Rea
           },
         ]}
       >
-        <View style={styles.cardRow}>
+        <TouchableOpacity activeOpacity={0.8} onPress={handleResume} style={styles.cardRow}>
           <View style={styles.leftContent}>
             {/* Badge Row */}
             <View style={styles.badgeRow}>
@@ -138,9 +154,22 @@ export const OnboardingProgressCard: React.FC<OnboardingProgressCardProps> = Rea
           >
             <Ionicons name="play" size={18} color="white" style={{ marginLeft: 2 }} />
           </MotiView>
+        </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={[styles.divider, { backgroundColor: isDark ? '#312e81' : '#e0e7ff' }]} />
+
+        {/* Bottom Actions Row */}
+        <View style={styles.bottomRow}>
+          <TouchableOpacity activeOpacity={0.7} onPress={handleClearAndStartOver} style={styles.clearButton}>
+            <Ionicons name="trash-outline" size={14} color={colors.error} />
+            <AppText variant="caption" style={{ color: colors.error, fontWeight: '700', marginLeft: 6 }}>
+              Clear & Start Over
+            </AppText>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
-    </TouchableOpacity>
+    </View>
   );
 });
 
@@ -153,7 +182,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 12,
@@ -210,5 +240,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 5,
     elevation: 3,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 12,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
 });

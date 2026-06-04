@@ -33,7 +33,7 @@ import { bankDetailsSchema } from '../../validations/schemas';
 import { uploadDocument } from '../../services/documentService';
 import { trackEvent } from '../../utils/analytics';
 import { useDebounce } from '../../hooks';
-import { getCustomerProfile, updateCustomerProfile } from '../../services/customerService';
+import { getCustomerProfile, updateCustomerProfile, pennyDrop } from '../../services/customerService';
 import { initiateAutopay, getRepaymentDue } from '../../services/bankService';
 import { useAuthStore } from '../../store/authStore';
 import { isFeatureEnabled } from '../../config/features';
@@ -77,6 +77,9 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
   const [autopaySetupStatus, setAutopaySetupStatus] = useState<'idle' | 'initiating' | 'authorizing' | 'success' | 'failed'>('idle');
   const [mandateDetails, setMandateDetails] = useState<any>(null);
   const [isVerifyingAutopay, setIsVerifyingAutopay] = useState(false);
+  const [isBankVerified, setIsBankVerified] = useState(false);
+  const [pennyDropResult, setPennyDropResult] = useState<any>(null);
+  const [isVerifyingBank, setIsVerifyingBank] = useState(false);
 
   const handleVerifyAutopay = async () => {
     setAutopaySetupStatus('success');
@@ -89,6 +92,68 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
     if (mandateDetails?.authUrl) {
       console.log('[AutoPay Setup] Re-opening authorization URL:', mandateDetails.authUrl);
       await WebBrowser.openBrowserAsync(mandateDetails.authUrl);
+    }
+  };
+
+  const handleVerifyBankDetails = async () => {
+    const errors = await formik.validateForm();
+    if (errors && (errors.accountName || errors.accountNumber || errors.confirmAccountNumber || errors.ifscCode)) {
+      formik.setTouched({
+        accountName: true,
+        accountNumber: true,
+        confirmAccountNumber: true,
+        ifscCode: true,
+      });
+      return;
+    }
+
+    try {
+      setIsVerifyingBank(true);
+      console.log('[BankDetails] Running penny drop verification for account:', formik.values.accountNumber);
+      
+      const verificationRes = await pennyDrop({
+        accountNumber: formik.values.accountNumber,
+        ifscCode: formik.values.ifscCode,
+      });
+
+      console.log('[BankDetails] Penny drop response:', verificationRes);
+      const verificationData = verificationRes?.data;
+
+      if (verificationData) {
+        if (verificationData.isNameVerified) {
+          Toast.show({
+            type: 'success',
+            text1: 'Bank Account Verified',
+            text2: `Beneficiary Name: ${verificationData.beneficiaryName || formik.values.accountName}`,
+            position: 'top',
+          });
+          if (verificationData.beneficiaryName) {
+            formik.setFieldValue('accountName', verificationData.beneficiaryName);
+          }
+          setPennyDropResult(verificationData);
+          setIsBankVerified(true);
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Verification Failed',
+            text2: `Name mismatch. Beneficiary: ${verificationData.beneficiaryName || 'Unknown'}.`,
+            position: 'top',
+          });
+        }
+      } else {
+        throw new Error('No verification data returned.');
+      }
+    } catch (error: any) {
+      console.error('[BankDetails] Penny drop error:', error);
+      const errorMsg = error.response?.data?.message || 'Verification failed. Please check your bank details.';
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Error',
+        text2: errorMsg,
+        position: 'top',
+      });
+    } finally {
+      setIsVerifyingBank(false);
     }
   };
 
@@ -123,6 +188,17 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
     validationSchema: bankDetailsSchema,
     onSubmit: async (values) => {
       const customerId = useAuthStore.getState().authData?.customerId || 99999;
+
+      if (!isBankVerified) {
+        Toast.show({
+          type: 'error',
+          text1: 'Verification Required',
+          text2: 'Please verify your bank details before proceeding.',
+          position: 'top',
+        });
+        return;
+      }
+
       addCustomerBank({
         accountHolderName: values.accountName,
         accountNo: values.accountNumber,
@@ -552,6 +628,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               error={formik.touched.accountName ? formik.errors.accountName : undefined}
               leftIcon={<Feather name="user" size={18} color={colors.textSecondary} />}
               autoCapitalize="words"
+              editable={!isBankVerified}
             />
 
             {/* Account Number */}
@@ -564,6 +641,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               error={formik.touched.accountNumber ? formik.errors.accountNumber : undefined}
               leftIcon={<Feather name="credit-card" size={18} color={colors.textSecondary} />}
               type="number"
+              editable={!isBankVerified}
             />
 
             {/* Confirm Account Number */}
@@ -576,6 +654,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               error={formik.touched.confirmAccountNumber ? formik.errors.confirmAccountNumber : undefined}
               leftIcon={<Feather name="shield" size={18} color={colors.textSecondary} />}
               type="number"
+              editable={!isBankVerified}
             />
 
             {/* IFSC Code */}
@@ -589,6 +668,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               leftIcon={<Feather name="hash" size={18} color={colors.textSecondary} />}
               type="pan"
               maxLength={11}
+              editable={!isBankVerified}
               rightIcon={
                 isLooingUpIfsc ? (
                   <LottieView
@@ -602,10 +682,9 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
                 ) : null
               }
             />
-
             {/* Auto-populated bank and branch */}
             <AnimatePresence>
-              {bankName && (
+              {!isBankVerified && bankName && (
                 <MotiView
                   from={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -624,108 +703,174 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               )}
             </AnimatePresence>
 
-            {/* AutoPay setup section */}
-            <AppText variant="labelLg" style={[styles.sectionTitle, { color: colors.text }]}>
-              Set up AutoPay
-            </AppText>
-            <AppText variant="caption" style={{ color: colors.textSecondary, marginBottom: 12 }}>
-              Choose a method to automatically repay your EMIs and avoid penalties.
-            </AppText>
+            {/* Verification Success Box */}
+            <AnimatePresence>
+              {isBankVerified && pennyDropResult && (
+                <MotiView
+                  from={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  style={{
+                    padding: 16,
+                    borderRadius: 16,
+                    backgroundColor: 'rgba(16,185,129,0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(16,185,129,0.25)',
+                    marginBottom: 20,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="checkmark-circle" size={20} color="white" />
+                      </View>
+                      <View>
+                        <AppText variant="bodyMedium" style={{ fontWeight: '800', color: colors.text }}>Bank Account Verified</AppText>
+                        <AppText variant="caption" style={{ color: colors.textSecondary }}>Penny drop validation successful</AppText>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsBankVerified(false);
+                        setPennyDropResult(null);
+                      }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.backgroundSecondary }}
+                    >
+                      <AppText variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>Edit</AppText>
+                    </TouchableOpacity>
+                  </View>
 
-            <View style={styles.autoPayGrid}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[
-                  styles.autoPayCard,
-                  {
-                    borderColor: selectedAutoPay === 'upi' ? colors.primary : colors.border,
-                    backgroundColor: selectedAutoPay === 'upi' ? colors.primaryLight : colors.surface,
-                  },
-                ]}
-                onPress={() => setSelectedAutoPay('upi')}
-              >
-                <View style={styles.radioRow}>
-                  <Ionicons
-                    name={selectedAutoPay === 'upi' ? 'radio-button-on' : 'radio-button-off'}
-                    size={18}
-                    color={selectedAutoPay === 'upi' ? colors.primary : colors.textSecondary}
-                  />
-                  <AppText variant="bodyMedium" style={{ fontWeight: '700', marginLeft: 8 }}>
-                    UPI AutoPay
+                  <View style={{ gap: 6, marginTop: 4 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <AppText variant="caption" style={{ color: colors.textSecondary }}>Beneficiary Name:</AppText>
+                      <AppText variant="bodySm" style={{ color: colors.text, fontWeight: '700' }}>{pennyDropResult.beneficiaryName || formik.values.accountName}</AppText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <AppText variant="caption" style={{ color: colors.textSecondary }}>Bank:</AppText>
+                      <AppText variant="bodySm" style={{ color: colors.text, fontWeight: '700' }}>{bankName || 'Verified Bank'}</AppText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <AppText variant="caption" style={{ color: colors.textSecondary }}>Branch:</AppText>
+                      <AppText variant="bodySm" style={{ color: colors.text, fontWeight: '700' }}>{branchName || 'Verified Branch'}</AppText>
+                    </View>
+                  </View>
+                </MotiView>
+              )}
+            </AnimatePresence>
+
+            {/* AutoPay setup section (only shown if bank verified) */}
+            <AnimatePresence>
+              {isBankVerified && (
+                <MotiView
+                  from={{ opacity: 0, translateY: 15 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  exit={{ opacity: 0, translateY: 15 }}
+                  transition={{ type: 'timing', duration: 400 }}
+                >
+                  <AppText variant="labelLg" style={[styles.sectionTitle, { color: colors.text }]}>
+                    Set up AutoPay
                   </AppText>
-                </View>
-                <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 4 }}>
-                  Fast & convenient using GPay, PhonePe, or BHIM.
-                </AppText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[
-                  styles.autoPayCard,
-                  {
-                    borderColor: selectedAutoPay === 'enach' ? colors.primary : colors.border,
-                    backgroundColor: selectedAutoPay === 'enach' ? colors.primaryLight : colors.surface,
-                  },
-                ]}
-                onPress={() => setSelectedAutoPay('enach')}
-              >
-                <View style={styles.radioRow}>
-                  <Ionicons
-                    name={selectedAutoPay === 'enach' ? 'radio-button-on' : 'radio-button-off'}
-                    size={18}
-                    color={selectedAutoPay === 'enach' ? colors.primary : colors.textSecondary}
-                  />
-                  <AppText variant="bodyMedium" style={{ fontWeight: '700', marginLeft: 8 }}>
-                    eNACH NetBanking
+                  <AppText variant="caption" style={{ color: colors.textSecondary, marginBottom: 12 }}>
+                    Choose a method to automatically repay your EMIs and avoid penalties.
                   </AppText>
-                </View>
-                <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 4 }}>
-                  Robust setups for all major banks via NetBanking credentials.
-                </AppText>
-              </TouchableOpacity>
-            </View>
 
-            {/* Document Uploads section */}
-            {(passbookReq || houseReq) && (
-              <View style={styles.uploadsContainer}>
-                <AppText variant="labelLg" style={[styles.sectionTitle, { color: colors.text, marginBottom: 12 }]}>
-                  Upload Documents
-                </AppText>
+                  <View style={styles.autoPayGrid}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={[
+                        styles.autoPayCard,
+                        {
+                          borderColor: selectedAutoPay === 'upi' ? colors.primary : colors.border,
+                          backgroundColor: selectedAutoPay === 'upi' ? colors.primaryLight : colors.surface,
+                        },
+                      ]}
+                      onPress={() => setSelectedAutoPay('upi')}
+                    >
+                      <View style={styles.radioRow}>
+                        <Ionicons
+                          name={selectedAutoPay === 'upi' ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
+                          color={selectedAutoPay === 'upi' ? colors.primary : colors.textSecondary}
+                        />
+                        <AppText variant="bodyMedium" style={{ fontWeight: '700', marginLeft: 8 }}>
+                          UPI AutoPay
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 4 }}>
+                        Fast & convenient using GPay, PhonePe, or BHIM.
+                      </AppText>
+                    </TouchableOpacity>
 
-                {passbookReq && (
-                  <FileUploadCard
-                    label="Bank Passbook / Cheque"
-                    description="Upload the front page of passbook or cancelled cheque"
-                    isRequired={passbookReq.isRequired}
-                    status={uploadStatuses[passbookReq.id] || 'idle'}
-                    progress={uploadProgress[passbookReq.id]}
-                    fileName={uploadedDocs[passbookReq.id]?.fileName}
-                    fileUri={uploadedDocs[passbookReq.id]?.uri}
-                    onUploadPress={() => handleDocumentPickPress(passbookReq.id!, passbookReq.categoryId!)}
-                    onDeletePress={() => {
-                      updateUploadedDoc(passbookReq.id!, undefined);
-                    }}
-                  />
-                )}
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={[
+                        styles.autoPayCard,
+                        {
+                          borderColor: selectedAutoPay === 'enach' ? colors.primary : colors.border,
+                          backgroundColor: selectedAutoPay === 'enach' ? colors.primaryLight : colors.surface,
+                        },
+                      ]}
+                      onPress={() => setSelectedAutoPay('enach')}
+                    >
+                      <View style={styles.radioRow}>
+                        <Ionicons
+                          name={selectedAutoPay === 'enach' ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
+                          color={selectedAutoPay === 'enach' ? colors.primary : colors.textSecondary}
+                        />
+                        <AppText variant="bodyMedium" style={{ fontWeight: '700', marginLeft: 8 }}>
+                          eNACH NetBanking
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 4 }}>
+                        Robust setups for all major banks via NetBanking credentials.
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
 
-                {houseReq && (
-                  <FileUploadCard
-                    label="House Verification Pictures"
-                    description="Upload photos of your current residential address"
-                    isRequired={houseReq.isRequired}
-                    status={uploadStatuses[houseReq.id] || 'idle'}
-                    progress={uploadProgress[houseReq.id]}
-                    fileName={uploadedDocs[houseReq.id]?.fileName}
-                    fileUri={uploadedDocs[houseReq.id]?.uri}
-                    onUploadPress={() => handleDocumentPickPress(houseReq.id!, houseReq.categoryId!)}
-                    onDeletePress={() => {
-                      updateUploadedDoc(houseReq.id!, undefined);
-                    }}
-                  />
-                )}
-              </View>
-            )}
+                  {/* Document Uploads section */}
+                  {(passbookReq || houseReq) && (
+                    <View style={styles.uploadsContainer}>
+                      <AppText variant="labelLg" style={[styles.sectionTitle, { color: colors.text, marginBottom: 12 }]}>
+                        Upload Documents
+                      </AppText>
+
+                      {passbookReq && (
+                        <FileUploadCard
+                          label="Bank Passbook / Cheque"
+                          description="Upload the front page of passbook or cancelled cheque"
+                          isRequired={passbookReq.isRequired}
+                          status={uploadStatuses[passbookReq.id] || 'idle'}
+                          progress={uploadProgress[passbookReq.id]}
+                          fileName={uploadedDocs[passbookReq.id]?.fileName}
+                          fileUri={uploadedDocs[passbookReq.id]?.uri}
+                          onUploadPress={() => handleDocumentPickPress(passbookReq.id!, passbookReq.categoryId!)}
+                          onDeletePress={() => {
+                            updateUploadedDoc(passbookReq.id!, undefined);
+                          }}
+                        />
+                      )}
+
+                      {houseReq && (
+                        <FileUploadCard
+                          label="House Verification Pictures"
+                          description="Upload photos of your current residential address"
+                          isRequired={houseReq.isRequired}
+                          status={uploadStatuses[houseReq.id] || 'idle'}
+                          progress={uploadProgress[houseReq.id]}
+                          fileName={uploadedDocs[houseReq.id]?.fileName}
+                          fileUri={uploadedDocs[houseReq.id]?.uri}
+                          onUploadPress={() => handleDocumentPickPress(houseReq.id!, houseReq.categoryId!)}
+                          onDeletePress={() => {
+                            updateUploadedDoc(houseReq.id!, undefined);
+                          }}
+                        />
+                      )}
+                    </View>
+                  )}
+                </MotiView>
+              )}
+            </AnimatePresence>
           </MotiView>
           )}
         </ScrollView>
@@ -746,14 +891,38 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           transition={{ type: 'timing', duration: 400, delay: 200 }}
           style={[styles.footer, { borderTopColor: colors.border, paddingHorizontal: theme.screenPadding }]}
         >
-          <AppButton
-            title="Verify & Proceed"
-            variant="primary"
-            size="lg"
-            onPress={() => formik.handleSubmit()}
-            disabled={!isFormValid}
-            loading={formik.isSubmitting}
-          />
+          {!isBankVerified ? (
+            <AppButton
+              title="Verify Bank Account"
+              variant="primary"
+              size="lg"
+              onPress={handleVerifyBankDetails}
+              disabled={
+                !formik.values.accountName ||
+                !formik.values.accountNumber ||
+                !formik.values.confirmAccountNumber ||
+                !formik.values.ifscCode ||
+                !!formik.errors.accountName ||
+                !!formik.errors.accountNumber ||
+                !!formik.errors.confirmAccountNumber ||
+                !!formik.errors.ifscCode
+              }
+              loading={isVerifyingBank}
+            />
+          ) : (
+            <AppButton
+              title="Setup AutoPay & Proceed"
+              variant="primary"
+              size="lg"
+              onPress={() => formik.handleSubmit()}
+              disabled={
+                formik.isSubmitting ||
+                !(passbookReq ? uploadedDocs[passbookReq.id] : true) ||
+                !(houseReq ? uploadedDocs[houseReq.id] : true)
+              }
+              loading={formik.isSubmitting}
+            />
+          )}
           {onSkip && (
             <AppButton
               title="Skip, I'll do later"

@@ -82,6 +82,8 @@ interface OnboardingState {
   setIntroCompleted: (value: boolean) => void;
   setProfileCompleted: (value: boolean) => void;
   reset: () => void;
+  ignoredApplicationId: number | null;
+  setIgnoredApplicationId: (id: number | null) => void;
 }
 
 const secureStorage: StateStorage = {
@@ -106,8 +108,11 @@ export const useOnboardingStore = create<OnboardingState>()(
       lastSavedAt: null,
       hasCompletedIntro: false,
       hasCompletedProfile: false,
+      ignoredApplicationId: null,
 
       setCurrentStep: (stepId) => set({ currentStepId: stepId }),
+
+      setIgnoredApplicationId: (id) => set({ ignoredApplicationId: id }),
 
       completeStep: (stepId) =>
         set((state) => {
@@ -148,6 +153,7 @@ export const useOnboardingStore = create<OnboardingState>()(
           lastSavedAt: null,
           hasCompletedIntro: false,
           hasCompletedProfile: false,
+          ignoredApplicationId: null,
         }),
     }),
     {

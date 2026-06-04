@@ -35,6 +35,8 @@ import { AgreementScreen } from "@/screens/agreement/AgreementScreen";
 import { DisbursalScreen } from "@/screens/disbursal/DisbursalScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { useAuthStore } from "@/store/authStore";
+import { useLoanStore } from "@/store/loanStore";
+import { useOnboardingStore } from "@/store/onboardingStore";
 
 // ─── New Screens (Phase 5: Profile Setup) ───
 import { PanVerificationScreen } from "@/screens/profile/PanVerificationScreen";
@@ -111,7 +113,7 @@ const checkRequiredPermissions = async (): Promise<boolean> => {
 };
 
 function AppContent() {
-  const [history, setHistory] = useState<Flow[]>(["splash"]);
+  const [history, setHistory] = useState<Flow[]>(["dashboard"]);
   const [mobile, setMobile] = useState("");
   const [selectedScheme, setSelectedScheme] = useState<any>(null);
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
@@ -446,7 +448,18 @@ function AppContent() {
           onStartLoan={() => console.log("Init selection")}
           onSchemeSelect={(scheme) => {
             setSelectedScheme(scheme);
-            push("kyc");
+            
+            // Clear onboarding and loan stores to start fresh
+            const customerId = useAuthStore.getState().authData?.customerId;
+            useOnboardingStore.getState().reset();
+            useLoanStore.getState().reset();
+            if (customerId) {
+              useLoanStore.getState().setCustomerId(customerId);
+            }
+            // Start at the first profile setup step
+            useOnboardingStore.getState().setCurrentStep('pan_verification');
+            
+            push("panVerification");
           }}
           onViewDetails={(appId, autoRepay) => {
             setSelectedApplicationId(appId);
@@ -455,6 +468,22 @@ function AppContent() {
           }}
           onViewProfile={() => push("profile")}
           onResumeOnboarding={(screenKey) => push(screenKey)}
+          onClearAndStartOver={(appId) => {
+            // Clear onboarding and loan stores to start fresh
+            const customerId = useAuthStore.getState().authData?.customerId;
+            useOnboardingStore.getState().reset();
+            useLoanStore.getState().reset();
+            if (customerId) {
+              useLoanStore.getState().setCustomerId(customerId);
+            }
+            if (appId) {
+              useOnboardingStore.getState().setIgnoredApplicationId(appId);
+            }
+            // Start at the first profile setup step
+            useOnboardingStore.getState().setCurrentStep('pan_verification');
+            
+            push("panVerification");
+          }}
         />
       );
     }
