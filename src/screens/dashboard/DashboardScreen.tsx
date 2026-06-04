@@ -164,9 +164,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         'kyc_selfie',
         'eligibility',
       ];
+
+      // Infer step completion from application status when API flags are missing
+      const status = activeApp.applicationStatus;
+      const statusImpliesBankDone = ['SANCTION_GENERATED', 'SANCTION_SIGN_INITIATED', 'SANCTION_SIGNED', 'APPROVED', 'DISBURSED'].includes(status);
+      const statusImpliesAgreementDone = ['APPROVED', 'DISBURSED'].includes(status);
       
-      const bankVerificationCompleted = activeApp.applicationStepStatus?.bankVerificationCompleted ?? activeApp.bankVerificationCompleted;
-      const loanAgreementCompleted = activeApp.applicationStepStatus?.loanAgreementCompleted ?? activeApp.loanAgreementCompleted;
+      const bankVerificationCompleted = activeApp.applicationStepStatus?.bankVerificationCompleted ?? activeApp.bankVerificationCompleted ?? statusImpliesBankDone;
+      const loanAgreementCompleted = activeApp.applicationStepStatus?.loanAgreementCompleted ?? activeApp.loanAgreementCompleted ?? statusImpliesAgreementDone;
 
       if (bankVerificationCompleted) {
         stepsToComplete.push('bank_account');
@@ -174,6 +179,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       
       if (loanAgreementCompleted) {
         stepsToComplete.push('agreement');
+      }
+
+      if (status === 'DISBURSED') {
+        stepsToComplete.push('disbursal');
       }
 
       useOnboardingStore.setState({
@@ -278,8 +287,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Determine if onboarding is completed
   const trackableSteps = getTrackableSteps().filter((step) => step.isRequired && step.isEnabled);
   const isOnboardingComplete = trackableSteps.every((step) => completedSteps.includes(step.id));
-  const hasActiveLoans = applications && applications.some((app: any) => app.applicationStatus === 'DISBURSED');
-  const showActiveLoans = hasActiveLoans || isOnboardingComplete;
+  const hasActiveApplications = applications && applications.length > 0;
+  const showActiveLoans = hasActiveApplications || isOnboardingComplete;
 
   return (
     <MeshBackground style={styles.container}>

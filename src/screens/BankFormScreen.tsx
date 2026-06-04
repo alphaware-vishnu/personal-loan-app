@@ -23,7 +23,7 @@ export interface BankDetails {
 
 import { useLoanStore } from "../store/loanStore";
 import { DocumentUploadField } from "../components/DocumentUploadField";
-import { updateStepStatus, pennyDrop } from "../services/api";
+import { updateStepStatus, pennyDrop, updateCustomerProfile } from "../services/api";
 import { cleanNameInput } from "../utils";
 import Toast from 'react-native-toast-message';
 
@@ -43,6 +43,17 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
       const response = await pennyDrop({ accountNumber: accNum, ifscCode });
       const data = response?.data || response;
       if (data && data.beneficiaryName) {
+        if (data.isNameVerified === false) {
+          setVerificationState('failed');
+          setVerificationError("Name verification failed. Account holder name does not match profile name.");
+          Toast.show({
+            type: 'error',
+            text1: 'Verification Failed',
+            text2: 'Account holder name does not match profile name.',
+            position: 'top',
+          });
+          return;
+        }
         setVerificationState('success');
         setVerifiedName(data.beneficiaryName);
         setLastVerifiedKey(`${accNum}_${ifscCode}`);
@@ -120,25 +131,47 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
       branch: "",
     },
     validationSchema,
-    onSubmit: (values) => {
-      addCustomerBank({
-        accountHolderName: values.accountName,
-        accountNo: values.accountNumber,
-        bank: "SBI",
-        branch: values.branch,
-        ifsc: values.ifsc,
-        city: "Mumbai",
-        accountType: 'SAVINGS',
-        isDefault: true
-      });
-
-      if (applicationId) {
-        statusMutation.mutate({ 
-          id: applicationId, 
-          status: { bankVerificationCompleted: true } 
+    onSubmit: async (values, { setSubmitting }) => {
+      try {
+        await updateCustomerProfile({
+          bank: {
+            accountHolderName: values.accountName,
+            accountNumber: values.accountNumber,
+            ifscCode: values.ifsc,
+            autoDebitType: "UPI",
+          },
         });
-      } else {
-        setSuccessModalVisible(true);
+
+        addCustomerBank({
+          accountHolderName: values.accountName,
+          accountNo: values.accountNumber,
+          bank: "SBI",
+          branch: values.branch,
+          ifsc: values.ifsc,
+          city: "Mumbai",
+          accountType: 'SAVINGS',
+          isDefault: true
+        });
+
+        if (applicationId) {
+          statusMutation.mutate({ 
+            id: applicationId, 
+            status: { bankVerificationCompleted: true } 
+          });
+        } else {
+          setSuccessModalVisible(true);
+        }
+      } catch (err: any) {
+        console.error("Save profile bank details failed:", err);
+        const errorMsg = err.response?.data?.message || err.message || "Failed to save bank details";
+        Toast.show({
+          type: 'error',
+          text1: 'Save Failed',
+          text2: errorMsg,
+          position: 'top'
+        });
+      } finally {
+        setSubmitting(false);
       }
     },
   });
@@ -392,7 +425,7 @@ export const BankFormScreen: React.FC<BankFormScreenProps> = ({ onSubmit, onBack
               variant="primary"
               size="lg"
               disabled={!isFormValid}
-              loading={statusMutation.isPending}
+              loading={formik.isSubmitting || statusMutation.isPending}
               onPress={()=>formik.handleSubmit()}
             />
           </View>
