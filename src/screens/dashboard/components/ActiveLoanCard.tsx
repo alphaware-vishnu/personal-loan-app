@@ -153,24 +153,6 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
               </AppText>
             </View>
           </View>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={onApplyNow}
-            style={[styles.applyButton, { backgroundColor: colors.surface }]}
-          >
-            <Ionicons name="add-circle" size={16} color={colors.accentDark} />
-            <AppText
-              variant="bodyMedium"
-              style={{
-                color: colors.accentDark,
-                fontWeight: '800',
-                marginLeft: 6,
-              }}
-            >
-              Apply for Loan
-            </AppText>
-          </TouchableOpacity>
         </NotchedCard>
       </View>
     );

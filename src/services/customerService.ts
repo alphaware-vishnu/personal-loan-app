@@ -159,6 +159,7 @@ export interface PennyDropResponse {
   id: number;
   beneficiaryName: string;
   borrowerName: string;
+  status: "SUCCESS" | "FAILED"
   isNameVerified: boolean;
 }
 

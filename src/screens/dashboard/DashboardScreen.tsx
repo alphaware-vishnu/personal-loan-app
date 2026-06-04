@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -236,6 +237,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     trackEvent('onboarding_started');
   };
 
+  const handleNewApplication = () => {
+    if (activeApp && ignoredApplicationId !== activeApp.id) {
+      Alert.alert(
+        'Application in Process',
+        'You already have an application in process. To start a new application, you need to clear and start over.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Clear & Proceed',
+            style: 'destructive',
+            onPress: () => {
+              onClearAndStartOver(activeApp.id);
+            },
+          },
+        ]
+      );
+    } else {
+      onClearAndStartOver(null);
+    }
+  };
+
   const emiMutation = useMutation({
     mutationFn: async (scheme: any) => {
       setScheme(scheme);
@@ -302,6 +324,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           onViewProfile={onViewProfile}
           onSignOut={handleSignOut}
           onPressCreditScore={() => setActiveModal('credit')}
+          onPressNewLoan={handleNewApplication}
         />
 
         <ScrollView
@@ -350,11 +373,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <AppText variant="h3" style={[styles.sectionTitle, { color: colors.text }]}>
                   Active Accounts
                 </AppText>
-                <TouchableOpacity activeOpacity={0.7} onPress={handleApplyNow}>
-                  <AppText variant="bodySm" style={{ color: colors.primary, fontWeight: '700' }}>
-                    New Loan
-                  </AppText>
-                </TouchableOpacity>
               </View>
 
               {applications.map((app: any, idx: number) => {

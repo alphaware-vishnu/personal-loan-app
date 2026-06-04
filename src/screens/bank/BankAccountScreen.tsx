@@ -120,7 +120,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
       const verificationData = verificationRes?.data;
 
       if (verificationData) {
-        if (verificationData.isNameVerified) {
+        if (verificationData.status === 'SUCCESS') {
           Toast.show({
             type: 'success',
             text1: 'Bank Account Verified',
@@ -136,7 +136,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
           Toast.show({
             type: 'error',
             text1: 'Verification Failed',
-            text2: `Name mismatch. Beneficiary: ${verificationData.beneficiaryName || 'Unknown'}.`,
+            text2: `Verification failed. Status: ${verificationData.status || 'Unknown'}.`,
             position: 'top',
           });
         }

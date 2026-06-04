@@ -18,6 +18,7 @@ interface DashboardHeaderProps {
   onViewProfile: () => void;
   onSignOut: () => void;
   onPressCreditScore?: () => void;
+  onPressNewLoan?: () => void;
 }
 
 const getGreeting = (): string => {
@@ -31,6 +32,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
   onViewProfile,
   onSignOut,
   onPressCreditScore,
+  onPressNewLoan,
 }) => {
   const colors = useColors();
   const { theme, mode } = useTheme();
@@ -74,6 +76,20 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
         </TouchableOpacity>
 
         <View style={styles.topRowRight}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={[
+              styles.iconButton,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : colors.surface,
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
+              },
+            ]}
+            onPress={onPressNewLoan}
+          >
+            <Ionicons name="add-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             activeOpacity={0.7}
             style={[

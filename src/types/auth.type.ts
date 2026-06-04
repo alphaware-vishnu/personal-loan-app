@@ -1,6 +1,7 @@
 export interface AuthData {
   customerId: number;
   isFirstLogin: boolean;
+  isNewCustomer?: boolean;
   access_token: string;
   refresh_token: string;
   token_type: string;

@@ -84,10 +84,11 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         }
 
         const onboardingState = useOnboardingStore.getState();
-        const isFirstLogin = data.isFirstLogin ?? !onboardingState.hasCompletedProfile;
+        const isNewCustomer = data.isNewCustomer ?? data.isFirstLogin ?? !onboardingState.hasCompletedProfile;
         const authData: AuthData = {
           ...data,
-          isFirstLogin,
+          isFirstLogin: isNewCustomer,
+          isNewCustomer,
         };
         // Log in the user in the secure store
         setAuth(authData, mobile);
@@ -97,7 +98,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
 
         // Redirect after animation completes
         setTimeout(() => {
-          onVerify(!isFirstLogin);
+          onVerify(!isNewCustomer);
         }, 1500);
       } else {
         Toast.show({
