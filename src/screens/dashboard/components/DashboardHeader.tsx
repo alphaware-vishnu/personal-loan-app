@@ -17,6 +17,7 @@ import { CreditScoreGauge } from './CreditScoreGauge';
 interface DashboardHeaderProps {
   onViewProfile: () => void;
   onSignOut: () => void;
+  onPressCreditScore?: () => void;
 }
 
 const getGreeting = (): string => {
@@ -29,20 +30,30 @@ const getGreeting = (): string => {
 export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
   onViewProfile,
   onSignOut,
+  onPressCreditScore,
 }) => {
   const colors = useColors();
   const { theme, mode } = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
 
   const { mobile } = useAuthStore();
-  const { customerInfo } = useLoanStore();
+  const { customerInfo, cibilScore } = useLoanStore();
   const onboardingName = useOnboardingStore((state) => state.formData?.applicantName);
   const applicantName = customerInfo?.applicantName || onboardingName || '';
   const firstName = applicantName ? applicantName.split(' ')[0] : '';
   const isDark = mode === 'dark';
 
-  // Mock credit score — will be replaced with real API data
-  const creditScore = 750;
+  const hasScore = typeof cibilScore === 'number';
+  const isNoData = cibilScore === 'no_data';
+
+  const gaugeSubtitle = hasScore
+    ? 'Soft pull report'
+    : isNoData
+    ? 'Credit report not available'
+    : 'Find out your credit standing';
+
+  const buttonText = hasScore ? 'Refresh' : 'Check Score';
+  const buttonIcon = hasScore ? 'refresh' : 'speedometer-outline';
 
   return (
     <View style={styles.headerWrapper}>
@@ -151,10 +162,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
               variant="bodySm"
               style={[styles.gaugeSubtext, { color: colors.textMuted }]}
             >
-              Updated 3 days ago
+              {gaugeSubtitle}
             </AppText>
             <TouchableOpacity
               activeOpacity={0.7}
+              onPress={onPressCreditScore}
               style={[
                 styles.refreshButton,
                 {
@@ -164,16 +176,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({
                 },
               ]}
             >
-              <Ionicons name="refresh" size={12} color={colors.primary} />
+              <Ionicons name={buttonIcon as any} size={12} color={colors.primary} />
               <AppText
                 variant="caption"
                 style={[styles.refreshText, { color: colors.primary }]}
               >
-                Refresh
+                {buttonText}
               </AppText>
             </TouchableOpacity>
           </View>
-          <CreditScoreGauge score={creditScore} size={140} />
+          <CreditScoreGauge score={cibilScore} size={140} />
         </View>
       </MotiView>
 

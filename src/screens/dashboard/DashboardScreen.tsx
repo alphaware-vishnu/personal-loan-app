@@ -292,44 +292,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   return (
     <MeshBackground style={styles.container}>
       <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top']}>
-        <DashboardHeader onViewProfile={onViewProfile} onSignOut={handleSignOut} />
+        <DashboardHeader
+          onViewProfile={onViewProfile}
+          onSignOut={handleSignOut}
+          onPressCreditScore={() => setActiveModal('credit')}
+        />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           style={{ backgroundColor: 'transparent' }}
         >
-          {cibilScore !== null && (
-            <MotiView
-              from={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              style={{
-                marginHorizontal: 24,
-                marginBottom: 16,
-                padding: 16,
-                borderRadius: 16,
-                backgroundColor: 'rgba(52,211,153,0.1)',
-                borderWidth: 1,
-                borderColor: 'rgba(52,211,153,0.3)',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#34D399', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="speedometer-outline" size={24} color="white" />
-                </View>
-                <View>
-                  <AppText variant="caption" style={{ color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' }}>Your CIBIL Score</AppText>
-                  <AppText variant="h2" style={{ color: 'white', fontWeight: '900' }}>{cibilScore}</AppText>
-                </View>
-              </View>
-              <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(52,211,153,0.2)' }}>
-                <AppText variant="caption" style={{ color: '#34D399', fontWeight: '800' }}>Excellent</AppText>
-              </View>
-            </MotiView>
-          )}
 
           {!isOnboardingComplete && (
             <OnboardingProgressCard onResume={onResumeOnboarding} />

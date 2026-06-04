@@ -253,20 +253,20 @@ export const CreditScoreScreen: React.FC<CreditScoreScreenProps> = ({ onNext, on
               </MotiView>
 
             {/* Center Content */}
-              <View className="absolute top-[32%] items-center">
-                <MotiText
-                  from={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: "spring", delay: 800 }}
-                  className="text-8xl font-black text-slate-900"
-                >
-                  {score}
-                </MotiText>
-                <Text className="text-slate-500 text-sm font-medium mt-[-5px]">
-                  Your Credit Score
-                </Text>
-              </View>
+            <View className="absolute top-[32%] items-center">
+              <MotiText
+                from={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", delay: 800 }}
+                className="text-8xl font-black text-slate-900"
+              >
+                {score}454545
+              </MotiText>
+              <Text className="text-slate-500 text-sm font-medium mt-[-5px]">
+                Your Credit Score
+              </Text>
             </View>
+          </View>
 
             {/* Credit Summary Cards */}
             <ScrollView 

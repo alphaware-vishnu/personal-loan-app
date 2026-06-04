@@ -111,7 +111,7 @@ const checkRequiredPermissions = async (): Promise<boolean> => {
 };
 
 function AppContent() {
-  const [history, setHistory] = useState<Flow[]>(["workAddress"]);
+  const [history, setHistory] = useState<Flow[]>(["splash"]);
   const [mobile, setMobile] = useState("");
   const [selectedScheme, setSelectedScheme] = useState<any>(null);
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);

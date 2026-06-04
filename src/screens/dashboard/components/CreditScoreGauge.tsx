@@ -4,12 +4,14 @@ import { useColors, useTheme } from '../../../theme';
 import { AppText } from '../../../components/ui/AppText';
 
 interface CreditScoreGaugeProps {
-  score: number;
+  score: number | null | 'no_data';
   maxScore?: number;
   size?: number;
 }
 
-const getScoreLabel = (score: number): { label: string; color: string } => {
+const getScoreLabel = (score: number | null | 'no_data'): { label: string; color: string } => {
+  if (score === null) return { label: 'Pending', color: '#94A3B8' };
+  if (score === 'no_data') return { label: 'No Report', color: '#EF4444' };
   if (score >= 750) return { label: 'Excellent', color: '#10B981' };
   if (score >= 700) return { label: 'Good', color: '#3B82F6' };
   if (score >= 650) return { label: 'Fair', color: '#F59E0B' };
@@ -26,7 +28,7 @@ export const CreditScoreGauge: React.FC<CreditScoreGaugeProps> = ({
   const { mode } = useTheme();
   const animatedValue = useRef(new Animated.Value(0)).current;
 
-  const percentage = Math.min(Math.max(score / maxScore, 0), 1);
+  const percentage = typeof score === 'number' ? Math.min(Math.max(score / maxScore, 0), 1) : 0;
   const { label, color: scoreColor } = getScoreLabel(score);
 
   useEffect(() => {
@@ -161,15 +163,46 @@ export const CreditScoreGauge: React.FC<CreditScoreGaugeProps> = ({
 
       {/* Score text in center */}
       <View style={[styles.scoreTextContainer, { bottom: 0, width: size }]}>
-        <AppText
-          variant="h1"
-          style={[
-            styles.scoreValue,
-            { color: colors.text, fontSize: size * 0.22 },
-          ]}
-        >
-          {score}
-        </AppText>
+        {typeof score === 'number' ? (
+          <AppText
+            variant="h1"
+            style={[
+              styles.scoreValue,
+              { color: colors.text, fontSize: size * 0.22 },
+            ]}
+          >
+            {score}
+          </AppText>
+        ) : (
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
+            <AppText
+              style={{
+                color: score === 'no_data' ? colors.error : colors.primary,
+                fontWeight: '900',
+                fontSize: size * 0.11,
+                textAlign: 'center',
+                textTransform: 'uppercase',
+                lineHeight: size * 0.13,
+              }}
+            >
+              {score === 'no_data' ? 'N/A' : 'Check'}
+            </AppText>
+            {score !== 'no_data' && (
+              <AppText
+                style={{
+                  color: colors.primary,
+                  fontWeight: '900',
+                  fontSize: size * 0.11,
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  lineHeight: size * 0.13,
+                }}
+              >
+                Score
+              </AppText>
+            )}
+          </View>
+        )}
         <View
           style={[
             styles.labelBadge,

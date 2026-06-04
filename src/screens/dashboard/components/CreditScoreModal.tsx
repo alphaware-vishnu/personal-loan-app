@@ -42,19 +42,17 @@ export const CreditScoreModal: React.FC<CreditScoreModalProps> = ({
       if (res?.data?.score) {
         setCibilScore(res.data.score);
       } else {
-        // Fallback for demo
-        setTimeout(() => setCibilScore(750), 1500);
+        setCibilScore('no_data');
       }
     } catch (error) {
       console.error('Failed to fetch score:', error);
-      // Fallback for demo if API is not fully wired yet
-      setTimeout(() => setCibilScore(750), 1500);
+      setCibilScore('no_data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const score = cibilScore || 0;
+  const scoreValue = typeof cibilScore === 'number' ? cibilScore : 0;
 
   const scoreFactors = [
     {
@@ -137,7 +135,34 @@ export const CreditScoreModal: React.FC<CreditScoreModalProps> = ({
                   variant="primary"
                   size="lg"
                   onPress={handleFetchScore}
-                  isLoading={isLoading}
+                  loading={isLoading}
+                  style={{ width: '100%' }}
+                />
+              </MotiView>
+            ) : cibilScore === 'no_data' ? (
+              <MotiView
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                style={styles.emptyContainer}
+              >
+                <LottieView
+                  source={require('../../../../assets/new-loader.json')}
+                  autoPlay
+                  loop
+                  style={{ width: 160, height: 160, marginBottom: 20 }}
+                />
+                <AppText variant="h2" style={{ fontWeight: '800', color: colors.text, textAlign: 'center', marginBottom: 8 }}>
+                  Credit report not available
+                </AppText>
+                <AppText variant="bodyMedium" style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 32, paddingHorizontal: 20 }}>
+                  We were unable to fetch your credit report at this time. Please check back later.
+                </AppText>
+                <AppButton
+                  title="Check Score"
+                  variant="primary"
+                  size="lg"
+                  onPress={handleFetchScore}
+                  loading={isLoading}
                   style={{ width: '100%' }}
                 />
               </MotiView>
@@ -145,7 +170,7 @@ export const CreditScoreModal: React.FC<CreditScoreModalProps> = ({
               <>
                 {/* Gauge Wrapper */}
                 <View style={styles.gaugeContainer}>
-                  <CreditScoreGauge score={score} size={180} />
+                  <CreditScoreGauge score={cibilScore} size={180} />
                 </View>
 
                 {/* Score History Graph Placeholder */}
@@ -168,7 +193,7 @@ export const CreditScoreModal: React.FC<CreditScoreModalProps> = ({
                   {/* Minimalist Vector Trend Line */}
                   <View style={styles.graphWrapper}>
                     <View style={styles.trendRow}>
-                      {[score - 30, score - 25, score - 20, score - 8, score - 5, score].map((val, idx) => {
+                      {[scoreValue - 30, scoreValue - 25, scoreValue - 20, scoreValue - 8, scoreValue - 5, scoreValue].map((val, idx) => {
                         const heightPct = Math.max(0, Math.min(100, ((val - 700) / 60) * 100));
                         return (
                           <View key={idx} style={styles.trendCol}>

@@ -68,7 +68,7 @@ export interface LoanApplicationState {
   isExistingCustomer: boolean;
 
   // CIBIL Score (soft pull)
-  cibilScore: number | null;
+  cibilScore: number | null | 'no_data';
 
   // Actions
   setScheme: (scheme: any) => void;
@@ -82,7 +82,7 @@ export interface LoanApplicationState {
   hydrateCustomerData: (data: any) => void;
   setCustomerId: (id: number) => void;
   setApplicationData: (applicationId: number, productId: number) => void;
-  setCibilScore: (score: number | null) => void;
+  setCibilScore: (score: number | null | 'no_data') => void;
   reset: () => void;
 }
 
