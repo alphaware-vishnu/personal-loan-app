@@ -201,7 +201,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     >
       {loading ? (
         <LottieView
-          source={require('../../../assets/loader.json')}
+          source={require('../../../assets/new-loader.json')}
           autoPlay
           loop
           style={{ width: 36, height: 36 }}

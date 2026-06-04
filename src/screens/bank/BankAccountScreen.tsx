@@ -592,7 +592,7 @@ export const BankAccountScreen: React.FC<BankAccountScreenProps> = ({ onNext, on
               rightIcon={
                 isLooingUpIfsc ? (
                   <LottieView
-                    source={require('../../../assets/loader.json')}
+                    source={require('../../../assets/new-loader.json')}
                     autoPlay
                     loop
                     style={{ width: 24, height: 24 }}

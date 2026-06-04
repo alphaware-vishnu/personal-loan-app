@@ -292,7 +292,7 @@ export const EligibilityProcessingScreen: React.FC<EligibilityProcessingScreenPr
           />
           <View style={[styles.centerCircle, { backgroundColor: colors.primary }]}>
             <LottieView
-              source={require('../../../assets/loader.json')}
+              source={require('../../../assets/new-loader.json')}
               autoPlay
               loop
               style={{ width: 60, height: 60 }}

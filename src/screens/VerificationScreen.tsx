@@ -116,7 +116,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
                 autoPlay
                 loop
                 style={{ width: 220, height: 220 }}
-                source={require("../../assets/loader.json")}
+                source={require("../../assets/new-loader.json")}
               />
             </View>
 
@@ -229,7 +229,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
         {!isVerified && (
           <View className="absolute bottom-16 items-center w-full">
             <LottieView
-              source={require('../../assets/loader.json')}
+              source={require('../../assets/new-loader.json')}
               autoPlay
               loop
               style={{ width: 70, height: 70 }}

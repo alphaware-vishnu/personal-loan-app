@@ -171,3 +171,21 @@ export const pennyDrop = async (payload: PennyDropRequest): Promise<{ data: Penn
   return response.data;
 };
 
+// ─── Soft-Pull CIBIL Score ───
+
+export interface SoftPullCreditReportResponse {
+  score?: number;
+  reportId?: string;
+  fetchDate?: string;
+  status?: string;
+  message?: string;
+}
+
+/**
+ * Fetch soft-pull credit report
+ * POST /customer/soft-pull
+ */
+export const checkCibilScore = async (): Promise<{ data: SoftPullCreditReportResponse }> => {
+  const response = await api.post(`/customer/soft-pull`);
+  return response.data;
+};

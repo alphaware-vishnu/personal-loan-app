@@ -45,7 +45,6 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
     : accountNo;
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
   const [steps, setSteps] = useState<DisbursalStep[]>([
     { id: 1, label: 'Validating Profile Details', status: 'active' },
     { id: 2, label: 'Verifying Bank Account', status: 'pending' },
@@ -121,18 +120,17 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
   return (
     <ScreenWrapper padded={false} backgroundColor={colors.background}>
       <AnimatePresence>
-        {!isCompleted ? (
-          <MotiView
-            key="processing"
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={styles.centerContent}
-          >
+        <MotiView
+          key="processing"
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={styles.centerContent}
+        >
             {/* Lottie Loader */}
             <View style={styles.animationContainer}>
               <LottieView
-                source={require('../../../assets/loader.json')}
+                source={require('../../../assets/new-loader.json')}
                 autoPlay
                 loop
                 style={styles.loaderLottie}
@@ -181,7 +179,7 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
                         </MotiView>
                       ) : isActive ? (
                         <LottieView
-                          source={require('../../../assets/loader.json')}
+                          source={require('../../../assets/new-loader.json')}
                           autoPlay
                           loop
                           style={{ width: 24, height: 24 }}
@@ -211,111 +209,6 @@ export const DisbursalScreen: React.FC<DisbursalScreenProps> = ({ onComplete }) 
               })}
             </View>
           </MotiView>
-        ) : (
-          <MotiView
-            key="success"
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', duration: 500 }}
-            style={styles.successContent}
-          >
-            {/* Lottie Confetti/Success Animation */}
-            <View style={styles.successAnimationContainer}>
-              <LottieView
-                source={require('../../../assets/Success.json')}
-                autoPlay
-                loop={false}
-                style={styles.successLottie}
-              />
-            </View>
-
-            <MotiView
-              from={{ opacity: 0, translateY: 20 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: 300, duration: 400 }}
-              style={styles.textCenter}
-            >
-              <AppText variant="h1" style={[styles.successTitle, { color: colors.primary }]}>
-                Woohoo! 🎉
-              </AppText>
-              <AppText variant="h2" style={styles.celebrationText}>
-                Loan Disbursed Successfully
-              </AppText>
-              <AppText variant="bodyMd" style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-                The funds have been transferred to your registered bank account.
-              </AppText>
-            </MotiView>
-
-            {/* Details Summary Card */}
-            <MotiView
-              from={{ opacity: 0, translateY: 20 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: 500, duration: 400 }}
-              style={{ width: '100%', paddingHorizontal: theme.screenPadding }}
-            >
-              <AppCard style={styles.detailsCard}>
-                <View style={styles.amountSection}>
-                  <AppText variant="caption" style={{ color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    Amount Transferred
-                  </AppText>
-                  <AppText variant="h1" style={[styles.amountText, { color: colors.success }]}>
-                    {formatCurrency(displayAmount)}
-                  </AppText>
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                <View style={styles.detailRow}>
-                  <View style={styles.detailItem}>
-                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Destination Bank</AppText>
-                    <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {bankName}
-                    </AppText>
-                  </View>
-                  <View style={[styles.detailItem, { alignItems: 'flex-end' }]}>
-                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Account Number</AppText>
-                    <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {maskedAccountNo}
-                    </AppText>
-                  </View>
-                </View>
-
-                <View style={[styles.detailRow, { marginTop: 16 }]}>
-                  <View style={styles.detailItem}>
-                    <AppText variant="caption" style={{ color: colors.textSecondary }}>Status</AppText>
-                    <View style={[styles.statusBadge, { backgroundColor: colors.successLight }]}>
-                      <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-                      <AppText variant="caption" style={{ color: colors.success, fontWeight: '700', marginLeft: 4 }}>
-                        SUCCESS
-                      </AppText>
-                    </View>
-                  </View>
-                  <View style={[styles.detailItem, { alignItems: 'flex-end' }]}>
-                    <AppText variant="caption" style={{ color: colors.textSecondary }}>First EMI Due Date</AppText>
-                    <AppText variant="bodyMedium" style={{ fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {getNextEmiDate()}
-                    </AppText>
-                  </View>
-                </View>
-              </AppCard>
-            </MotiView>
-
-            {/* Sticky Bottom Actions */}
-            <MotiView
-              from={{ opacity: 0, translateY: 15 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: 700, duration: 400 }}
-              style={[styles.footer, { paddingHorizontal: theme.screenPadding }]}
-            >
-              <AppButton
-                title="Go to Dashboard"
-                variant="primary"
-                size="lg"
-                onPress={onComplete}
-              />
-            </MotiView>
-          </MotiView>
-        )}
       </AnimatePresence>
     </ScreenWrapper>
   );

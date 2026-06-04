@@ -27,7 +27,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
     >
       <View style={styles.animationWrapper}>
         <LottieView
-          source={require('../../../assets/loader.json')}
+          source={require('../../../assets/new-loader.json')}
           autoPlay
           loop
           style={styles.lottie}

@@ -67,6 +67,9 @@ export interface LoanApplicationState {
 
   isExistingCustomer: boolean;
 
+  // CIBIL Score (soft pull)
+  cibilScore: number | null;
+
   // Actions
   setScheme: (scheme: any) => void;
   setCalculationResults: (emi: number, disbursalAmount: number) => void;
@@ -79,6 +82,7 @@ export interface LoanApplicationState {
   hydrateCustomerData: (data: any) => void;
   setCustomerId: (id: number) => void;
   setApplicationData: (applicationId: number, productId: number) => void;
+  setCibilScore: (score: number | null) => void;
   reset: () => void;
 }
 
@@ -103,6 +107,7 @@ export const useLoanStore = create<LoanApplicationState>((set) => ({
   productId: null,
   applicationDocuments: [],
   selectedScheme: null,
+  cibilScore: null,
   customerInfo: initialCustomerInfo,
   documentRequirements: [],
   uploadedDocs: {},
@@ -171,6 +176,7 @@ export const useLoanStore = create<LoanApplicationState>((set) => ({
     applicationId, 
     productId 
   }),
+  setCibilScore: (score) => set({ cibilScore: score }),
 
   reset: () => set({
     requestedAmount: 0,

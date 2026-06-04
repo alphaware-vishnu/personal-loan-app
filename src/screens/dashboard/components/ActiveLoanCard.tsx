@@ -114,7 +114,7 @@ export const ActiveLoanCard: React.FC<ActiveLoanCardProps> = React.memo(({
         >
           <View style={styles.center}>
             <LottieView
-              source={require('../../../../assets/loader.json')}
+              source={require('../../../../assets/new-loader.json')}
               autoPlay
               loop
               style={{ width: 70, height: 70 }}

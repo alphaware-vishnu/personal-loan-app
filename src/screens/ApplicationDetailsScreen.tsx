@@ -231,7 +231,7 @@ export const ApplicationDetailsScreen = ({
       <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center" edges={["top", "bottom"]}>
         <View className="w-24 h-24 bg-white rounded-3xl items-center justify-center shadow-sm border border-slate-100 mb-4">
           <LottieView
-            source={require('../../assets/loader.json')}
+            source={require('../../assets/new-loader.json')}
             autoPlay
             loop
             style={{ width: 80, height: 80 }}
@@ -781,7 +781,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     return (
       <View className="py-20 items-center justify-center">
         <LottieView
-          source={require('../../assets/loader.json')}
+          source={require('../../assets/new-loader.json')}
           autoPlay
           loop
           style={{ width: 100, height: 100 }}
@@ -1126,7 +1126,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
                 >
                   {manualPaymentMutation.isPending ? (
                     <LottieView
-                      source={require("../../assets/loader.json")}
+                      source={require("../../assets/new-loader.json")}
                       autoPlay
                       loop
                       style={{ width: 28, height: 28 }}
@@ -1709,7 +1709,7 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep, s
                 </View>
                 {autoPayMutation.isPending ? (
                   <LottieView
-                    source={require("../../assets/loader.json")}
+                    source={require("../../assets/new-loader.json")}
                     autoPlay
                     loop
                     style={{ width: 28, height: 28 }}
@@ -1747,7 +1747,7 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep, s
                 </View>
                 {eSignMutation.isPending ? (
                   <LottieView
-                    source={require("../../assets/loader.json")}
+                    source={require("../../assets/new-loader.json")}
                     autoPlay
                     loop
                     style={{ width: 28, height: 28 }}
@@ -1783,7 +1783,7 @@ const OverviewTab = ({ app, profile, formatCurrency, formatDate, onResumeStep, s
                 </View>
                 {isDownloadingAgreement ? (
                   <LottieView
-                    source={require("../../assets/loader.json")}
+                    source={require("../../assets/new-loader.json")}
                     autoPlay
                     loop
                     style={{ width: 24, height: 24 }}
@@ -2304,7 +2304,7 @@ const DocumentsTab = ({ app }: any) => {
                         >
                           {isDownloading ? (
                             <LottieView
-                              source={require("../../assets/loader.json")}
+                              source={require("../../assets/new-loader.json")}
                               autoPlay
                               loop
                               style={{ width: 16, height: 16 }}

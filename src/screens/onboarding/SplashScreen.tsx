@@ -207,7 +207,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           ]}
         >
           <LottieView
-            source={require('../../../assets/loader.json')}
+            source={require('../../../assets/new-loader.json')}
             autoPlay
             loop
             style={{ width: 60, height: 60 }}

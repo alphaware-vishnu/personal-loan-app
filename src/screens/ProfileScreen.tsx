@@ -39,7 +39,7 @@ export const ProfileScreen = ({ customerId, onBack }: ProfileScreenProps) => {
     return (
       <View className="flex-1 bg-white items-center justify-center">
         <LottieView
-          source={require('../../assets/loader.json')}
+          source={require('../../assets/new-loader.json')}
           autoPlay
           loop
           style={{ width: 100, height: 100 }}

@@ -165,7 +165,7 @@ export const CreditScoreScreen: React.FC<CreditScoreScreenProps> = ({ onNext, on
                   autoPlay
                   loop
                   style={{ width: "100%", height: "100%" }}
-                  source={require("../../assets/loader.json")}
+                  source={require("../../assets/new-loader.json")}
                 />
               </View>
               <MotiText

@@ -109,7 +109,7 @@ export const DocumentUploadField = ({ requirement, categoryId }: DocumentUploadF
           }`}>
           {isUploading ? (
             <LottieView
-              source={require('../../assets/loader.json')}
+              source={require('../../assets/new-loader.json')}
               autoPlay
               loop
               style={{ width: 32, height: 32 }}

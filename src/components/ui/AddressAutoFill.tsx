@@ -286,7 +286,7 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
               <View style={styles.searchRightIcons}>
                 {isSearching ? (
                   <LottieView
-                    source={require('../../../assets/loader.json')}
+                    source={require('../../../assets/new-loader.json')}
                     autoPlay
                     loop
                     style={{ width: 24, height: 24 }}
@@ -312,7 +312,7 @@ export const AddressAutoFill: React.FC<AddressAutoFillProps> = ({
             <View style={[styles.gpsIconCircle, { backgroundColor: theme.colors.primaryLight }]}>
               {isLoading ? (
                 <LottieView
-                  source={require('../../../assets/loader.json')}
+                  source={require('../../../assets/new-loader.json')}
                   autoPlay
                   loop
                   style={{ width: 24, height: 24 }}

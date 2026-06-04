@@ -271,7 +271,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
               <View style={styles.shutterBtnInner}>
                 {isTakingPhoto && (
                   <LottieView
-                    source={require('../../../assets/loader.json')}
+                    source={require('../../../assets/new-loader.json')}
                     autoPlay
                     loop
                     style={{ width: 28, height: 28 }}

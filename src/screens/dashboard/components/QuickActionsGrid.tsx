@@ -32,22 +32,6 @@ const SERVICES: ServiceItem[] = [
     darkIconColor: '#60A5FA',
   },
   {
-    icon: 'document-text-outline',
-    label: 'Statements',
-    lightBg: '#ECFDF5',
-    darkBg: 'rgba(16,185,129,0.12)',
-    iconColor: '#10B981',
-    darkIconColor: '#34D399',
-  },
-  {
-    icon: 'shield-checkmark-outline',
-    label: 'Insurance',
-    lightBg: '#FDF4FF',
-    darkBg: 'rgba(168,85,247,0.12)',
-    iconColor: '#A855F7',
-    darkIconColor: '#C084FC',
-  },
-  {
     icon: 'gift-outline',
     label: 'Refer & Earn',
     lightBg: '#FDF2F8',
@@ -56,28 +40,12 @@ const SERVICES: ServiceItem[] = [
     darkIconColor: '#F472B6',
   },
   {
-    icon: 'trending-up-outline',
-    label: 'FD',
-    lightBg: '#F0FDFA',
-    darkBg: 'rgba(20,184,166,0.12)',
-    iconColor: '#14B8A6',
-    darkIconColor: '#2DD4BF',
-  },
-  {
     icon: 'chatbubble-ellipses-outline',
     label: 'Support',
     lightBg: '#FFF7ED',
     darkBg: 'rgba(249,115,22,0.12)',
     iconColor: '#F97316',
     darkIconColor: '#FB923C',
-  },
-  {
-    icon: 'grid-outline',
-    label: 'More',
-    lightBg: '#F3F4F6',
-    darkBg: 'rgba(107,114,128,0.12)',
-    iconColor: '#6B7280',
-    darkIconColor: '#9CA3AF',
   },
 ];
 
@@ -150,9 +118,6 @@ export const QuickActionsGrid: React.FC<QuickActionsGridProps> = React.memo(({ o
   const { mode } = useTheme();
   const isDark = mode === 'dark';
 
-  const row1 = SERVICES.slice(0, 4);
-  const row2 = SERVICES.slice(4, 8);
-
   return (
     <MotiView
       from={{ opacity: 0, translateY: 15 }}
@@ -179,23 +144,12 @@ export const QuickActionsGrid: React.FC<QuickActionsGridProps> = React.memo(({ o
         ]}
       >
         <View style={styles.gridRow}>
-          {row1.map((item, idx) => (
+          {SERVICES.map((item, idx) => (
             <ServiceIcon
               key={item.label}
               item={item}
               isDark={isDark}
               index={idx}
-              onPress={() => onPressService(item.label)}
-            />
-          ))}
-        </View>
-        <View style={[styles.gridRow, { marginTop: 20 }]}>
-          {row2.map((item, idx) => (
-            <ServiceIcon
-              key={item.label}
-              item={item}
-              isDark={isDark}
-              index={idx + 4}
               onPress={() => onPressService(item.label)}
             />
           ))}

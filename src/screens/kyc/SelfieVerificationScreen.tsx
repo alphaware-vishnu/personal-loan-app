@@ -143,7 +143,7 @@ export const SelfieVerificationScreen: React.FC<SelfieVerificationScreenProps> =
 
           <View style={styles.textContainer}>
             <LottieView
-              source={require('../../../assets/loader.json')}
+              source={require('../../../assets/new-loader.json')}
               autoPlay
               loop
               style={{ width: 100, height: 100, marginBottom: 20 }}
