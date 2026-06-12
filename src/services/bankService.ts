@@ -75,3 +75,13 @@ export const getRepaymentSchedule = async (loanId: number | string) => {
   const response = await lmsApi.get(`${loanId}/schedule`);
   return response.data; // ApiResponseListRepaymentScheduleResponse
 };
+
+/**
+ * Fetch a loan account detail from LMS API by lmsLoanId
+ * GET /loans/{id} -> relative to lmsApi, it's just `${id}`
+ */
+export const getLmsLoanAccountDetails = async (id: number | string) => {
+  const response = await lmsApi.get(`${id}`);
+  return response.data; // ApiResponseLoanAccountResponse
+};
+

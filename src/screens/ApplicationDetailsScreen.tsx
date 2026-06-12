@@ -24,6 +24,7 @@ import {
   getApplicationDetails,
   getDocumentDownloadPath,
   getLoanAccountById,
+  getLmsLoanAccountDetails,
   createRepayment,
   initiateAutopay,
   initiateManualPayment,
@@ -512,7 +513,14 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
   const { data: response, isLoading: isAccountLoading } = useQuery({
     queryKey: ["loanAccount", app?.loanAccountId],
     queryFn: () => getLoanAccountById(app.loanAccountId).then((res) => res.data),
-    enabled: !!app?.loanAccountId,
+    enabled: !!app?.loanAccountId && !app?.lmsLoanId,
+  });
+
+  // LMS loan account query
+  const { data: lmsLoanRes, isLoading: isLmsLoanLoading } = useQuery({
+    queryKey: ["lmsLoanAccount", app?.lmsLoanId],
+    queryFn: () => getLmsLoanAccountDetails(app.lmsLoanId!).then((res) => res.data || res),
+    enabled: !!app?.lmsLoanId,
   });
 
   // LMS schedule query
@@ -554,17 +562,48 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
   }, [app, lmsScheduleData, response]);
 
   const loan = React.useMemo(() => {
+    if (app?.lmsLoanId && lmsLoanRes) {
+      const lmsLoan = lmsLoanRes.data || lmsLoanRes;
+      if (lmsLoan && (lmsLoan.totalOutstanding !== undefined || lmsLoan.outstandingPrincipal !== undefined)) {
+        const paidAmount = lmsScheduleData
+          ? lmsScheduleData.reduce((acc: number, item: any) => {
+              if (item.status === 'PAID') {
+                return acc + (item.emiAmount || 0);
+              }
+              return acc + (Number(item.paidPrincipal || 0) + Number(item.paidInterest || 0));
+            }, 0)
+          : 0;
+        return {
+          loanAmount: lmsLoan.sanctionedAmount || lmsLoan.disbursedAmount || app.requestedAmount || app.disbursalAmount || 0,
+          loanStatus: lmsLoan.status || (app.applicationStatus === 'DISBURSED' ? 'ACTIVE' : app.applicationStatus || 'ACTIVE'),
+          loanAccountNo: lmsLoan.loanNumber || app.loanAccountNo || `LMS-${app.lmsLoanId}`,
+          disbursedOn: lmsLoan.disbursementDate || app.disbursedOn || app.updatedAt || new Date().toISOString(),
+          outstandingBalance: lmsLoan.totalOutstanding ?? 0,
+          paidAmount,
+          overdueAmount: lmsLoan.totalOverdue ?? 0,
+          totalPayableAmount: lmsLoan.totalDues ?? (lmsLoan.totalOutstanding ?? 0),
+          emis: lmsScheduleData || [],
+        };
+      }
+    }
+
     if (response?.data) return response.data;
     
     // Fallback: Compute summary from lmsScheduleData
     if (app?.lmsLoanId && lmsScheduleData && lmsScheduleData.length > 0) {
       const firstInstallment = lmsScheduleData[0];
       const totalAmount = lmsScheduleData.reduce((acc: number, item: any) => acc + item.emiAmount, 0);
-      const paidAmount = lmsScheduleData.reduce((acc: number, item: any) => acc + (item.paidPrincipal + item.paidInterest), 0);
-      const outstandingBalance = lmsScheduleData.reduce((acc: number, item: any) => acc + (item.outstandingPrincipal + item.outstandingInterest), 0);
+      const paidAmount = lmsScheduleData.reduce((acc: number, item: any) => {
+        if (item.status === 'PAID') {
+          return acc + (item.emiAmount || 0);
+        }
+        return acc + (Number(item.paidPrincipal || 0) + Number(item.paidInterest || 0));
+      }, 0);
+      const outstandingBalance = lmsScheduleData.reduce((acc: number, item: any) => acc + (Number(item.outstandingPrincipal || 0) + Number(item.outstandingInterest || 0)), 0);
       const overdueAmount = lmsScheduleData.reduce((acc: number, item: any) => {
         if (item.status === 'OVERDUE') {
-          return acc + (item.emiAmount - (item.paidPrincipal + item.paidInterest));
+          const paid = Number(item.paidPrincipal || 0) + Number(item.paidInterest || 0);
+          return acc + (item.emiAmount - paid);
         }
         return acc;
       }, 0);
@@ -583,7 +622,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     }
 
     return null;
-  }, [response, app, lmsScheduleData]);
+  }, [response, app, lmsScheduleData, lmsLoanRes]);
 
   const triggerRazorpayCheckout = (params: any): Promise<any> => {
     return new Promise(async (resolve) => {
@@ -696,6 +735,7 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
 
           setIsSuccess(true);
           queryClient.invalidateQueries({ queryKey: ["loanAccount", app.loanAccountId] });
+          queryClient.invalidateQueries({ queryKey: ["lmsLoanAccount", app.lmsLoanId] });
           queryClient.invalidateQueries({ queryKey: ["repaymentSchedule", app.lmsLoanId] });
           queryClient.invalidateQueries({ queryKey: ["application", app.id] });
         } else {
@@ -775,7 +815,8 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
     manualPaymentMutation.mutate({ amount });
   };
 
-  const isLoading = (!!app?.loanAccountId && isAccountLoading) || (!!app?.lmsLoanId && isScheduleLoading);
+  const isLoading = (!!app?.loanAccountId && !app?.lmsLoanId && isAccountLoading) || 
+                    (!!app?.lmsLoanId && (isScheduleLoading || isLmsLoanLoading));
 
   if (isLoading || !loan) {
     return (
@@ -911,12 +952,8 @@ const LoanAccountTab = ({ app, formatCurrency, formatDate, autoOpenRepay }: any)
             <Text className="text-slate-400 text-[10px] font-black uppercase tracking-wider mb-1">Outstanding</Text>
             <Text className="text-red-500 font-black text-sm">{formatCurrency(loan.outstandingBalance)}</Text>
           </View>
-          <View className="w-[48%] mb-5">
-            <Text className="text-slate-400 text-[10px] font-black uppercase tracking-wider mb-1">Total Paid</Text>
-            <Text className="text-emerald-500 font-black text-sm">{formatCurrency(loan.paidAmount)}</Text>
-          </View>
 
-          <View className="w-[48%]">
+          <View className="w-[48%] mb-5">
             <Text className="text-slate-400 text-[10px] font-black uppercase tracking-wider mb-1">Overdue Amt</Text>
             <Text className="text-slate-900 font-bold text-sm">{formatCurrency(loan.overdueAmount)}</Text>
           </View>
